@@ -5,7 +5,8 @@ export interface RawStorage {
   setItem(key: string, value: string): void;
 }
 
-function createMemoryStorage(): RawStorage {
+/** 内存存储，便于单测注入且不污染 localStorage */
+export function createMemoryStorage(): RawStorage {
   const m = new Map<string, string>();
   return {
     getItem: (k) => m.get(k) ?? null,
