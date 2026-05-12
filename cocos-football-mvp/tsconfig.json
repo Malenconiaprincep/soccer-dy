@@ -13,5 +13,6 @@
       "football-mvp/*": ["assets/scripts/football-mvp/*"]
     }
   },
-  "include": ["assets/**/*.ts", "tests/**/*.ts", "vitest.config.ts", "types/**/*.d.ts"]
+  "include": ["assets/**/*.ts", "tests/**/*.ts", "vitest.config.ts", "types/**/*.d.ts"],
+  "exclude": ["assets/scripts/football-mvp/FootballMvpQuickStart.ts"]
 }

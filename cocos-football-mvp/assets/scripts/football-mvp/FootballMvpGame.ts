@@ -204,6 +204,32 @@ export class FootballMvpGame {
     this.data.shopOffers = generateShopOffers(6, Math.random);
     this.persist();
   }
+
+  /** 清空首发后按当前阵型、位置优先 + 总评贪心重新填满 11 人 */
+  refillLineupGreedy(): { ok: boolean; error?: string } {
+    if (this.data.squad.length < 11) return { ok: false, error: 'squad_short' };
+    this.data.lineup = Array(11).fill(null) as (string | null)[];
+    const slots = FORMATIONS[this.data.formationId].slots;
+    const used = new Set<string>();
+    for (let i = 0; i < 11; i++) {
+      const need = slots[i]!;
+      const candidates = this.data.squad
+        .filter((p) => !used.has(p.instanceId))
+        .sort((a, b) => {
+          const fa = a.group === need ? 1 : 0;
+          const fb = b.group === need ? 1 : 0;
+          if (fa !== fb) return fb - fa;
+          return b.ovr - a.ovr;
+        });
+      const pick = candidates[0];
+      if (pick) {
+        this.data.lineup[i] = pick.instanceId;
+        used.add(pick.instanceId);
+      }
+    }
+    this.persist();
+    return { ok: true };
+  }
 }
 
 export const ECONOMY = { GACHA_COST, SHOP_REFRESH_COST } as const;

@@ -16,6 +16,13 @@
 
 将 `cocos-football-mvp/assets/scripts/football-mvp/` 整个目录复制到工程的 `assets/scripts/`（路径可自定，但需在 `assets` 下以便参与编译）。**Vitest 单测**位于仓库的 `cocos-football-mvp/tests/`，**勿复制进 `assets`**，否则编辑器会尝试编译 `vitest` 并报错。若你本机工程里已有误拷的 `*.test.ts`，直接删除即可。
 
+### 2.1 最快跑起来（零 Prefab）
+
+1. 选中场景里的 **Canvas** 节点。  
+2. **添加组件 → `FootballMvpQuickStart`**。  
+3. 保存场景，点击 **预览**：脚本会在运行时创建简易按钮与文字（比赛 / 抽卡 / 商店等），用于验证逻辑。  
+4. 做正式 UI 时可移除该组件，改用 `FootballMvpBridge` 与设计稿。
+
 复制进 Creator 后：
 
 - 删除本仓库随带的 `types/cocos-shim.d.ts`（若一并复制了），避免与引擎自带的 `cc` 类型冲突；以 Creator 工程类型为准。
@@ -44,7 +51,9 @@ Canvas (根，UITransform 全屏，对齐设计分辨率)
 
 ---
 
-## 4. 挂载逻辑：FootballMvpBridge
+## 4. 挂载逻辑：FootballMvpBridge（正式 UI）
+
+正式界面用 **`FootballMvpBridge`** 或自定义脚本持有 `FootballMvpGame`。若仅用 **`FootballMvpQuickStart`** 试玩，可跳过本节。
 
 1. 在 `Canvas` 或 `SafeArea` 下新建空节点 `GameRoot`。
 2. 添加组件 **`FootballMvpBridge`**（脚本 `FootballMvpBridge.ts`）。
