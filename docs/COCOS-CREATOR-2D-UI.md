@@ -14,7 +14,7 @@
 
 ## 2. 放入脚本
 
-将 `cocos-football-mvp/assets/scripts/football-mvp/` 整个目录复制到工程的 `assets/scripts/`（路径可自定，但需在 `assets` 下以便参与编译）。
+将 `cocos-football-mvp/assets/scripts/football-mvp/` 整个目录复制到工程的 `assets/scripts/`（路径可自定，但需在 `assets` 下以便参与编译）。**Vitest 单测**位于仓库的 `cocos-football-mvp/tests/`，**勿复制进 `assets`**，否则编辑器会尝试编译 `vitest` 并报错。若你本机工程里已有误拷的 `*.test.ts`，直接删除即可。
 
 复制进 Creator 后：
 

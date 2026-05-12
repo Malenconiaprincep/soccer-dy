@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateShopOffers, instantiate } from './PlayerFactory';
+import { generateShopOffers, instantiate } from '../assets/scripts/football-mvp/PlayerFactory';
 
 describe('PlayerFactory', () => {
   it('instantiate returns null for unknown template', () => {

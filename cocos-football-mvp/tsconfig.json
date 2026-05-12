@@ -13,5 +13,5 @@
       "football-mvp/*": ["assets/scripts/football-mvp/*"]
     }
   },
-  "include": ["assets/**/*.ts", "vitest.config.ts", "types/**/*.d.ts"]
+  "include": ["assets/**/*.ts", "tests/**/*.ts", "vitest.config.ts", "types/**/*.d.ts"]
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SaveRepository, createMemoryStorage, defaultSave } from './SaveRepository';
-import { generateShopOffers, instantiate } from './PlayerFactory';
+import { generateShopOffers, instantiate } from '../assets/scripts/football-mvp/PlayerFactory';
+import { SaveRepository, createMemoryStorage, defaultSave } from '../assets/scripts/football-mvp/SaveRepository';
 
 describe('SaveRepository', () => {
   it('roundtrips persisted state through memory storage', () => {

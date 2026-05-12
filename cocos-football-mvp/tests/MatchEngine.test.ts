@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { computeLineupStrength, simulateMatch } from './MatchEngine';
-import { instantiate } from './PlayerFactory';
-import type { PlayerInstance } from './Types';
+import { computeLineupStrength, simulateMatch } from '../assets/scripts/football-mvp/MatchEngine';
+import { instantiate } from '../assets/scripts/football-mvp/PlayerFactory';
+import type { PlayerInstance } from '../assets/scripts/football-mvp/Types';
 
 function makeFull442Lineup(squad: PlayerInstance[]): (string | null)[] {
   const need: ('GK' | 'DF' | 'MF' | 'FW')[] = ['GK', 'DF', 'DF', 'DF', 'DF', 'MF', 'MF', 'MF', 'MF', 'FW', 'FW'];
