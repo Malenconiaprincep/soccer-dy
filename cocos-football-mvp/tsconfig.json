@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["vitest/globals"],
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "football-mvp/*": ["assets/scripts/football-mvp/*"]
+    }
+  },
+  "include": ["assets/**/*.ts", "vitest.config.ts", "types/**/*.d.ts"]
+}
