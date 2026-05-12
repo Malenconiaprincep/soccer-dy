@@ -7,6 +7,7 @@
 | 路径 | 说明 |
 |------|------|
 | [docs/DESIGN-MVP.md](docs/DESIGN-MVP.md) | 界面流程、线框、配色、数值与版权说明（设计稿） |
+| [docs/COCOS-CREATOR-2D-UI.md](docs/COCOS-CREATOR-2D-UI.md) | **Cocos Creator 2D + UI** 场景结构、控件与 `FootballMvpBridge` 绑定说明 |
 | [cocos-football-mvp/](cocos-football-mvp/) | TypeScript 核心：存档、阵容、商店、抽卡、AI 赛、本地榜 |
 | `cocos-football-mvp/assets/scripts/football-mvp/FootballMvpBridge.ts` | 示例 `cc.Component`，便于把按钮事件接到 `FootballMvpGame` |
 
