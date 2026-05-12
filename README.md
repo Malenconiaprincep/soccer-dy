@@ -10,7 +10,8 @@
 | [docs/COCOS-CREATOR-2D-UI.md](docs/COCOS-CREATOR-2D-UI.md) | **Cocos Creator 2D + UI** 场景结构、控件与 `FootballMvpBridge` 绑定说明 |
 | [cocos-football-mvp/](cocos-football-mvp/) | TypeScript 核心：存档、阵容、商店、抽卡、AI 赛、本地榜 |
 | `cocos-football-mvp/tests/` | Vitest 单测（**勿**拷进 Creator `assets`） |
-| `cocos-football-mvp/assets/scripts/football-mvp/FootballMvpQuickStart.ts` | **一键试玩**：挂到 **Canvas** 上即可预览（代码动态生成简易 UI） |
+| `cocos-football-mvp/assets/scripts/football-mvp/FootballMvpSceneBootstrap.ts` | **推荐入口**：挂到场景根，代码里自动拼 Canvas / EventSystem + `QuickStart` |
+| `cocos-football-mvp/assets/scripts/football-mvp/FootballMvpQuickStart.ts` | 试玩 UI（可由 Bootstrap 自动添加，也可手动挂到 Canvas） |
 | `cocos-football-mvp/assets/scripts/football-mvp/FootballMvpBridge.ts` | 正式 UI 用：示例 `cc.Component`，把按钮事件接到 `FootballMvpGame` |
 
 ## 如何在 Cocos Creator 里跑
@@ -19,12 +20,16 @@
 
 1. 用 **Cocos Creator 3.8+** 新建 **2D** 项目（或打开现有 2D 工程）。
 2. 将 `cocos-football-mvp/assets/scripts/football-mvp` **整夹复制**到工程的 `assets/scripts/`（勿拷 `cocos-football-mvp/tests/`）。
-3. 打开默认场景（或任意场景），选中 **Canvas** 节点 → **添加组件** → 搜索并添加 **`FootballMvpQuickStart`**。
-4. 保存场景，点 **预览**：会自动出现按钮与文字，可直接比赛 / 抽卡 / 商店（无需再拖 Button、绑事件）。
+3. 打开默认场景，在 **层级管理器** 选中 **场景根**（最顶层节点；若不方便选中，可新建空节点 `FootballMvpBoot` 挂在根下）。
+4. **添加组件 → `FootballMvpSceneBootstrap`**。  
+   - 该脚本会在代码里 **查找或创建 Canvas + UICamera、补 EventSystem**，并自动挂上 **`FootballMvpQuickStart`**，无需再手动挂 QuickStart。
+5. 保存场景，点 **预览**。
+
+（若你仍想手动控制，也可只挂 **`FootballMvpQuickStart`** 到已有 Canvas，不必用 Bootstrap。）
 
 ### 正式做 UI 时
 
-- 可删除 Canvas 上的 `FootballMvpQuickStart`，改用 **`FootballMvpBridge`** + 你自己的 Prefab / 设计稿（见 [docs/COCOS-CREATOR-2D-UI.md](docs/COCOS-CREATOR-2D-UI.md)）。
+- 移除 **`FootballMvpSceneBootstrap`** 与 **`FootballMvpQuickStart`**，改用 **`FootballMvpBridge`** + 你自己的 Prefab / 设计稿（见 [docs/COCOS-CREATOR-2D-UI.md](docs/COCOS-CREATOR-2D-UI.md)）。
 
 ### 注意事项
 

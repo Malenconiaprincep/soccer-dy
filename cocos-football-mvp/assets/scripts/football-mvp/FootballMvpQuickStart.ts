@@ -1,6 +1,6 @@
 /**
- * 一键试玩：把本组件挂到 **Canvas** 节点上，保存场景后点「预览」即可出现简易按钮与文字（无需再拖别的 UI）。
- * 正式产品可改用 Prefab + 设计稿，本组件仅作开发验证。
+ * 一键试玩：通常由 `FootballMvpSceneBootstrap` 自动挂到 Canvas；也可手动挂到 **Canvas** 上。
+ * 保存场景后点「预览」即可出现简易按钮与文字。
  */
 import {
   _decorator,
@@ -25,6 +25,9 @@ export class FootballMvpQuickStart extends Component {
   private logLabel!: Label;
 
   onLoad(): void {
+    if (this.node.getChildByName('FootballMvpPanel')) {
+      return;
+    }
     this.node.layer = Layers.Enum.UI_2D;
     const root = this.node;
     let rootTr = root.getComponent(UITransform);
