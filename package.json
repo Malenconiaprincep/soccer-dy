@@ -1,0 +1,22 @@
+{
+  "name": "soccer-dy2",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "pnpm run build:web",
+    "build:web": "tsc && TARGET=web vite build",
+    "build:wechat": "tsc && TARGET=wechat vite build && node scripts/copy-game-json.mjs wechat",
+    "build:douyin": "tsc && TARGET=douyin vite build && node scripts/copy-game-json.mjs douyin",
+    "preview": "vite preview",
+    "bake:portrait": "bash scripts/bake-portrait-assets.sh"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "pixi.js": "^8.18.1"
+  }
+}
