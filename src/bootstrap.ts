@@ -2,11 +2,15 @@ import { Application, Container } from 'pixi.js';
 import { DEFAULT_MATCH_SETTINGS, type GameFlow, type MatchSettings, type SceneId } from './core/game-flow';
 import { createPlatform, DESIGN_HEIGHT, DESIGN_SCALE_MODE, DESIGN_WIDTH, type Platform } from './platform';
 import { loadGameArt } from './render/game-art';
+import { tryCreateLoadingOverlay } from './ui/loading-overlay';
 import { createMainMenuScene } from './render/scenes/main-menu';
 import { createLineupScene } from './render/scenes/lineup';
 import { createMatchScene } from './render/scenes/match';
 import { createPrepScene } from './render/scenes/prep';
 import { createTradingScene } from './render/scenes/trading';
+
+/** Web 加载页最短停留（毫秒）。设为 `0` 即加载完立刻进入游戏；当前便于预览动效。 */
+const WEB_LOADING_MIN_MS = 60_000;
 
 function wireMinigamePointerBridge(_app: Application, platform: Platform, canvas: HTMLCanvasElement) {
   if (platform.kind === 'web') return () => {};
@@ -39,12 +43,18 @@ function wireMinigamePointerBridge(_app: Application, platform: Platform, canvas
 export async function bootstrap(kind: 'web' | 'wechat' | 'douyin'): Promise<void> {
   const platform = createPlatform(kind);
 
+  const loading = kind === 'web' ? tryCreateLoadingOverlay() : null;
+  const loadingStartedAt = loading !== null ? performance.now() : 0;
+  const progress = (pct: number, headline?: string) => loading?.setProgress(pct, headline);
+
   const host = kind === 'web' ? (document.querySelector<HTMLElement>('#app') ?? document.body) : null;
+  progress?.(4, '准备画布…');
   const { canvas, screenWidth, screenHeight } = platform.mountMainCanvas(host);
 
   const dpr = platform.getPixelRatio();
 
   const app = new Application();
+  progress?.(12, '初始化渲染引擎…');
   await app.init({
     canvas,
     width: screenWidth,
@@ -64,7 +74,11 @@ export async function bootstrap(kind: 'web' | 'wechat' | 'douyin'): Promise<void
   const world = new Container();
   app.stage.addChild(world);
 
-  const art = await loadGameArt();
+  progress?.(22, '加载游戏素材…');
+  const art = await loadGameArt((t, label) => {
+    progress?.(22 + t * 68, label);
+  });
+  progress?.(94, '布置球场…');
   let lastMatch: MatchSettings = DEFAULT_MATCH_SETTINGS;
 
   const applyLayout = () => {
@@ -104,6 +118,14 @@ export async function bootstrap(kind: 'web' | 'wechat' | 'douyin'): Promise<void
   }
 
   show('menu');
+
+  progress?.(100, '正在进入球场…');
+  if (loading && WEB_LOADING_MIN_MS > 0) {
+    const elapsed = performance.now() - loadingStartedAt;
+    const remain = WEB_LOADING_MIN_MS - elapsed;
+    if (remain > 0) await new Promise((r) => setTimeout(r, remain));
+  }
+  loading?.dispose();
 
   const unSub = wireMinigamePointerBridge(app, platform, canvas);
 
