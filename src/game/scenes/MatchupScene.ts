@@ -1,4 +1,4 @@
-import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import type { LineupSlot, PlayerCardData } from '../types';
 import { glassPanel, label, palette, pillButton } from '../ui';
@@ -23,12 +23,12 @@ export class MatchupScene extends BaseScene {
   private drawShade() {
     const shade = new Graphics();
     shade.rect(0, 0, this.game.width, this.game.height);
-    shade.fill({ color: 0x020817, alpha: 0.42 });
+    shade.fill({ color: 0x020817, alpha: 0.32 });
     const fieldGlow = new Graphics();
     fieldGlow.ellipse(this.game.width / 2, this.game.height * 0.62, this.game.width * 0.92, this.game.height * 0.34);
-    fieldGlow.fill({ color: 0x0e6b7d, alpha: 0.08 });
+    fieldGlow.fill({ color: 0x0e6b7d, alpha: 0.11 });
     fieldGlow.ellipse(this.game.width / 2, this.game.height * 0.82, this.game.width * 0.82, this.game.height * 0.26);
-    fieldGlow.fill({ color: 0x2b7b38, alpha: 0.06 });
+    fieldGlow.fill({ color: 0x2b7b38, alpha: 0.1 });
     const top = new Graphics();
     top.rect(0, 0, this.game.width, 210);
     top.fill({ color: 0x020817, alpha: 0.34 });
@@ -182,48 +182,115 @@ export class MatchupScene extends BaseScene {
   }
 
   private drawLineupPreview() {
-    const y = 374 + this.game.contentTopOffset * 0.42;
-    const w = (this.game.width - 56) / 2;
-    this.drawMiniPitch('我方阵型', this.game.selectedFormation.name, this.game.lineup, 18, y, w, 292, 0x35d49a);
-    this.drawMiniPitch('对方阵型', this.game.battleSource.opponentFormation?.name ?? '阵型', this.opponentLineup(), 38 + w, y, w, 292, 0xff4d67);
+    const { x, y, w, h, gap } = this.lineupLayout();
+    this.drawMiniPitch('我方阵型', this.game.selectedFormation.name, this.game.lineup, x, y, w, h, 0x35d49a, 'left');
+    this.drawMiniPitch('对方阵型', this.game.battleSource.opponentFormation?.name ?? '阵型', this.opponentLineup(), x + w + gap, y, w, h, 0xff4d67, 'right');
   }
 
-  private drawMiniPitch(titleText: string, formationName: string, lineup: LineupSlot[], x: number, y: number, w: number, h: number, accent: number) {
+  private lineupLayout() {
+    const x = 2;
+    const y = 352 + this.game.contentTopOffset * 0.42;
+    const gap = 6;
+    const w = (this.game.width - x * 2 - gap) / 2;
+    const h = Math.round(w * 1.58);
+    return { x, y, w, h, gap };
+  }
+
+  private drawMiniPitch(
+    titleText: string,
+    formationName: string,
+    lineup: LineupSlot[],
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    accent: number,
+    side: 'left' | 'right'
+  ) {
     const c = new Container();
     c.x = x;
     c.y = y;
-    c.addChild(glassPanel(w, h, 0x06120d, accent));
-    const title = label(titleText, 21, palette.white, '900');
+    c.addChild(this.vsSquareFrame(side, w, h, accent));
+    const title = label(titleText, 24, palette.white, '900');
     title.anchor.set(0.5);
     title.x = w / 2;
-    title.y = 24;
-    const form = label(formationName, 18, accent === 0xff4d67 ? 0xffd632 : accent, '900');
+    title.y = 50;
+    const form = label(formationName, 21, accent === 0xff4d67 ? 0xffd632 : accent, '900');
     form.anchor.set(0.5);
     form.x = w / 2;
-    form.y = 50;
+    form.y = 80;
 
-    const pitchX = 16;
-    const pitchY = 76;
-    const pitchW = w - 32;
-    const pitchH = h - 96;
-    const pitch = new Graphics();
-    pitch.roundRect(pitchX, pitchY, pitchW, pitchH, 10);
-    pitch.fill({ color: 0x0b3a1d, alpha: 0.78 });
-    pitch.stroke({ color: 0xcffff0, alpha: 0.22, width: 2 });
-    pitch.moveTo(pitchX, pitchY + pitchH / 2);
-    pitch.lineTo(pitchX + pitchW, pitchY + pitchH / 2);
-    pitch.stroke({ color: 0xffffff, alpha: 0.14, width: 1 });
-    pitch.circle(pitchX + pitchW / 2, pitchY + pitchH / 2, 22);
-    pitch.stroke({ color: 0xffffff, alpha: 0.1, width: 1 });
+    const pitchX = 10;
+    const pitchY = 100;
+    const pitchW = w - 20;
+    const pitchH = h - 110;
+    const pitch = this.pitchSprite(pitchW, pitchH);
+    pitch.x = pitchX;
+    pitch.y = pitchY;
     c.addChild(title, form, pitch);
 
     lineup.forEach((slot) => {
-      const node = this.ratingDot(slot.player, accent);
-      node.x = pitchX + 18 + slot.x * (pitchW - 36);
-      node.y = pitchY + 18 + slot.y * (pitchH - 36);
+      const node = this.miniPlayerCard(slot.player, accent);
+      const visualY = this.previewSlotY(slot.y);
+      node.x = pitchX + 28 + slot.x * (pitchW - 56);
+      node.y = pitchY + 36 + visualY * (pitchH - 72);
       c.addChild(node);
     });
     this.container.addChild(c);
+  }
+
+  private pitchSprite(width: number, height: number) {
+    const sprite = Sprite.from('/assets/ui/squard-qc.png');
+    sprite.width = width;
+    sprite.height = height;
+    sprite.alpha = 0.86;
+    return sprite;
+  }
+
+  private previewSlotY(y: number) {
+    if (y < 0.28) return Math.max(0.08, y - 0.02);
+    if (y < 0.58) return Math.max(0.18, y - 0.05);
+    if (y < 0.82) return Math.min(0.86, y + 0.04);
+    return Math.min(0.94, y + 0.02);
+  }
+
+  private vsSquareFrame(side: 'left' | 'right', width: number, height: number, accent: number) {
+    const c = new Container();
+    const sprite = new Sprite(Texture.EMPTY);
+    sprite.width = width;
+    sprite.height = height;
+    c.addChild(sprite);
+    void Assets.load<Texture>('/assets/ui/vs-squard.png').then((texture) => {
+      if (sprite.destroyed) return;
+      const frame = side === 'left' ? new Rectangle(0, 0, 520, 733) : new Rectangle(560, 0, 520, 733);
+      sprite.texture = new Texture({ source: texture.source, frame });
+      sprite.width = width;
+      sprite.height = height;
+    });
+    return c;
+  }
+
+  private miniPlayerCard(player: PlayerCardData | undefined, fallbackColor: number) {
+    if (!player) return this.ratingDot(undefined, fallbackColor);
+    const c = new Container();
+    const w = 68;
+    const h = 82;
+    const frame = new Graphics();
+    this.hexPath(frame, 0, 0, w / 2, h / 2);
+    frame.fill({ color: 0x071126, alpha: 0.96 });
+    frame.stroke({ color: player.color, alpha: 0.9, width: 2 });
+    const face = this.squarePortrait(player, 46);
+    face.x = -23;
+    face.y = -32;
+    const rating = label(String(player.rating), 18, palette.white, '900');
+    rating.anchor.set(0.5);
+    rating.y = 26;
+    c.addChild(frame, face, rating);
+    return c;
+  }
+
+  private hexPath(g: Graphics, x: number, y: number, rx: number, ry: number) {
+    g.poly([x, y - ry, x + rx, y - ry * 0.48, x + rx, y + ry * 0.48, x, y + ry, x - rx, y + ry * 0.48, x - rx, y - ry * 0.48]);
   }
 
   private ratingDot(player: PlayerCardData | undefined, fallbackColor: number) {
@@ -240,55 +307,72 @@ export class MatchupScene extends BaseScene {
   }
 
   private drawCoreDuel() {
-    const y = Math.min(this.game.height - 258, 690 + this.game.contentTopOffset * 0.35);
-    const w = this.game.width - 40;
-    const h = 218;
+    const lineup = this.lineupLayout();
+    const y = lineup.y + lineup.h + 24;
+    const w = this.game.width - 16;
+    const h = Math.round(w * 512 / 1080);
     const myCore = this.bestPlayers(this.game.lineup)[0];
     const oppCore = this.bestPlayers(this.opponentLineup())[0];
     const panel = new Container();
-    panel.x = 20;
+    panel.x = 8;
     panel.y = y;
-    panel.addChild(glassPanel(w, h, 0x071126, 0x315fff));
-    const title = label('核心对位', 22, 0xfff0b3, '900');
-    title.x = 18;
-    title.y = 14;
-    const left = this.coreCard(myCore, 26, 50, 0x318dff, false);
-    const right = this.coreCard(oppCore, w - 26, 50, 0xff4d67, true);
-    const vs = label('VS', 42, palette.white, '900');
+    panel.addChild(this.playerCoreFrame(w, h));
+    const title = label('‹ 核心对位 ›', 18, 0xfff0b3, '900');
+    title.x = w * 0.055;
+    title.y = h * 0.1;
+    const left = this.coreCard(myCore, w * 0.07, h * 0.235, 0x318dff, false, w * 0.35, h * 0.34);
+    const right = this.coreCard(oppCore, w * 0.93, h * 0.235, 0xff4d67, true, w * 0.35, h * 0.34);
+    const vs = label('VS', 44, palette.white, '900');
     vs.anchor.set(0.5);
     vs.x = w / 2;
-    vs.y = 82;
+    vs.y = h * 0.36;
     panel.addChild(title, left, right, vs);
-    this.drawStatRow(panel, '进攻', myCore?.attack ?? 0, oppCore?.attack ?? 0, 38, 126, w - 76);
-    this.drawStatRow(panel, '中场', myCore?.speed ?? 0, oppCore?.speed ?? 0, 38, 164, w - 76);
-    this.drawStatRow(panel, '防守', myCore?.defense ?? 0, oppCore?.defense ?? 0, 38, 202, w - 76);
+    this.drawStatRow(panel, '进攻', myCore?.attack ?? 0, oppCore?.attack ?? 0, w * 0.07, h * 0.58, w * 0.86);
+    this.drawStatRow(panel, '中场', myCore?.speed ?? 0, oppCore?.speed ?? 0, w * 0.07, h * 0.72, w * 0.86);
+    this.drawStatRow(panel, '防守', myCore?.defense ?? 0, oppCore?.defense ?? 0, w * 0.07, h * 0.86, w * 0.86);
     this.container.addChild(panel);
   }
 
-  private coreCard(player: PlayerCardData | undefined, x: number, y: number, accent: number, right: boolean) {
+  private playerCoreFrame(width: number, height: number) {
+    const c = new Container();
+    const fallback = new Graphics();
+    fallback.rect(0, 0, width, height);
+    fallback.fill({ color: 0x071126, alpha: 0.22 });
+    c.addChild(fallback);
+    const sprite = new Sprite(Texture.EMPTY);
+    sprite.width = width;
+    sprite.height = height;
+    c.addChild(sprite);
+    void Assets.load<Texture>('/assets/ui/playercore.png').then((texture) => {
+      if (sprite.destroyed) return;
+      sprite.texture = texture;
+      sprite.width = width;
+      sprite.height = height;
+    });
+    return c;
+  }
+
+  private coreCard(player: PlayerCardData | undefined, x: number, y: number, accent: number, right: boolean, boxW = 156, boxH = 72) {
     const c = new Container();
     c.x = x;
     c.y = y;
-    const boxW = 154;
     const bg = new Graphics();
-    bg.roundRect(right ? -boxW : 0, 0, boxW, 64, 10);
+    bg.roundRect(right ? -boxW : 0, 0, boxW, boxH, 14);
     bg.fill({ color: 0x071126, alpha: 0.9 });
     bg.stroke({ color: accent, alpha: 0.72, width: 2 });
-    const avatar = this.squarePortrait(player, 54);
-    avatar.x = right ? -boxW + 6 : 6;
-    avatar.y = 5;
-    const rating = label(player ? String(player.rating) : '--', 25, palette.white, '900');
-    rating.x = right ? -72 : 68;
-    rating.y = 8;
-    if (right) rating.anchor.set(1, 0);
-    const name = label(player?.name ?? '待定', 18, palette.white, '900');
-    name.x = right ? -72 : 104;
+    const avatarSize = boxH - 14;
+    const avatar = this.squarePortrait(player, avatarSize);
+    avatar.x = right ? -boxW + 7 : 7;
+    avatar.y = 7;
+    const rating = label(player ? String(player.rating) : '--', 21, palette.white, '900');
+    rating.x = right ? -boxW + avatarSize + 16 : avatarSize + 16;
+    rating.y = 9;
+    const name = label(player?.name ?? '待定', 15, palette.white, '900');
+    name.x = right ? -boxW + avatarSize + 58 : avatarSize + 58;
     name.y = 12;
-    if (right) name.anchor.set(1, 0);
-    const role = label(player ? `${player.position} · ${player.role}` : '核心球员', 14, 0xcfe0ff, '700');
-    role.x = right ? -72 : 68;
-    role.y = 40;
-    if (right) role.anchor.set(1, 0);
+    const role = label(player ? `${player.position} · ${player.role}` : '核心球员', 12, 0xcfe0ff, '700');
+    role.x = right ? -boxW + avatarSize + 16 : avatarSize + 16;
+    role.y = 41;
     c.addChild(bg, avatar, rating, name, role);
     return c;
   }
@@ -309,10 +393,10 @@ export class MatchupScene extends BaseScene {
     right.x = x + w;
     right.y = y - 10;
     const lb = new Graphics();
-    lb.roundRect(x + 74, y - 2, leftW, 10, 5);
+    lb.roundRect(x + 70, y - 3, leftW, 12, 6);
     lb.fill({ color: 0x3294ff, alpha: 0.92 });
     const rb = new Graphics();
-    rb.roundRect(x + w - 74 - rightW, y - 2, rightW, 10, 5);
+    rb.roundRect(x + w - 70 - rightW, y - 3, rightW, 12, 6);
     rb.fill({ color: 0xff4d67, alpha: 0.92 });
     parent.addChild(left, lb, text, rb, right);
   }

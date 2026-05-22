@@ -1,7 +1,7 @@
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import type { BattleEvent, LineupSlot, PlayerCardData, Position } from '../types';
-import { glassPanel, label, palette } from '../ui';
+import { label, palette } from '../ui';
 
 type MomentType = 'kickoff' | 'attack' | 'shot' | 'post' | 'corner' | 'save' | 'goal' | 'counter';
 
@@ -23,8 +23,6 @@ export class BattleScene extends BaseScene {
   private events: BattleEvent[] = [];
   private scoreText?: ReturnType<typeof label>;
   private timeText?: ReturnType<typeof label>;
-  private pitchLayer?: Container;
-  private cardLayer?: Container;
   private moment: BattleMoment = {
     type: 'kickoff',
     title: '比赛开始',
@@ -34,11 +32,9 @@ export class BattleScene extends BaseScene {
 
   protected build() {
     this.drawBackground();
-    this.drawScoreHeader();
-    this.drawTimeline();
-    this.drawPitch();
-    this.drawMomentum();
-    this.drawMomentCard();
+    this.drawMatchHeader();
+    this.drawEventFeed();
+    this.drawPossessionPanel();
   }
 
   enter() {
@@ -48,7 +44,7 @@ export class BattleScene extends BaseScene {
 
   update(deltaMs: number) {
     this.elapsed += deltaMs;
-    if (this.timeText) this.timeText.text = `${this.matchMinute()}'`;
+    if (this.timeText) this.timeText.text = this.clockText();
     if (this.elapsed > this.nextEventAt) {
       this.pushEvent();
       this.nextEventAt += 2200 + Math.random() * 1400;
@@ -77,210 +73,163 @@ export class BattleScene extends BaseScene {
     this.container.addChild(shade);
   }
 
-  private drawScoreHeader() {
-    const shift = this.game.contentTopOffset * 0.45;
-    const panel = new Container();
-    panel.x = 28;
-    panel.y = 36 + shift;
-    panel.addChild(glassPanel(this.game.width - 56, 282, 0x07120d, 0xffd632));
-    this.container.addChild(panel);
+  private drawMatchHeader() {
+    const shift = this.game.contentTopOffset * 0.34;
+    const y = 56 + shift;
+    const myHero = this.pickPlayer(this.game.lineup, ['FW', 'MF', 'GK']);
+    const oppHero = this.pickPlayer(this.opponentLineup(), ['FW', 'MF', 'GK']);
+    const title = label('比赛日 1', 30, palette.white, '900');
+    title.anchor.set(0.5);
+    title.x = this.game.width / 2;
+    title.y = y;
 
-    const day = label('比赛日 1', 28, 0xf2fff7, '900');
-    day.anchor.set(0.5);
-    day.x = this.game.width / 2;
-    day.y = 72 + shift;
-    this.container.addChild(day);
+    const leftAvatar = this.playerBadge(myHero, 126, 0x2f8cff);
+    leftAvatar.x = 86;
+    leftAvatar.y = y + 132;
+    const rightAvatar = this.playerBadge(oppHero, 126, 0xffd34a);
+    rightAvatar.x = this.game.width - 86;
+    rightAvatar.y = y + 132;
 
-    const divider = new Graphics();
-    divider.moveTo(this.game.width * 0.34, 108 + shift);
-    divider.lineTo(this.game.width * 0.66, 108 + shift);
-    divider.stroke({ color: 0xffd632, alpha: 0.5, width: 3 });
-    this.container.addChild(divider);
+    const leftTitle = label('我方球队', 30, palette.white, '900');
+    leftTitle.x = 166;
+    leftTitle.y = y + 82;
+    const leftClub = label('蓝焰俱乐部', 22, 0x2ee6d6, '900');
+    leftClub.x = 166;
+    leftClub.y = y + 122;
+    const rightTitle = label('对手球队', 30, palette.white, '900');
+    rightTitle.anchor.set(1, 0);
+    rightTitle.x = this.game.width - 166;
+    rightTitle.y = y + 82;
+    const rightClub = label('蓝焰俱乐部', 22, 0xcfe0ff, '900');
+    rightClub.anchor.set(1, 0);
+    rightClub.x = this.game.width - 166;
+    rightClub.y = y + 122;
+    const ai = label(`AI  ${this.game.battleSource.opponentName}`, 20, 0xfff1a8, '900');
+    ai.anchor.set(1, 0);
+    ai.x = this.game.width - 166;
+    ai.y = y + 162;
 
-    const leftBadge = this.badge(0x40d990, '我');
-    leftBadge.x = 126;
-    leftBadge.y = 190 + shift;
-    const rightBadge = this.badge(0xffd632, 'AI');
-    rightBadge.x = this.game.width - 126;
-    rightBadge.y = 190 + shift;
-    this.container.addChild(leftBadge, rightBadge);
+    const score = new Container();
+    score.x = this.game.width / 2;
+    score.y = y + 122;
+    const leftScore = label(String(this.scoreA), 66, 0x2f8cff, '900');
+    leftScore.anchor.set(1, 0.5);
+    leftScore.x = -30;
+    const colon = label(':', 54, palette.white, '900');
+    colon.anchor.set(0.5);
+    const rightScore = label(String(this.scoreB), 66, 0xff5d68, '900');
+    rightScore.anchor.set(0, 0.5);
+    rightScore.x = 30;
+    this.scoreText = label(`${this.scoreA} : ${this.scoreB}`, 1, palette.white, '900');
+    this.scoreText.visible = false;
+    score.addChild(leftScore, colon, rightScore, this.scoreText);
 
-    const home = label('本地经理', 20, 0x9fffc6, '900');
-    home.anchor.set(0.5);
-    home.x = 130;
-    home.y = 262 + shift;
-    const away = label(this.game.battleSource.opponentName, 20, 0xfff1a8, '900');
-    away.anchor.set(0.5);
-    away.x = this.game.width - 130;
-    away.y = 262 + shift;
-
-    this.scoreText = label(`${this.scoreA} : ${this.scoreB}`, 76, palette.white, '900');
-    this.scoreText.anchor.set(0.5);
-    this.scoreText.x = this.game.width / 2;
-    this.scoreText.y = 190 + shift;
-    this.container.addChild(home, away, this.scoreText);
-
-    const clock = new Graphics();
-    clock.circle(this.game.width / 2, 312 + shift, 42);
-    clock.fill({ color: 0x06130d, alpha: 0.94 });
-    clock.stroke({ color: 0xffd632, alpha: 0.78, width: 4 });
-    this.timeText = label("0'", 32, 0xfff1a8, '900');
+    this.timeText = label(this.clockText(), 34, 0xffd632, '900');
     this.timeText.anchor.set(0.5);
     this.timeText.x = this.game.width / 2;
-    this.timeText.y = 312 + shift;
-    this.container.addChild(clock, this.timeText);
+    this.timeText.y = y + 196;
+    this.container.addChild(title, leftAvatar, rightAvatar, leftTitle, leftClub, rightTitle, rightClub, ai, score, this.timeText);
   }
 
-  private drawTimeline() {
-    const y = 374 + this.game.contentTopOffset * 0.58;
-    const line = new Graphics();
-    line.roundRect(58, y - 5, 604, 10, 5);
-    line.fill({ color: 0x07120d, alpha: 0.85 });
-    line.stroke({ color: 0xd7fff0, alpha: 0.18, width: 2 });
-    const progress = Math.min(1, this.matchMinute() / 90);
-    line.roundRect(60, y - 4, 600 * progress, 8, 4);
-    line.fill({ color: this.accentColor(), alpha: 0.95 });
-    this.container.addChild(line);
-  }
-
-  private drawPitch() {
-    this.pitchLayer = new Container();
-    this.pitchLayer.x = 32;
-    this.pitchLayer.y = 430 + this.game.contentTopOffset * 0.72;
-    this.container.addChild(this.pitchLayer);
-    this.renderPitch();
-  }
-
-  private renderPitch() {
-    if (!this.pitchLayer) return;
-    this.pitchLayer.removeChildren();
-    const w = this.game.width - 64;
-    const h = 260;
-    const shadow = new Graphics();
-    shadow.ellipse(w / 2, h + 22, w * 0.46, 28);
-    shadow.fill({ color: 0x000000, alpha: 0.35 });
-    this.pitchLayer.addChild(shadow);
-
-    const p = new Graphics();
-    p.roundRect(0, 8, w, h, 18);
-    p.fill({ color: 0x06130d, alpha: 0.52 });
-    p.stroke({ color: 0x54ffe4, alpha: 0.18, width: 2 });
-    p.moveTo(64, 42);
-    p.lineTo(w - 64, 42);
-    p.lineTo(w - 18, h - 34);
-    p.lineTo(18, h - 34);
-    p.closePath();
-    p.fill({ color: 0x19351e, alpha: 0.96 });
-    p.stroke({ color: 0xd8ffe1, alpha: 0.28, width: 2 });
-    for (let i = 0; i < 8; i += 1) {
-      const x = 32 + (w - 64) * (i / 8);
-      p.rect(x, 44, (w - 64) / 16, h - 80);
-      p.fill({ color: 0x3ea354, alpha: 0.12 });
-    }
-    p.moveTo(w / 2, 44);
-    p.lineTo(w / 2, h - 34);
-    p.stroke({ color: 0xffffff, alpha: 0.22, width: 2 });
-    p.circle(w / 2, h / 2, 42);
-    p.stroke({ color: 0xffffff, alpha: 0.22, width: 2 });
-    p.roundRect(w * 0.12, 82, 104, 94, 0);
-    p.stroke({ color: 0xffffff, alpha: 0.16, width: 2 });
-    p.roundRect(w * 0.72, 82, 104, 94, 0);
-    p.stroke({ color: 0xffffff, alpha: 0.16, width: 2 });
-    this.pitchLayer.addChild(p);
-
-    this.drawPitchMoment(w, h);
-  }
-
-  private drawPitchMoment(w: number, h: number) {
-    const g = new Graphics();
-    const isBad = this.moment.mood === 'bad';
-    const color = this.accentColor();
-    const zoneX = isBad ? 56 : w - 214;
-    const arrows = isBad ? '‹‹‹' : '›››';
-    g.roundRect(zoneX, 92, 158, 86, 12);
-    g.fill({ color, alpha: 0.24 });
-    g.stroke({ color, alpha: 0.72, width: 2 });
-    const arrowText = label(arrows, 58, color, '900');
-    arrowText.anchor.set(0.5);
-    arrowText.x = zoneX + 79;
-    arrowText.y = 132;
-    this.pitchLayer?.addChild(g, arrowText);
-  }
-
-  private drawMomentum() {
-    const y = 720 + this.game.contentTopOffset * 0.88;
-    const text = label('比赛势头', 22, 0xfff1a8, '900');
-    text.x = 46;
-    text.y = y - 36;
-    const bar = new Graphics();
-    bar.roundRect(34, y - 4, this.game.width - 68, 20, 10);
-    bar.fill({ color: 0x06130d, alpha: 0.82 });
-    bar.stroke({ color: 0xd7fff0, alpha: 0.16, width: 2 });
-    const value = this.moment.mood === 'bad' ? 0.38 : this.moment.mood === 'good' ? 0.68 : 0.5;
-    for (let i = 0; i < 30; i += 1) {
-      const active = i / 30 < value;
-      bar.moveTo(34 + i * 21, y + 15);
-      bar.lineTo(46 + i * 21, y + 3);
-      bar.lineTo(58 + i * 21, y + 3);
-      bar.lineTo(46 + i * 21, y + 15);
-      bar.closePath();
-      bar.fill({ color: active ? this.accentColor() : 0xffffff, alpha: active ? 0.9 : 0.15 });
-    }
-    this.container.addChild(text, bar);
-  }
-
-  private drawMomentCard() {
-    this.cardLayer = new Container();
-    this.cardLayer.x = 22;
-    this.cardLayer.y = 792 + this.game.contentTopOffset;
-    this.container.addChild(this.cardLayer);
-    this.renderMomentCard();
-  }
-
-  private renderMomentCard() {
-    if (!this.cardLayer) return;
-    this.cardLayer.removeChildren();
+  private drawEventFeed() {
+    const shift = this.game.contentTopOffset * 0.52;
+    const x = 22;
+    const y = 316 + shift;
     const w = this.game.width - 44;
-    const h = 392;
-    const accent = this.accentColor();
+    const h = 720 + this.game.contentTopOffset * 0.18;
     const panel = new Graphics();
-    panel.roundRect(0, 0, w, h, 24);
-    panel.fill({ color: 0x06130d, alpha: 0.78 });
-    panel.stroke({ color: accent, alpha: 0.58, width: 3 });
-    for (let i = 0; i < 9; i += 1) {
-      panel.moveTo(30 + i * 76, 30);
-      panel.lineTo(100 + i * 76, h - 24);
-      panel.stroke({ color: 0xffffff, alpha: 0.045, width: 1 });
-    }
-    this.cardLayer.addChild(panel);
+    panel.roundRect(x, y, w, h, 16);
+    panel.fill({ color: 0x06142f, alpha: 0.72 });
+    panel.stroke({ color: 0x2f8cff, alpha: 0.48, width: 2 });
+    this.container.addChild(panel);
 
-    const badge = new Graphics();
-    badge.circle(w / 2, 0, 44);
-    badge.fill({ color: 0x07120d, alpha: 0.96 });
-    badge.stroke({ color: accent, alpha: 0.8, width: 4 });
-    const exclamation = label('!', 54, palette.white, '900');
-    exclamation.anchor.set(0.5);
-    exclamation.x = w / 2;
-    exclamation.y = 2;
-    this.cardLayer.addChild(badge, exclamation);
+    const entries = this.eventEntries();
+    const lineX = x + 70;
+    const top = y + 74;
+    const rowH = 82;
+    const line = new Graphics();
+    line.moveTo(lineX, top - 30);
+    line.lineTo(lineX, Math.min(y + h - 36, top + rowH * (entries.length - 1) + 26));
+    line.stroke({ color: 0x348dff, alpha: 0.42, width: 3 });
+    this.container.addChild(line);
 
-    const title = label(this.cardTitle(), 34, accent, '900');
-    title.anchor.set(0.5);
-    title.x = w / 2;
-    title.y = 92;
-    const detail = label(this.moment.detail, 24, palette.white, '700');
-    detail.anchor.set(0.5);
-    detail.x = w / 2;
-    detail.y = 154;
-    const sub = label(this.moment.mood === 'bad' ? '注意防线回收' : this.moment.mood === 'good' ? '继续压迫对手' : '保持控球节奏', 20, 0xcfffe8, '900');
-    sub.anchor.set(0.5);
-    sub.x = w / 2;
-    sub.y = 206;
-    const arrows = label(this.moment.mood === 'bad' ? '‹‹‹' : '›››', 82, accent, '900');
-    arrows.anchor.set(0.5);
-    arrows.x = w / 2;
-    arrows.y = 294;
-    this.cardLayer.addChild(title, detail, sub, arrows);
+    entries.slice(0, 8).forEach((entry, index) => {
+      const rowY = top + index * rowH;
+      const color = this.entryColor(entry.mood);
+      const icon = this.eventIcon(entry, color);
+      icon.x = lineX;
+      icon.y = rowY;
+      const minute = label(`${entry.time}'`, 30, color, '900');
+      minute.x = x + 106;
+      minute.y = rowY - 22;
+      const tag = this.eventTag(entry.title, color);
+      tag.x = x + 178;
+      tag.y = rowY - 26;
+      const name = label(entry.actor ?? entry.title, 26, color, '900');
+      name.x = x + 250;
+      name.y = rowY - 22;
+      const detail = label(entry.text, 22, 0xd9e6ff, '700');
+      detail.x = x + 178;
+      detail.y = rowY + 18;
+      const rightIcon = label(this.rightEventIcon(entry.title), 42, color, '900');
+      rightIcon.anchor.set(0.5);
+      rightIcon.x = x + w - 76;
+      rightIcon.y = rowY + 8;
+      this.container.addChild(icon, minute, tag, name, detail, rightIcon);
+    });
+
+    const scroll = new Graphics();
+    scroll.roundRect(x + w - 18, y + 76, 6, h - 120, 3);
+    scroll.fill({ color: 0xffffff, alpha: 0.3 });
+    scroll.roundRect(x + w - 18, y + 76 + (h - 170) * 0.12, 6, 72, 3);
+    scroll.fill({ color: 0x1ee47e, alpha: 0.9 });
+    this.container.addChild(scroll);
+  }
+
+  private drawPossessionPanel() {
+    const y = this.game.height - 250;
+    const x = 22;
+    const w = this.game.width - 44;
+    const h = 206;
+    const panel = new Graphics();
+    panel.roundRect(x, y, w, h, 18);
+    panel.fill({ color: 0x06142f, alpha: 0.78 });
+    panel.stroke({ color: 0x2f8cff, alpha: 0.46, width: 2 });
+    const titleMark = new Graphics();
+    titleMark.rect(x + 26, y + 28, 6, 32);
+    titleMark.fill({ color: 0x23d0ad, alpha: 1 });
+    const title = label('比赛势头', 30, palette.white, '900');
+    title.x = x + 42;
+    title.y = y + 20;
+    const sub = label('控球率', 20, 0xcfe0ff, '700');
+    sub.x = x + 42;
+    sub.y = y + 82;
+    const left = label('62%', 40, 0x2f8cff, '900');
+    left.x = x + 42;
+    left.y = y + 126;
+    const right = label('38%', 40, 0xff5d68, '900');
+    right.anchor.set(1, 0);
+    right.x = x + w - 42;
+    right.y = y + 126;
+    const bar = new Graphics();
+    bar.roundRect(x + 160, y + 143, w - 320, 20, 10);
+    bar.fill({ color: 0x183451, alpha: 1 });
+    bar.roundRect(x + 160, y + 143, (w - 320) * 0.62, 20, 10);
+    bar.fill({ color: 0x2f8cff, alpha: 0.95 });
+    bar.roundRect(x + 160 + (w - 320) * 0.62, y + 143, (w - 320) * 0.38, 20, 10);
+    bar.fill({ color: 0xff465d, alpha: 0.95 });
+    const ball = label('⚽', 34, palette.white, '900');
+    ball.anchor.set(0.5);
+    ball.x = x + 160 + (w - 320) * 0.62;
+    ball.y = y + 152;
+    const leftClub = label('蓝焰俱乐部', 21, 0x2f8cff, '900');
+    leftClub.x = x + 42;
+    leftClub.y = y + 176;
+    const rightClub = label(this.game.battleSource.opponentName, 21, 0xff5d68, '900');
+    rightClub.anchor.set(1, 0);
+    rightClub.x = x + w - 42;
+    rightClub.y = y + 176;
+    this.container.addChild(panel, titleMark, title, sub, left, right, bar, ball, leftClub, rightClub);
   }
 
   private pushEvent() {
@@ -301,6 +250,119 @@ export class BattleScene extends BaseScene {
     });
     if (this.scoreText) this.scoreText.text = `${this.scoreA} : ${this.scoreB}`;
     this.resize();
+  }
+
+  private eventEntries() {
+    const current = {
+      time: this.matchMinute(),
+      title: this.cardTitle(),
+      actor: this.playerName(this.moment.actor),
+      text: this.moment.detail,
+      mood: this.moment.mood,
+      scoreA: this.scoreA,
+      scoreB: this.scoreB
+    };
+    const history = this.events.map((event) => ({
+      time: event.time,
+      title: this.eventTitle(event),
+      actor: this.eventActor(event.text),
+      text: event.text,
+      mood: event.mood,
+      scoreA: event.scoreA,
+      scoreB: event.scoreB
+    }));
+    const fallback = [
+      { time: 45, title: '黄牌', actor: '王涛', text: '战术犯规，吃到本场比赛第一张黄牌！', mood: 'normal' as const, scoreA: this.scoreA, scoreB: this.scoreB },
+      { time: 38, title: '角球', actor: '蓝焰俱乐部', text: '获得角球，右侧角球开出！', mood: 'good' as const, scoreA: this.scoreA, scoreB: this.scoreB },
+      { time: 24, title: '配合', actor: '林浩 与 罗一鸣', text: '精妙配合，连续传递撕开防线！', mood: 'good' as const, scoreA: this.scoreA, scoreB: this.scoreB }
+    ];
+    return [current, ...history, ...fallback].slice(0, 8);
+  }
+
+  private eventTitle(event: BattleEvent) {
+    if (event.text.includes('破门') || event.text.includes('进球') || event.scoreA || event.scoreB) return '进球';
+    if (event.text.includes('射门') || event.text.includes('起脚')) return '射门';
+    if (event.text.includes('抢断')) return '抢断';
+    if (event.text.includes('角球')) return '角球';
+    if (event.text.includes('扑')) return '扑救';
+    if (event.mood === 'bad') return '危险';
+    return '配合';
+  }
+
+  private eventActor(text: string) {
+    return text.split(/[ ，,]/)[0] || '球员';
+  }
+
+  private entryColor(mood: BattleEvent['mood']) {
+    if (mood === 'bad') return 0xff5d68;
+    if (mood === 'good') return 0x2f8cff;
+    return 0xffd632;
+  }
+
+  private eventTag(text: string, color: number) {
+    const c = new Container();
+    const bg = new Graphics();
+    bg.roundRect(0, 0, 60, 34, 8);
+    bg.fill({ color: 0x071735, alpha: 0.75 });
+    bg.stroke({ color, alpha: 0.55, width: 2 });
+    const tag = label(text, 20, color, '900');
+    tag.anchor.set(0.5);
+    tag.x = 30;
+    tag.y = 17;
+    c.addChild(bg, tag);
+    return c;
+  }
+
+  private eventIcon(entry: { title: string; mood: BattleEvent['mood'] }, color: number) {
+    const c = new Container();
+    const outer = new Graphics();
+    outer.circle(0, 0, 28);
+    outer.fill({ color: 0x06142f, alpha: 0.96 });
+    outer.stroke({ color, alpha: 0.82, width: 4 });
+    const icon = label(this.leftEventIcon(entry.title), 28, palette.white, '900');
+    icon.anchor.set(0.5);
+    icon.y = -1;
+    c.addChild(outer, icon);
+    return c;
+  }
+
+  private leftEventIcon(title: string) {
+    if (title === '黄牌') return '▮';
+    if (title === '抢断') return '⬟';
+    if (title === '危险') return '!';
+    if (title === '角球') return '⚑';
+    return '⚽';
+  }
+
+  private rightEventIcon(title: string) {
+    if (title === '黄牌') return '▉';
+    if (title === '抢断') return '▰';
+    if (title === '危险') return '⚡';
+    if (title === '角球') return '⚑';
+    if (title === '扑救') return '☝';
+    return '➜';
+  }
+
+  private playerBadge(player: PlayerCardData | undefined, size: number, color: number) {
+    const c = new Container();
+    const frame = new Graphics();
+    frame.roundRect(-size / 2, -size / 2, size, size, 22);
+    frame.fill({ color: 0x071735, alpha: 0.96 });
+    frame.stroke({ color, alpha: 0.92, width: 5 });
+    if (player) {
+      const face = new Sprite(Texture.from(player.portrait));
+      face.anchor.set(0.5);
+      face.width = size - 18;
+      face.height = size - 18;
+      c.addChild(face);
+      const rating = label(String(player.rating), 22, palette.white, '900');
+      rating.x = -size / 2 - 12;
+      rating.y = -size / 2 - 8;
+      c.addChild(rating);
+    }
+    c.addChild(frame);
+    c.setChildIndex(frame, 0);
+    return c;
   }
 
   private createMoment(): BattleMoment {
@@ -376,5 +438,12 @@ export class BattleScene extends BaseScene {
 
   private matchMinute() {
     return Math.max(1, Math.min(90, Math.round((this.elapsed / 26000) * 90)));
+  }
+
+  private clockText() {
+    const totalSeconds = Math.max(0, Math.min(90 * 60, Math.floor((this.elapsed / 26000) * 90 * 60)));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+    return `${minutes}:${seconds}`;
   }
 }

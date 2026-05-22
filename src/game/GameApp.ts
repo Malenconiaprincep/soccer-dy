@@ -16,6 +16,21 @@ import { PlayerStorage } from './storage/PlayerStorage';
 const DESIGN_WIDTH = 720;
 const DESIGN_HEIGHT = 1280;
 
+interface GameMount {
+  clientWidth: number;
+  clientHeight: number;
+  appendChild?: (child: any) => unknown;
+  addEventListener?: (type: string, listener: EventListenerOrEventListenerObject) => void;
+}
+
+interface GameRuntime {
+  canvas?: any;
+  width?: number;
+  height?: number;
+  pixelRatio?: number;
+  miniGame?: boolean;
+}
+
 export class GameApp {
   readonly app = new Application();
   readonly root = new Container();
@@ -42,18 +57,36 @@ export class GameApp {
   private viewportWidth = DESIGN_WIDTH;
   private viewportHeight = DESIGN_HEIGHT;
 
-  constructor(private readonly mount: HTMLElement) {}
+  constructor(private readonly mount: GameMount, private readonly runtime: GameRuntime = {}) {}
 
   async start() {
+    if (this.runtime.miniGame) {
+      Assets.setPreferences({
+        preferWorkers: false,
+        preferCreateImageBitmap: false,
+        crossOrigin: ''
+      });
+    }
+
+    const initOptions = this.runtime.canvas
+      ? {
+          canvas: this.runtime.canvas,
+          width: this.runtime.width ?? this.mount.clientWidth,
+          height: this.runtime.height ?? this.mount.clientHeight
+        }
+      : {
+          resizeTo: this.mount
+        };
+
     await this.app.init({
-      resizeTo: this.mount,
+      ...initOptions,
       background: '#070b1f',
       antialias: true,
-      resolution: Math.min(window.devicePixelRatio || 1, 2),
-      autoDensity: true
-    });
-    this.mount.appendChild(this.app.canvas);
-    this.sound.installUnlock(this.mount);
+      resolution: Math.min(this.runtime.pixelRatio ?? (window.devicePixelRatio || 1), 2),
+      autoDensity: !this.runtime.canvas
+    } as any);
+    if (!this.runtime.canvas) this.mount.appendChild?.(this.app.canvas);
+    if (!this.runtime.miniGame) this.sound.installUnlock(this.mount as HTMLElement);
     this.app.stage.addChild(this.root);
     const save = await this.storage.load();
     this.user = { userId: save.userId, nickname: save.nickname };
@@ -97,7 +130,7 @@ export class GameApp {
       ...new Set(players.map((player) => player.portrait))
     ]);
     this.app.ticker.add((ticker) => this.scene?.update(ticker.deltaMS));
-    window.addEventListener('resize', () => this.resize());
+    window.addEventListener?.('resize', () => this.resize());
     this.changeScene('loading');
   }
 

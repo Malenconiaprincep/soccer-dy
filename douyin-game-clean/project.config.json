@@ -1,0 +1,10 @@
+{
+  "appid": "touristappid",
+  "projectname": "soccer-dy3",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": false,
+    "minified": false
+  }
+}
