@@ -14,6 +14,7 @@ interface StatRow {
 
 export class ResultScene extends BaseScene {
   private rewardsGranted = false;
+  private activeTab: 'stats' | 'events' = 'stats';
 
   enter() {
     super.enter();
@@ -33,9 +34,13 @@ export class ResultScene extends BaseScene {
     this.drawHeader();
     this.drawScoreSummary();
     this.drawTabs();
-    this.drawStatsPanel();
-    this.drawMvpPanel();
-    this.drawGoalPanels();
+    if (this.activeTab === 'stats') {
+      this.drawStatsPanel();
+      this.drawMvpPanel();
+      this.drawGoalPanels();
+    } else {
+      this.drawEventsPanel();
+    }
     this.drawActions();
   }
 
@@ -120,20 +125,22 @@ export class ResultScene extends BaseScene {
     bg.stroke({ color: 0x185caa, alpha: 0.55, width: 2 });
 
     const active = new Graphics();
-    active.roundRect(x, y, w / 2, tabH, 12);
+    active.roundRect(this.activeTab === 'stats' ? x : x + w / 2, y, w / 2, tabH, 12);
     active.fill({ color: 0x0a56c7, alpha: 0.92 });
     active.stroke({ color: 0x3aa2ff, alpha: 0.95, width: 2 });
 
-    const stats = label('统计信息', 27, palette.white, '900');
+    const stats = label('统计信息', 27, this.activeTab === 'stats' ? palette.white : 0xb8c7dd, '900');
     stats.anchor.set(0.5);
     stats.x = x + w * 0.25;
     stats.y = y + tabH / 2;
-    const events = label('比赛事件', 27, 0xb8c7dd, '900');
+    const events = label('比赛事件', 27, this.activeTab === 'events' ? palette.white : 0xb8c7dd, '900');
     events.anchor.set(0.5);
     events.x = x + w * 0.75;
     events.y = y + tabH / 2;
 
-    this.container.addChild(bg, active, stats, events);
+    const statsHit = this.tabHitArea(x, y, w / 2, tabH, 'stats');
+    const eventsHit = this.tabHitArea(x + w / 2, y, w / 2, tabH, 'events');
+    this.container.addChild(bg, active, stats, events, statsHit, eventsHit);
   }
 
   private drawStatsPanel() {
@@ -234,6 +241,66 @@ export class ResultScene extends BaseScene {
     const goals = this.goalLists();
     this.drawGoalList(x, top, w, h, '⚽', '进球球员', 0x2b9bff, goals.for);
     this.drawGoalList(x + w + gap, top, w, h, '🔴', '失球球员', 0xff4d5f, goals.against);
+  }
+
+  private drawEventsPanel() {
+    const panel = new Container();
+    panel.x = 22;
+    panel.y = 392 + this.topLift();
+    const w = this.game.width - 44;
+    const h = 760;
+    panel.addChild(this.panelBg(w, h, 0x061b32, 0x238ce9, 0.82, 16));
+
+    const title = label('比赛事件', 27, palette.white, '900');
+    title.x = 26;
+    title.y = 22;
+    panel.addChild(title);
+
+    const events = this.matchEvents().slice(0, 10);
+    const line = new Graphics();
+    line.rect(80, 82, 3, Math.max(0, events.length * 62 - 30));
+    line.fill({ color: 0x1f67b9, alpha: 0.52 });
+    panel.addChild(line);
+
+    events.forEach((event, index) => {
+      const y = 74 + index * 62;
+      const color = event.mood === 'bad' ? 0xff5362 : event.mood === 'good' ? 0x2f95ff : 0xffd35d;
+      const dot = new Graphics();
+      dot.circle(81, y + 15, 18);
+      dot.fill({ color: 0x071329, alpha: 1 });
+      dot.stroke({ color, alpha: 0.96, width: 3 });
+      const icon = label(this.eventIcon(event), 18, color, '900');
+      icon.anchor.set(0.5);
+      icon.x = 81;
+      icon.y = y + 15;
+
+      const time = label(`${event.time}'`, 25, color, '900');
+      time.anchor.set(1, 0);
+      time.x = 58;
+      time.y = y + 2;
+
+      const tag = label(this.eventTag(event), 18, color, '900');
+      tag.x = 118;
+      tag.y = y;
+      const text = label(event.text, 21, 0xdbe7ff, '700');
+      text.x = 118;
+      text.y = y + 28;
+
+      if (event.scoreA !== undefined && event.scoreB !== undefined && (event.text.includes('破门') || event.text.includes('扳回'))) {
+        const score = label(`${event.scoreA}:${event.scoreB}`, 24, color, '900');
+        score.anchor.set(1, 0);
+        score.x = w - 34;
+        score.y = y + 14;
+        panel.addChild(score);
+      }
+
+      const divider = new Graphics();
+      divider.rect(116, y + 57, w - 150, 1);
+      divider.fill({ color: 0x21466f, alpha: 0.45 });
+      panel.addChild(dot, icon, time, tag, text, divider);
+    });
+
+    this.container.addChild(panel);
   }
 
   private drawActions() {
@@ -406,6 +473,21 @@ export class ResultScene extends BaseScene {
     parent.addChild(track, fill);
   }
 
+  private tabHitArea(x: number, y: number, width: number, height: number, tab: 'stats' | 'events') {
+    const hit = new Graphics();
+    hit.roundRect(x, y, width, height, 12);
+    hit.fill({ color: 0xffffff, alpha: 0.001 });
+    hit.eventMode = 'static';
+    hit.cursor = 'pointer';
+    hit.on('pointertap', () => {
+      if (this.activeTab === tab) return;
+      this.game.sound.play('tap');
+      this.activeTab = tab;
+      this.resize();
+    });
+    return hit;
+  }
+
   private actionButton(width: number, height: number, text: string, fill: number, stroke: number, gold: boolean) {
     const button = new Container();
     const glow = new Graphics();
@@ -454,6 +536,34 @@ export class ResultScene extends BaseScene {
       { icon: '■', name: '黄牌', left: '1', right: '3', leftValue: 1, rightValue: 3 },
       { icon: '■', name: '红牌', left: '0', right: '0', leftValue: 0, rightValue: 0 }
     ];
+  }
+
+  private matchEvents() {
+    const events = [...this.game.battleResult.events].sort((a, b) => b.time - a.time);
+    if (events.length) return events;
+    return [
+      { time: 82, text: '林浩 接到罗德里的传球，冷静推射破门！', scoreA: 3, scoreB: 1, mood: 'good' as const },
+      { time: 68, text: '苏亚雷斯 反击打穿防线，为星火十一人扳回一球。', scoreA: 2, scoreB: 1, mood: 'bad' as const },
+      { time: 58, text: '罗德里 完成关键拦截，稳住中场节奏。', scoreA: 2, scoreB: 0, mood: 'good' as const },
+      { time: 21, text: '罗德里 前插接应，扩大领先优势。', scoreA: 2, scoreB: 0, mood: 'good' as const }
+    ];
+  }
+
+  private eventTag(event: BattleEvent) {
+    if (event.text.includes('破门') || event.text.includes('扳回')) return '进球';
+    if (event.text.includes('拦截') || event.text.includes('抢断')) return '抢断';
+    if (event.text.includes('犯规')) return '犯规';
+    if (event.text.includes('机会') || event.text.includes('射')) return '射门';
+    return event.mood === 'bad' ? '危险' : '事件';
+  }
+
+  private eventIcon(event: BattleEvent) {
+    const tag = this.eventTag(event);
+    if (tag === '进球') return '●';
+    if (tag === '抢断') return '□';
+    if (tag === '犯规') return '!';
+    if (tag === '射门') return '↗';
+    return '•';
   }
 
   private goalLists() {

@@ -67105,6 +67105,7 @@ ${parts.join("\n")}
     constructor() {
       super(...arguments);
       __publicField(this, "rewardsGranted", false);
+      __publicField(this, "activeTab", "stats");
     }
     enter() {
       super.enter();
@@ -67123,9 +67124,13 @@ ${parts.join("\n")}
       this.drawHeader();
       this.drawScoreSummary();
       this.drawTabs();
-      this.drawStatsPanel();
-      this.drawMvpPanel();
-      this.drawGoalPanels();
+      if (this.activeTab === "stats") {
+        this.drawStatsPanel();
+        this.drawMvpPanel();
+        this.drawGoalPanels();
+      } else {
+        this.drawEventsPanel();
+      }
       this.drawActions();
     }
     resize() {
@@ -67200,18 +67205,20 @@ ${parts.join("\n")}
       bg.fill({ color: 464685, alpha: 0.86 });
       bg.stroke({ color: 1596586, alpha: 0.55, width: 2 });
       const active = new Graphics();
-      active.roundRect(x2, y2, w2 / 2, tabH, 12);
+      active.roundRect(this.activeTab === "stats" ? x2 : x2 + w2 / 2, y2, w2 / 2, tabH, 12);
       active.fill({ color: 677575, alpha: 0.92 });
       active.stroke({ color: 3842815, alpha: 0.95, width: 2 });
-      const stats = label("统计信息", 27, palette.white, "900");
+      const stats = label("统计信息", 27, this.activeTab === "stats" ? palette.white : 12109789, "900");
       stats.anchor.set(0.5);
       stats.x = x2 + w2 * 0.25;
       stats.y = y2 + tabH / 2;
-      const events = label("比赛事件", 27, 12109789, "900");
+      const events = label("比赛事件", 27, this.activeTab === "events" ? palette.white : 12109789, "900");
       events.anchor.set(0.5);
       events.x = x2 + w2 * 0.75;
       events.y = y2 + tabH / 2;
-      this.container.addChild(bg, active, stats, events);
+      const statsHit = this.tabHitArea(x2, y2, w2 / 2, tabH, "stats");
+      const eventsHit = this.tabHitArea(x2 + w2 / 2, y2, w2 / 2, tabH, "events");
+      this.container.addChild(bg, active, stats, events, statsHit, eventsHit);
     }
     drawStatsPanel() {
       const panel = new Container();
@@ -67302,6 +67309,57 @@ ${parts.join("\n")}
       const goals = this.goalLists();
       this.drawGoalList(x2, top, w2, h2, "⚽", "进球球员", 2857983, goals.for);
       this.drawGoalList(x2 + w2 + gap, top, w2, h2, "🔴", "失球球员", 16731487, goals.against);
+    }
+    drawEventsPanel() {
+      const panel = new Container();
+      panel.x = 22;
+      panel.y = 392 + this.topLift();
+      const w2 = this.game.width - 44;
+      const h2 = 760;
+      panel.addChild(this.panelBg(w2, h2, 400178, 2329833, 0.82, 16));
+      const title = label("比赛事件", 27, palette.white, "900");
+      title.x = 26;
+      title.y = 22;
+      panel.addChild(title);
+      const events = this.matchEvents().slice(0, 10);
+      const line = new Graphics();
+      line.rect(80, 82, 3, Math.max(0, events.length * 62 - 30));
+      line.fill({ color: 2058169, alpha: 0.52 });
+      panel.addChild(line);
+      events.forEach((event, index2) => {
+        const y2 = 74 + index2 * 62;
+        const color = event.mood === "bad" ? 16733026 : event.mood === "good" ? 3118591 : 16765789;
+        const dot = new Graphics();
+        dot.circle(81, y2 + 15, 18);
+        dot.fill({ color: 463657, alpha: 1 });
+        dot.stroke({ color, alpha: 0.96, width: 3 });
+        const icon = label(this.eventIcon(event), 18, color, "900");
+        icon.anchor.set(0.5);
+        icon.x = 81;
+        icon.y = y2 + 15;
+        const time = label(`${event.time}'`, 25, color, "900");
+        time.anchor.set(1, 0);
+        time.x = 58;
+        time.y = y2 + 2;
+        const tag = label(this.eventTag(event), 18, color, "900");
+        tag.x = 118;
+        tag.y = y2;
+        const text = label(event.text, 21, 14411775, "700");
+        text.x = 118;
+        text.y = y2 + 28;
+        if (event.scoreA !== void 0 && event.scoreB !== void 0 && (event.text.includes("破门") || event.text.includes("扳回"))) {
+          const score = label(`${event.scoreA}:${event.scoreB}`, 24, color, "900");
+          score.anchor.set(1, 0);
+          score.x = w2 - 34;
+          score.y = y2 + 14;
+          panel.addChild(score);
+        }
+        const divider = new Graphics();
+        divider.rect(116, y2 + 57, w2 - 150, 1);
+        divider.fill({ color: 2180719, alpha: 0.45 });
+        panel.addChild(dot, icon, time, tag, text, divider);
+      });
+      this.container.addChild(panel);
     }
     drawActions() {
       const y2 = Math.max(1178 + this.topLift() * 0.15, this.game.height - 112);
@@ -67454,6 +67512,20 @@ ${parts.join("\n")}
       fill.fill({ color, alpha: 1 });
       parent.addChild(track, fill);
     }
+    tabHitArea(x2, y2, width, height, tab) {
+      const hit = new Graphics();
+      hit.roundRect(x2, y2, width, height, 12);
+      hit.fill({ color: 16777215, alpha: 1e-3 });
+      hit.eventMode = "static";
+      hit.cursor = "pointer";
+      hit.on("pointertap", () => {
+        if (this.activeTab === tab) return;
+        this.game.sound.play("tap");
+        this.activeTab = tab;
+        this.resize();
+      });
+      return hit;
+    }
     actionButton(width, height, text, fill, stroke, gold) {
       const button = new Container();
       const glow = new Graphics();
@@ -67500,6 +67572,31 @@ ${parts.join("\n")}
         { icon: "■", name: "黄牌", left: "1", right: "3", leftValue: 1, rightValue: 3 },
         { icon: "■", name: "红牌", left: "0", right: "0", leftValue: 0, rightValue: 0 }
       ];
+    }
+    matchEvents() {
+      const events = [...this.game.battleResult.events].sort((a2, b2) => b2.time - a2.time);
+      if (events.length) return events;
+      return [
+        { time: 82, text: "林浩 接到罗德里的传球，冷静推射破门！", scoreA: 3, scoreB: 1, mood: "good" },
+        { time: 68, text: "苏亚雷斯 反击打穿防线，为星火十一人扳回一球。", scoreA: 2, scoreB: 1, mood: "bad" },
+        { time: 58, text: "罗德里 完成关键拦截，稳住中场节奏。", scoreA: 2, scoreB: 0, mood: "good" },
+        { time: 21, text: "罗德里 前插接应，扩大领先优势。", scoreA: 2, scoreB: 0, mood: "good" }
+      ];
+    }
+    eventTag(event) {
+      if (event.text.includes("破门") || event.text.includes("扳回")) return "进球";
+      if (event.text.includes("拦截") || event.text.includes("抢断")) return "抢断";
+      if (event.text.includes("犯规")) return "犯规";
+      if (event.text.includes("机会") || event.text.includes("射")) return "射门";
+      return event.mood === "bad" ? "危险" : "事件";
+    }
+    eventIcon(event) {
+      const tag = this.eventTag(event);
+      if (tag === "进球") return "●";
+      if (tag === "抢断") return "□";
+      if (tag === "犯规") return "!";
+      if (tag === "射门") return "↗";
+      return "•";
     }
     goalLists() {
       var _a2, _b2, _c2, _d2, _e2, _f2, _g2, _h2, _i2, _j2;
