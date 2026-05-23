@@ -103,6 +103,7 @@ export class GameApp {
     this.selectedFormation = savedLineup.formation;
     this.lineup = savedLineup.lineup;
     await Assets.load([
+      '/assets/page-bg.jpg',
       '/assets/loading-players-bg.png',
       '/assets/home-stadium-bg.png',
       '/assets/ui/logo-title.png',

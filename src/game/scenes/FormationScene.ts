@@ -1,5 +1,5 @@
 import { Container, FederatedPointerEvent, Graphics, Rectangle, Sprite, Text, TextStyle, Texture } from 'pixi.js';
-import { BaseScene } from './BaseScene';
+import { BaseScene, PAGE_BG } from './BaseScene';
 import { formations, players } from '../data';
 import type { FormationData, LineupSlot, PlayerCardData, Position, Rarity } from '../types';
 import { coverSprite, glassPanel, label, palette } from '../ui';
@@ -63,7 +63,7 @@ export class FormationScene extends BaseScene {
 
   private formationBackground() {
     const bg = new Container();
-    bg.addChild(coverSprite('/assets/home-stadium-bg.png', this.game.width, this.game.height));
+    bg.addChild(coverSprite(PAGE_BG, this.game.width, this.game.height));
     const shade = new Graphics();
     shade.rect(0, 0, this.game.width, this.game.height);
     shade.fill({ color: 0x02081b, alpha: 0.16 });

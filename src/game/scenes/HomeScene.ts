@@ -1,6 +1,6 @@
 import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
-import { coverSprite, glassPanel, label, palette } from '../ui';
+import { glassPanel, label, palette } from '../ui';
 
 export class HomeScene extends BaseScene {
   private taskModal?: Container;
@@ -15,7 +15,7 @@ export class HomeScene extends BaseScene {
     this.startGlow = undefined;
     this.startShine = undefined;
     this.floaters = [];
-    this.container.addChild(coverSprite('/assets/home-stadium-bg.png', this.game.width, this.game.height));
+    this.container.addChild(this.stadiumBackground());
     this.drawVignette();
     this.drawTopBar();
     this.drawLobbyInfo();

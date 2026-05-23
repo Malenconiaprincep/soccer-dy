@@ -3,6 +3,8 @@ import type { GameApp } from '../GameApp';
 import type { Scene } from '../types';
 import { coverSprite, label, palette } from '../ui';
 
+export const PAGE_BG = '/assets/page-bg.jpg';
+
 export abstract class BaseScene implements Scene {
   readonly container = new Container();
 
@@ -27,21 +29,15 @@ export abstract class BaseScene implements Scene {
     const w = this.game.width;
     const h = this.game.height;
     const bg = new Container();
-    bg.addChild(coverSprite('/assets/home-hero-v2.png', w, h));
+    bg.addChild(coverSprite(PAGE_BG, w, h));
     const shade = new Graphics();
     shade.rect(0, 0, w, h);
-    shade.fill({ color: 0x030817, alpha: 0.58 });
-    shade.rect(0, 0, w, h * 0.2);
-    shade.fill({ color: 0x030817, alpha: 0.2 });
-    shade.rect(0, h * 0.66, w, h * 0.34);
-    shade.fill({ color: 0x030817, alpha: 0.28 });
+    shade.fill({ color: 0x020613, alpha: 0.08 });
+    shade.rect(0, 0, w, h * 0.18);
+    shade.fill({ color: 0x020613, alpha: 0.12 });
+    shade.rect(0, h * 0.72, w, h * 0.28);
+    shade.fill({ color: 0x020613, alpha: 0.16 });
     bg.addChild(shade);
-    for (let i = 0; i < 16; i += 1) {
-      const light = new Graphics();
-      light.circle((w / 15) * i, h * 0.18 + Math.sin(i) * 28, 4);
-      light.fill({ color: i % 2 ? 0xfff5bf : 0x92c9ff, alpha: 0.55 });
-      bg.addChild(light);
-    }
     return bg;
   }
 

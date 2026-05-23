@@ -1,13 +1,13 @@
 import { Graphics } from 'pixi.js';
 import { BaseScene } from './BaseScene';
-import { coverSprite, label, palette } from '../ui';
+import { label, palette } from '../ui';
 
 export class LoadingScene extends BaseScene {
   private progress = 0;
   private bar?: Graphics;
 
   protected build() {
-    this.container.addChild(coverSprite('/assets/loading-players-bg.png', this.game.width, this.game.height));
+    this.container.addChild(this.stadiumBackground());
     this.drawShade();
 
     const logo = label('足球经理', 46, 0xfff3b0, '900');
