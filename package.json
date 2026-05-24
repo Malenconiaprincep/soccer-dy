@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "dev:sync": "node scripts/dev-sync.mjs",
     "build": "tsc && vite build",
     "build:douyin": "tsc && vite build --mode douyin",
+    "build:douyin:watch": "vite build --mode douyin --watch",
     "package:douyin": "npm run build:douyin && node -e \"require('fs').rmSync('douyin-game-clean.zip',{force:true})\" && cd douyin-game && zip -r ../douyin-game-clean.zip . -x \"*.DS_Store\" -x \"__MACOSX/*\" -x \"*/._*\" -x \"._*\"",
     "preview": "vite preview --host 0.0.0.0"
   },

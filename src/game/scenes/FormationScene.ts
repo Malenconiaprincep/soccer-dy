@@ -624,7 +624,7 @@ export class FormationScene extends BaseScene {
     panel.x = panelX;
     panel.y = panelY;
 
-    const bg = coverSprite('/assets/home-stadium-bg.png', panelW, panelH);
+    const bg = coverSprite(PAGE_BG, panelW, panelH);
     const shade = new Graphics();
     shade.rect(0, 0, panelW, panelH);
     shade.fill({ color: 0x020613, alpha: 0.72 });

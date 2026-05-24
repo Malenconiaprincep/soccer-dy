@@ -90,6 +90,14 @@ mainCanvas.getBoundingClientRect ??= () => ({
 
 const normalizeAssetUrl = (url: string) => url.replace(/^\/assets\//, 'assets/');
 
+const setImageComplete = (image: MiniImage, value: boolean) => {
+  try {
+    image.complete = value;
+  } catch {
+    // Douyin runtime may expose complete as read-only on HTMLImageElement.
+  }
+};
+
 const makeCanvas = (width?: number, height?: number) => {
   const canvas = ttApi.createCanvas();
   canvas.width = Math.max(1, Math.floor(width ?? mainCanvas.width));
@@ -122,16 +130,16 @@ const makeImage = () => {
       get: () => currentSrc,
       set: (value: string) => {
         currentSrc = normalizeAssetUrl(value);
-        rawImage.complete = false;
         if (srcDescriptor?.set) {
           srcDescriptor.set.call(rawImage, currentSrc);
-        } else {
-          Reflect.set(rawImage, '__src', currentSrc);
-          setTimeout(() => {
-            rawImage.complete = true;
-            rawImage.onload?.();
-          }, 0);
+          return;
         }
+        Reflect.set(rawImage, '__src', currentSrc);
+        setImageComplete(rawImage, false);
+        setTimeout(() => {
+          setImageComplete(rawImage, true);
+          rawImage.onload?.();
+        }, 0);
       }
     });
 

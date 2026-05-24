@@ -1,6 +1,11 @@
-import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
+import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
-import { glassPanel, label, palette } from '../ui';
+import { avatar, coverSprite, glassPanel, label, palette } from '../ui';
+
+const HOME_BG = '/assets/home-bg.jpg';
+const TOP_BUTTON = '/assets/ui/top-button.png';
+const TOP_SECTION = 724;
+const WEB_AVATAR = '/assets/players/generated/saka.png';
 
 export class HomeScene extends BaseScene {
   private taskModal?: Container;
@@ -15,10 +20,9 @@ export class HomeScene extends BaseScene {
     this.startGlow = undefined;
     this.startShine = undefined;
     this.floaters = [];
-    this.container.addChild(this.stadiumBackground());
+    this.container.addChild(coverSprite(HOME_BG, this.game.width, this.game.height));
     this.drawVignette();
     this.drawTopBar();
-    this.drawLobbyInfo();
     this.drawSideShortcuts();
     this.drawHeroPlayer();
     this.drawCommandDeck();
@@ -45,22 +49,99 @@ export class HomeScene extends BaseScene {
 
   private drawTopBar() {
     const top = new Container();
-    const scale = Math.min(1, this.game.width / 720);
-    top.scale.set(scale);
-    top.x = (this.game.width - 704 * scale) / 2;
-    top.y = 18;
+    const sidePad = 16;
+    const gap = 6;
+    const avatarSize = 108;
+    const barHeight = 96;
+    const barWidth = (this.game.width - sidePad * 2 - avatarSize - gap * 2) / 2;
+    const totalWidth = avatarSize + gap + barWidth + gap + barWidth;
+    top.x = (this.game.width - totalWidth) / 2;
+    top.y = 18 + this.game.contentTopOffset * 0.05;
 
-    const fakeResources = {
-      coins: 1286000,
-      gems: 88000,
-      energy: 120,
-      maxEnergy: 120
-    };
-    const gold = this.resourceCapsule('coin', this.resourceAmount(fakeResources.coins), 0);
-    const gems = this.resourceCapsule('gem', this.resourceAmount(fakeResources.gems), 235);
-    const energy = this.resourceCapsule('energy', `${fakeResources.energy}/${fakeResources.maxEnergy}`, 470);
-    top.addChild(gold, gems, energy);
+    const sheet = Texture.from(TOP_BUTTON);
+    const barY = (avatarSize - barHeight) / 2;
+
+    const avatarRing = this.topSheetSprite(sheet, 0, avatarSize, avatarSize);
+    const avatarSlot = new Container();
+    avatarSlot.x = avatarSize / 2;
+    avatarSlot.y = avatarSize / 2;
+    this.drawTopAvatar(avatarSlot, avatarSize * 0.74);
+    top.addChild(avatarSlot, avatarRing);
+
+    const gems = this.topResourceBar(sheet, 1, this.formatGems(this.game.gems), barWidth, barHeight);
+    gems.x = avatarSize + gap;
+    gems.y = barY;
+    top.addChild(gems);
+
+    const energy = this.topResourceBar(sheet, 2, `${this.game.energy}/120`, barWidth, barHeight);
+    energy.x = avatarSize + gap + barWidth + gap;
+    energy.y = barY;
+    top.addChild(energy);
+
     this.container.addChild(top);
+  }
+
+  private topSheetFrame(index: number) {
+    return new Rectangle(index * TOP_SECTION, 0, TOP_SECTION, TOP_SECTION);
+  }
+
+  private topSheetSprite(sheet: Texture, index: number, width: number, height: number) {
+    const sprite = new Sprite(new Texture({ source: sheet.source, frame: this.topSheetFrame(index) }));
+    sprite.width = width;
+    sprite.height = height;
+    return sprite;
+  }
+
+  private topResourceBar(sheet: Texture, index: number, valueText: string, barWidth: number, barHeight: number) {
+    const c = new Container();
+    const bg = this.topSheetSprite(sheet, index, barWidth, barHeight);
+    const value = label(valueText, Math.round(barHeight * 0.34), palette.white, '900');
+    value.anchor.set(0.5, 0.5);
+    value.x = barWidth * 0.46;
+    value.y = barHeight * 0.5;
+    const maxTextWidth = barWidth * 0.34;
+    if (value.width > maxTextWidth) value.scale.x = maxTextWidth / value.width;
+    c.addChild(bg, value);
+    c.eventMode = 'static';
+    c.cursor = 'pointer';
+    return c;
+  }
+
+  private drawTopAvatar(parent: Container, size: number) {
+    const mask = new Graphics();
+    mask.circle(0, 0, size / 2);
+    mask.fill(0xffffff);
+    parent.addChild(mask);
+    parent.mask = mask;
+
+    const fallback = this.game.platform.name === 'web' ? WEB_AVATAR : undefined;
+    const url = this.game.user.avatarUrl ?? fallback;
+    const drawFallback = () => {
+      const placeholder = avatar(Math.round(size));
+      placeholder.x = -size / 2;
+      placeholder.y = -size / 2;
+      parent.addChild(placeholder);
+    };
+
+    if (!url) {
+      drawFallback();
+      return;
+    }
+
+    void Assets.load<Texture>(url)
+      .then((texture) => {
+        const sprite = Sprite.from(texture);
+        sprite.anchor.set(0.5);
+        const scale = Math.max(size / sprite.texture.width, size / sprite.texture.height);
+        sprite.scale.set(scale);
+        parent.addChild(sprite);
+      })
+      .catch(drawFallback);
+  }
+
+  private formatGems(value: number) {
+    if (value >= 10000) return this.resourceAmount(value);
+    return value.toLocaleString('en-US');
   }
 
   private drawVignette() {
@@ -72,26 +153,6 @@ export class HomeScene extends BaseScene {
     shade.rect(0, this.game.height - 290, this.game.width, 290);
     shade.fill({ color: 0x020613, alpha: 0.18 });
     this.container.addChild(shade);
-  }
-
-  private drawLobbyInfo() {
-    const topShift = this.game.contentTopOffset * 0.18;
-    const logo = this.logoTitle();
-    logo.x = this.game.width / 2;
-    logo.y = 154 + topShift;
-    this.container.addChild(logo);
-
-    const panelY = 296 + topShift;
-    const cardW = Math.min(232, (this.game.width - 254) / 2);
-    const gap = 34;
-    const groupX = (this.game.width - cardW * 2 - gap) / 2;
-    const left = this.statusCard(cardW, 'power');
-    left.x = groupX;
-    left.y = panelY;
-    const right = this.statusCard(cardW, 'record');
-    right.x = groupX + cardW + gap;
-    right.y = panelY;
-    this.container.addChild(left, right);
   }
 
   private drawCommandDeck() {
@@ -135,10 +196,7 @@ export class HomeScene extends BaseScene {
     const maxWidth = Math.min(360, this.game.width * 0.48);
     const scale = Math.min(maxHeight / sprite.texture.height, maxWidth / sprite.texture.width);
     sprite.scale.set(scale);
-    const cardW = Math.min(232, (this.game.width - 254) / 2);
-    const gap = 34;
-    const groupX = (this.game.width - cardW * 2 - gap) / 2;
-    sprite.x = groupX + cardW + gap / 2;
+    sprite.x = this.game.width / 2;
     sprite.y = this.game.height - 398;
     this.container.addChild(sprite);
   }
@@ -194,50 +252,10 @@ export class HomeScene extends BaseScene {
     return c;
   }
 
-  private statusCard(width: number, tone: 'power' | 'record') {
-    const c = new Container();
-    const src = tone === 'power' ? '/assets/ui/status-power.png' : '/assets/ui/status-record.png';
-    const texture = Texture.from(src);
-    const height = width * (540 / 850);
-    const sprite = new Sprite(texture);
-    sprite.pivot.set(texture.width / 2, texture.height / 2);
-    sprite.x = width / 2;
-    sprite.y = height / 2;
-    sprite.width = width;
-    sprite.height = height;
-    sprite.skew.y = tone === 'power' ? 0.045 : -0.045;
-    c.addChild(sprite);
-
-    const title = label(tone === 'power' ? '首发战力' : '战绩', 18, 0xffffff, '900');
-    title.x = width * 0.13;
-    title.y = width * 0.1;
-    const value = label(tone === 'power' ? '792' : '0/0', 40, palette.white, '900');
-    value.x = width * 0.18;
-    value.y = width * 0.27;
-    const sub = label(tone === 'power' ? '11 名球员' : '胜场 / 总场次', 16, tone === 'power' ? 0xc9ffe7 : 0xffedb6, '900');
-    sub.x = width * 0.18;
-    sub.y = width * 0.46;
-    c.addChild(title, value, sub);
-    return c;
-  }
-
   private lineupPowerLabel() {
     const selected = this.game.lineup.filter((slot) => slot.player);
     if (!selected.length) return '待组建';
     return String(this.game.lineupPower());
-  }
-
-  private logoTitle() {
-    const c = new Container();
-    const glow = new Graphics();
-    glow.ellipse(0, 8, 236, 58);
-    glow.fill({ color: 0x1d70ff, alpha: 0.22 });
-    const sprite = new Sprite(Texture.from('/assets/ui/logo-title.png'));
-    sprite.anchor.set(0.5);
-    sprite.width = Math.min(520, this.game.width - 180);
-    sprite.height = sprite.width * 0.31;
-    c.addChild(glow, sprite);
-    return c;
   }
 
   private flatPanel(width: number, height: number, fill: number, stroke: number) {
@@ -463,45 +481,6 @@ export class HomeScene extends BaseScene {
     icon.x = 24;
     icon.y = 25;
     c.addChild(icon, title, sub);
-    c.eventMode = 'static';
-    c.cursor = 'pointer';
-    return c;
-  }
-
-  private resourceCapsule(kind: 'coin' | 'gem' | 'energy', valueText: string, x: number) {
-    const c = new Container();
-    c.x = x;
-    const frames = {
-      coin: new Rectangle(21, 123, 335, 98),
-      gem: new Rectangle(386, 123, 310, 98),
-      energy: new Rectangle(727, 123, 327, 98)
-    };
-    const textX = {
-      coin: 76,
-      gem: 72,
-      energy: 78
-    };
-    const textMaxWidth = {
-      coin: 104,
-      gem: 82,
-      energy: 82
-    };
-    const textSize = {
-      coin: 30,
-      gem: 30,
-      energy: 24
-    };
-    const base = Texture.from('/assets/ui/top-number.png');
-    const frame = frames[kind];
-    const sprite = new Sprite(new Texture({ source: base.source, frame }));
-    sprite.width = frame.width * 0.66;
-    sprite.height = frame.height * 0.66;
-    const value = label(valueText, textSize[kind], palette.white, '900');
-    value.anchor.set(0, 0.5);
-    value.x = textX[kind];
-    value.y = 33;
-    if (value.width > textMaxWidth[kind]) value.scale.x = textMaxWidth[kind] / value.width;
-    c.addChild(sprite, value);
     c.eventMode = 'static';
     c.cursor = 'pointer';
     return c;

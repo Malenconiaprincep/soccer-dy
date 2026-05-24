@@ -6,7 +6,7 @@ import { HomeScene } from './scenes/HomeScene';
 import { LoadingScene } from './scenes/LoadingScene';
 import { MatchupScene } from './scenes/MatchupScene';
 import { ResultScene } from './scenes/ResultScene';
-import { WebPlatform } from './platform/Platform';
+import { WebPlatform, DouyinPlatform, type PlatformApi } from './platform/Platform';
 import { defaultCollectionIds, drawScoutCandidates, formations, players } from './data';
 import { defaultBattleSource } from './battle/BattleMode';
 import { SoundFx } from './audio/SoundFx';
@@ -34,11 +34,11 @@ interface GameRuntime {
 export class GameApp {
   readonly app = new Application();
   readonly root = new Container();
-  readonly platform = new WebPlatform();
+  readonly platform: PlatformApi;
   readonly sound = new SoundFx();
   readonly storage = new PlayerStorage();
   scene?: Scene;
-  user = { userId: 'local-user', nickname: '本地经理' };
+  user = { userId: 'local-user', nickname: '本地经理', avatarUrl: undefined as string | undefined };
   selectedFormation: FormationData = formations[1];
   lineup: LineupSlot[] = formations[1].slots.map((slot) => ({ ...slot }));
   coins = 1286000;
@@ -57,7 +57,9 @@ export class GameApp {
   private viewportWidth = DESIGN_WIDTH;
   private viewportHeight = DESIGN_HEIGHT;
 
-  constructor(private readonly mount: GameMount, private readonly runtime: GameRuntime = {}) {}
+  constructor(private readonly mount: GameMount, private readonly runtime: GameRuntime = {}) {
+    this.platform = runtime.miniGame ? new DouyinPlatform() : new WebPlatform();
+  }
 
   async start() {
     if (this.runtime.miniGame) {
@@ -89,7 +91,7 @@ export class GameApp {
     if (!this.runtime.miniGame) this.sound.installUnlock(this.mount as HTMLElement);
     this.app.stage.addChild(this.root);
     const save = await this.storage.load();
-    this.user = { userId: save.userId, nickname: save.nickname };
+    this.user = { userId: save.userId, nickname: save.nickname, avatarUrl: undefined };
     this.coins = save.coins;
     this.gems = save.gems;
     this.energy = save.energy;
@@ -102,14 +104,17 @@ export class GameApp {
     const savedLineup = this.storage.applyLineup(save);
     this.selectedFormation = savedLineup.formation;
     this.lineup = savedLineup.lineup;
+    const auth = await this.platform.login();
+    this.user = {
+      userId: auth.userId || this.user.userId,
+      nickname: auth.nickname || this.user.nickname,
+      avatarUrl: auth.avatarUrl
+    };
     await Assets.load([
       '/assets/page-bg.jpg',
-      '/assets/loading-players-bg.png',
-      '/assets/home-stadium-bg.png',
-      '/assets/ui/logo-title.png',
-      '/assets/ui/top-number.png',
+      '/assets/home-bg.jpg',
+      '/assets/ui/top-button.png',
       '/assets/ui/buttons.png',
-      '/assets/ui/showplayerandwin.png',
       '/assets/ui/hero.png',
       '/assets/ui/start.png',
       '/assets/ui/bottom-menu.png',
@@ -119,15 +124,6 @@ export class GameApp {
       '/assets/ui/players-bg.png',
       '/assets/ui/draft-button.png',
       '/assets/ui/play.png',
-      '/assets/ui/status-power.png',
-      '/assets/ui/status-record.png',
-      '/assets/ui/left-button.png',
-      '/assets/home-hero-v2.png',
-      '/assets/home-hero-v3.png',
-      '/assets/players/speed-forward.png',
-      '/assets/players/power-striker.png',
-      '/assets/players/dribble-winger.png',
-      '/assets/players/legend-maestro.png',
       ...new Set(players.map((player) => player.portrait))
     ]);
     this.app.ticker.add((ticker) => this.scene?.update(ticker.deltaMS));
