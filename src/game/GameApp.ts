@@ -159,12 +159,12 @@ export class GameApp {
 
   setFormation(formation: FormationData) {
     this.selectedFormation = formation;
-    const usedIds = new Set<string>();
-    this.lineup = formation.slots.map((slot) => {
-      const player = this.bestOwnedForPosition(slot.position, usedIds);
-      if (player) usedIds.add(player.id);
-      return { ...slot, player };
-    });
+    this.lineup = formation.slots.map((slot) => ({ ...slot, player: undefined }));
+    void this.persist();
+  }
+
+  clearLineup() {
+    this.lineup = this.selectedFormation.slots.map((slot) => ({ ...slot, player: undefined }));
     void this.persist();
   }
 

@@ -236,8 +236,8 @@ export class HomeScene extends BaseScene {
     start.y = layout.matchY;
     start.on('pointertap', () => {
       this.game.sound.play('confirm');
-      this.game.prepareOpponent();
-      this.game.changeScene('matchup');
+      this.game.clearLineup();
+      this.game.changeScene('formation');
     });
     this.container.addChild(start);
   }

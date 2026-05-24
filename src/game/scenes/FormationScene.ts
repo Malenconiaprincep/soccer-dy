@@ -1,6 +1,6 @@
 import { Container, FederatedPointerEvent, Graphics, Rectangle, Sprite, Text, TextStyle, Texture } from 'pixi.js';
 import { BaseScene, PAGE_BG } from './BaseScene';
-import { formations, players } from '../data';
+import { formations } from '../data';
 import type { FormationData, LineupSlot, PlayerCardData, Position, Rarity } from '../types';
 import { coverSprite, glassPanel, label, palette } from '../ui';
 
@@ -410,21 +410,37 @@ export class FormationScene extends BaseScene {
     });
     panel.addChild(swapBtn);
 
-    const usedIds = new Set(this.game.lineup.flatMap((slot) => (slot.player ? [slot.player.id] : [])));
-    const bench = this.game.ownedPlayers().filter((player) => !usedIds.has(player.id)).slice(0, 5);
-    const benchIds = new Set(bench.map((player) => player.id));
-    if (bench.length < 5) {
-      bench.push(...players.filter((player) => !usedIds.has(player.id) && !benchIds.has(player.id)).slice(0, 5 - bench.length));
-    }
     const itemGap = (panelW - 184) / 4;
-    bench.forEach((player, index) => {
-      const item = this.benchPlayer(player);
+    const hasStarter = this.game.lineup.some((slot) => slot.player);
+    const usedIds = new Set(this.game.lineup.flatMap((slot) => (slot.player ? [slot.player.id] : [])));
+    const bench = hasStarter ? this.game.ownedPlayers().filter((player) => !usedIds.has(player.id)).slice(0, 5) : [];
+    for (let index = 0; index < 5; index += 1) {
+      const item = bench[index] ? this.benchPlayer(bench[index]) : this.emptyBenchSlot();
       item.x = 92 + itemGap * index;
       item.y = panelH * 0.78;
       panel.addChild(item);
-    });
+    }
 
     this.container.addChild(panel);
+  }
+
+  private emptyBenchSlot() {
+    const c = new Container();
+    const frame = this.emptyCardFrame();
+    frame.scale.set(0.68);
+    frame.y = -62;
+    const nameBg = new Graphics();
+    nameBg.roundRect(-54, 16, 108, 34, 8);
+    nameBg.fill({ color: 0x071e41, alpha: 0.58 });
+    nameBg.stroke({ color: 0x56a8ff, alpha: 0.3, width: 2 });
+    const plus = label('+', 30, 0x6ce8ff, '900');
+    plus.anchor.set(0.5);
+    plus.y = -62;
+    const text = label('空位', 18, 0x89b8dc, '900');
+    text.anchor.set(0.5);
+    text.y = 33;
+    c.addChild(frame, plus, nameBg, text);
+    return c;
   }
 
   private benchPlayer(player: PlayerCardData) {
@@ -504,8 +520,7 @@ export class FormationScene extends BaseScene {
     c.cursor = 'pointer';
     c.on('pointertap', () => {
       this.game.sound.play('tap');
-      this.warehousePage = 0;
-      this.openCardWarehouse(slot);
+      this.openBlindBox(slot);
     });
     return c;
   }
@@ -1078,10 +1093,11 @@ export class FormationScene extends BaseScene {
     this.revealPulse = 0;
     this.revealTargetId = undefined;
     const selectedIds = this.game.lineup.flatMap((item) => (item.player ? [item.player.id] : []));
-    this.modalCandidates = this.game
-      .ownedPlayers(slot.position)
-      .filter((player) => player.id === slot.player?.id || !selectedIds.includes(player.id))
-      .slice(0, 3);
+    this.modalCandidates = this.shufflePlayers(
+      this.game
+        .ownedPlayers(slot.position)
+        .filter((player) => player.id === slot.player?.id || !selectedIds.includes(player.id))
+    ).slice(0, 4);
     this.modalCandidates.forEach((player) => this.revealed.add(player.id));
     this.drawBlindBoxModal(slot.position);
   }
@@ -1098,11 +1114,11 @@ export class FormationScene extends BaseScene {
     mask.eventMode = 'static';
     modal.addChild(mask);
 
-    const title = label(`选择${this.positionName(position)}`, 46, palette.white, '900');
+    const title = label(`${this.positionName(position)} 4选1`, 46, palette.white, '900');
     title.anchor.set(0.5);
     title.x = this.game.width / 2;
     title.y = 166 + shift;
-    const hint = label('从已拥有球员中选择首发，重复球员会自动移出原位置', 22, 0xcfe0ff, '700');
+    const hint = label('点击一张卡加入首发，重复球员会自动移出原位置', 22, 0xcfe0ff, '700');
     hint.anchor.set(0.5);
     hint.x = this.game.width / 2;
     hint.y = 218 + shift;
@@ -1113,14 +1129,14 @@ export class FormationScene extends BaseScene {
     aura.fill({ color: 0xffc43b, alpha: 0.08 + this.revealPulse / 9000 });
     modal.addChild(aura);
 
-    const cardW = 210;
-    const cardH = 342;
-    const gap = 10;
-    const startX = (this.game.width - cardW * 3 - gap * 2) / 2;
+    const gap = 12;
+    const cardW = Math.min(164, (this.game.width - 58 - gap * 3) / 4);
+    const cardH = cardW * 1.48;
+    const startX = (this.game.width - cardW * 4 - gap * 3) / 2;
     this.modalCandidates.forEach((player, index) => {
       const card = this.blindCard(player, cardW, cardH, index);
       card.x = startX + index * (cardW + gap);
-      card.y = 340 + shift;
+      card.y = 360 + shift;
       modal.addChild(card);
     });
 
@@ -1152,7 +1168,7 @@ export class FormationScene extends BaseScene {
 
     if (!isOpen) {
       const seal = new Graphics();
-      seal.circle(w / 2, h * 0.38, 52 + pulseRatio * 16);
+      seal.circle(w / 2, h * 0.38, w * 0.25 + pulseRatio * 16);
       seal.fill({ color: 0xffdf76, alpha: 0.08 + pulseRatio * 0.18 });
       const sparkle = new Graphics();
       const twinkle = (Math.sin(this.modalTime / 180 + index) + 1) / 2;
@@ -1162,45 +1178,46 @@ export class FormationScene extends BaseScene {
         sparkle.star(sx, sy, 4, 5 + twinkle * 4, 1.5);
         sparkle.fill({ color: i % 2 ? 0xfff1a6 : 0xffffff, alpha: 0.16 + twinkle * 0.22 });
       }
-      const q = label('?', 98, 0xffdf76, '900');
+      const q = label('?', Math.round(w * 0.48), 0xffdf76, '900');
       q.anchor.set(0.5);
       q.x = w / 2;
       q.y = h * 0.43;
-      const text = label('球员盲盒', 25, palette.white, '900');
+      const text = label('球员盲盒', Math.round(w * 0.13), palette.white, '900');
       text.anchor.set(0.5);
       text.x = w / 2;
       text.y = h * 0.68;
-      const tap = label('点击开启', 18, 0xfff0b3, '900');
+      const tap = label('点击开启', Math.round(w * 0.1), 0xfff0b3, '900');
       tap.anchor.set(0.5);
       tap.x = w / 2;
       tap.y = h * 0.82;
       c.addChild(seal, sparkle, q, text, tap);
     } else {
-      const rating = label(String(player.rating), 38, palette.white, '900');
-      rating.x = 18;
-      rating.y = 18;
-      const role = label(this.positionName(player.position), 18, palette.white, '900');
-      role.x = 20;
-      role.y = 58;
+      const rating = label(String(player.rating), Math.round(w * 0.19), palette.white, '900');
+      rating.x = w * 0.09;
+      rating.y = h * 0.05;
+      const role = label(this.positionName(player.position), Math.round(w * 0.1), palette.white, '900');
+      role.x = w * 0.1;
+      role.y = h * 0.17;
       const badge = new Graphics();
-      badge.roundRect(w - 48, 16, 30, 54, 10);
+      badge.roundRect(w - w * 0.23, h * 0.05, w * 0.14, h * 0.16, 10);
       badge.fill({ color: 0xffffff, alpha: 0.14 });
       badge.stroke({ color: 0xffffff, alpha: 0.3, width: 1 });
-      const face = this.portrait(player, 122);
-      face.x = (w - 122) / 2;
-      face.y = 76;
-      const name = label(player.name, 31, palette.white, '900');
+      const faceSize = w * 0.58;
+      const face = this.portrait(player, faceSize);
+      face.x = (w - faceSize) / 2;
+      face.y = h * 0.25;
+      const name = this.fitLabel(player.name, Math.round(w * 0.16), w * 0.84, palette.white, '900', 0.76);
       name.anchor.set(0.5);
       name.x = w / 2;
-      name.y = 210;
-      const skill = label(`#${player.skill}`, 19, 0xfff0b3, '700');
+      name.y = h * 0.62;
+      const skill = this.fitLabel(`#${player.skill}`, Math.round(w * 0.1), w * 0.86, 0xfff0b3, '700', 0.72);
       skill.anchor.set(0.5);
       skill.x = w / 2;
-      skill.y = 252;
-      const choose = label(allRevealed ? '选择' : '待全部开启', allRevealed ? 26 : 19, allRevealed ? palette.white : 0xfff0b3, '900');
+      skill.y = h * 0.75;
+      const choose = label(allRevealed ? '选择' : '待全部开启', Math.round(w * (allRevealed ? 0.14 : 0.1)), allRevealed ? palette.white : 0xfff0b3, '900');
       choose.anchor.set(0.5);
       choose.x = w / 2;
-      choose.y = 292;
+      choose.y = h * 0.88;
       c.addChild(badge, rating, role, face, name, skill, choose);
       if (this.revealTargetId === player.id && this.revealPulse > 0) {
         this.drawRevealParticles(c, w, h, pulseRatio);
@@ -1235,9 +1252,13 @@ export class FormationScene extends BaseScene {
       if (!child) return;
       const offset = Math.sin(this.modalTime / 420 + index * 0.8) * 5;
       const scale = 1 + Math.sin(this.modalTime / 520 + index) * 0.012;
-      child.y = 340 + shift + offset;
+      child.y = 360 + shift + offset;
       child.scale.set(scale);
     });
+  }
+
+  private shufflePlayers(pool: PlayerCardData[]) {
+    return [...pool].sort(() => Math.random() - 0.5);
   }
 
   private drawRevealParticles(target: Container, w: number, h: number, ratio: number) {
