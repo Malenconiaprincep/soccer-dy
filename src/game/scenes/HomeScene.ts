@@ -28,9 +28,9 @@ export class HomeScene extends BaseScene {
     this.container.addChild(coverSprite(HOME_BG, this.game.width, this.game.height));
     this.drawVignette();
     this.drawTopBar();
+    this.drawCommandDeck();
     this.drawHeroPlayer();
     this.drawSideShortcuts();
-    this.drawCommandDeck();
   }
 
   resize() {
@@ -212,14 +212,13 @@ export class HomeScene extends BaseScene {
   private getHomeStageLayout() {
     const heroTexture = Texture.from('/assets/ui/hero.png');
     const matchTexture = Texture.from('/assets/ui/start.png');
-    const matchW = Math.min(420, this.game.width - 248);
+    const matchW = Math.min(436, this.game.width - 220);
     const matchH = matchW * (matchTexture.height / matchTexture.width);
-    const matchY = this.game.height - matchH - 42;
-    const heroBottom = matchY - 8;
-    const heroTopMin = 286 + this.game.contentTopOffset * 0.08;
-    const maxHeroHeight = Math.max(520, heroBottom - heroTopMin);
-    const sideInset = SHORTCUT_BTN_W + 20;
-    const maxHeroWidth = Math.min(this.game.width * 0.78, this.game.width - sideInset * 2);
+    const matchY = this.game.height - matchH - 30;
+    const heroAnchorY = matchY + matchH * 0.34;
+    const heroTopMin = 192 + this.game.contentTopOffset * 0.04;
+    const maxHeroHeight = Math.max(620, heroAnchorY - heroTopMin);
+    const maxHeroWidth = this.game.width * 0.96;
     const heroScale = Math.min(maxHeroHeight / heroTexture.height, maxHeroWidth / heroTexture.width);
 
     return {
@@ -228,7 +227,7 @@ export class HomeScene extends BaseScene {
       matchY,
       heroScale,
       heroX: this.game.width / 2,
-      heroY: heroBottom
+      heroY: heroAnchorY + 190
     };
   }
 
