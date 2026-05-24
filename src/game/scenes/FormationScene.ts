@@ -419,7 +419,7 @@ export class FormationScene extends BaseScene {
     frame.scale.set(0.68);
     frame.y = -72;
     const nameBg = new Graphics();
-    nameBg.roundRect(-54, 8, 108, 34, 8);
+    nameBg.roundRect(-54, -4, 108, 34, 8);
     nameBg.fill({ color: 0x071e41, alpha: 0.58 });
     nameBg.stroke({ color: 0x56a8ff, alpha: 0.3, width: 2 });
     const plus = label('+', 30, 0x6ce8ff, '900');
@@ -427,7 +427,7 @@ export class FormationScene extends BaseScene {
     plus.y = -72;
     const text = label('空位', 18, 0x89b8dc, '900');
     text.anchor.set(0.5);
-    text.y = 25;
+    text.y = 13;
     c.addChild(frame, plus, nameBg, text);
     c.eventMode = 'static';
     c.cursor = 'pointer';
@@ -1130,7 +1130,7 @@ export class FormationScene extends BaseScene {
     const cardW = Math.min(228, (usableW - gap * (count - 1)) / count);
     const cardH = cardW * 1.48;
     const rowW = cardW * count + gap * (count - 1);
-    const rowCenterX = this.game.width / 2;
+    const rowCenterX = this.game.width / 2 + Math.min(88, this.game.width * 0.112);
     const titleY = 166 + shift;
     const hintY = 218 + shift;
     const contentTop = hintY + 74;
@@ -1176,7 +1176,7 @@ export class FormationScene extends BaseScene {
 
   private drawBlindBoxModal(titleText: string, hintText: string) {
     this.closeModal();
-    const shift = this.game.contentTopOffset * 0.7;
+    const layout = this.getBlindBoxLayout();
     const modal = new Container();
     modal.eventMode = 'static';
 
@@ -1195,12 +1195,6 @@ export class FormationScene extends BaseScene {
     hint.x = this.game.width / 2;
     hint.y = layout.hintY;
     modal.addChild(title, hint);
-
-    const layout = this.getBlindBoxLayout();
-    const aura = new Graphics();
-    aura.ellipse(layout.rowCenterX, layout.cardY + layout.cardH * 0.52, layout.rowW * 0.56, layout.cardH * 0.62);
-    aura.fill({ color: 0xffc43b, alpha: 0.08 + this.revealPulse / 9000 });
-    modal.addChild(aura);
 
     this.mountBlindBoxCards(modal, layout);
 
