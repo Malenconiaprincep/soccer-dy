@@ -114,6 +114,7 @@ export class GameApp {
       '/assets/page-bg.jpg',
       '/assets/home-bg.jpg',
       '/assets/ui/top-button.png',
+      '/assets/ui/avatar-bg.png',
       '/assets/ui/buttons.png',
       '/assets/ui/hero.png',
       '/assets/ui/start.png',
