@@ -11,7 +11,7 @@ export class LoadingScene extends BaseScene {
   protected build() {
     this.container.addChild(coverSprite(LOADING_BG, this.game.width, this.game.height));
 
-    const logo = label('足球经理', 46, 0xfff3b0, '900');
+    const logo = label('冠军之路', 46, 0xfff3b0, '900');
     logo.anchor.set(0.5);
     logo.x = this.game.width / 2;
     logo.y = this.game.height * 0.43;

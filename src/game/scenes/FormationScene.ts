@@ -9,6 +9,8 @@ const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?
 export class FormationScene extends BaseScene {
   private static readonly BLIND_BOX_PICK_COUNT = 3;
   private static readonly BLIND_CARD_BACK = '/assets/ui/card-guess.png';
+  private static readonly BLIND_FACE_SCALE = 0.86;
+  private static readonly BLIND_BACK_BOOST = 1.14;
   private field?: Container;
   private modal?: Container;
   private modalSlotId?: string;
@@ -1102,7 +1104,7 @@ export class FormationScene extends BaseScene {
         .ownedPlayers(slot.position)
         .filter((player) => player.id === slot.player?.id || !selectedIds.includes(player.id))
     ).slice(0, FormationScene.BLIND_BOX_PICK_COUNT);
-    this.drawBlindBoxModal(this.positionName(slot.position), '点击卡片开启，全部翻开后可选择');
+    this.drawBlindBoxModal(this.positionName(slot.position), '点击卡片开启，翻开即可选择球员');
   }
 
   private openBenchBlindBox(index: number) {
@@ -1118,7 +1120,7 @@ export class FormationScene extends BaseScene {
     this.modalCandidates = this.shufflePlayers(
       this.game.ownedPlayers().filter((player) => player.id === currentPlayer?.id || !selectedIds.includes(player.id))
     ).slice(0, FormationScene.BLIND_BOX_PICK_COUNT);
-    this.drawBlindBoxModal(`替补${index + 1}`, '点击卡片开启，全部翻开后可选择');
+    this.drawBlindBoxModal(`替补${index + 1}`, '点击卡片开启，翻开即可选择球员');
   }
 
   private getBlindCardAspect() {
@@ -1133,9 +1135,10 @@ export class FormationScene extends BaseScene {
     const count = FormationScene.BLIND_BOX_PICK_COUNT;
     const sidePad = 18;
     const gap = 8;
-    const cardScale = 0.86;
-    const cardW = Math.floor(((this.game.width - sidePad * 2 - gap * (count - 1)) / count) * cardScale);
-    const cardH = Math.round(cardW * this.getBlindCardAspect());
+    const faceW = Math.floor(((this.game.width - sidePad * 2 - gap * (count - 1)) / count) * FormationScene.BLIND_FACE_SCALE);
+    const faceH = Math.round(faceW * this.getBlindCardAspect());
+    const cardW = Math.round(faceW * FormationScene.BLIND_BACK_BOOST);
+    const cardH = Math.round(faceH * FormationScene.BLIND_BACK_BOOST);
     const rowW = cardW * count + gap * (count - 1);
     const rowX = (this.game.width - rowW) / 2 + 100;
     const titleY = 166 + shift;
@@ -1144,7 +1147,7 @@ export class FormationScene extends BaseScene {
     const contentBottom = this.game.height - Math.max(88, this.game.height * 0.1);
     const contentCenterY = contentTop + Math.max(cardH, contentBottom - contentTop) / 2;
     const rowY = Math.max(contentTop, contentCenterY - cardH / 2);
-    return { cardW, cardH, rowX, rowY, gap, rowW, count, titleY, hintY };
+    return { cardW, cardH, faceW, faceH, rowX, rowY, gap, rowW, count, titleY, hintY };
   }
 
   private getBlindCardRow() {
@@ -1175,7 +1178,7 @@ export class FormationScene extends BaseScene {
     this.syncBlindCardRow(cardsRow, layout);
 
     this.modalCandidates.forEach((player, index) => {
-      const card = this.blindCard(player, layout.cardW, layout.cardH, index);
+      const card = this.blindCard(player, layout.cardW, layout.cardH, layout.faceW, layout.faceH, index);
       this.layoutBlindCard(card, index, layout);
       cardsRow.addChild(card);
     });
@@ -1210,38 +1213,39 @@ export class FormationScene extends BaseScene {
     this.animateModalCards();
   }
 
-  private blindCard(player: PlayerCardData, w: number, h: number, index: number) {
+  private blindCard(player: PlayerCardData, backW: number, backH: number, faceW: number, faceH: number, index: number) {
     const c = new Container();
     c.name = `blind-card-${index}`;
     c.eventMode = 'static';
     c.cursor = 'pointer';
-    c.hitArea = new Rectangle(0, 0, w, h);
-    c.interactiveChildren = false;
     const isOpen = this.revealed.has(player.id);
-    const allRevealed = this.modalCandidates.every((candidate) => this.revealed.has(candidate.id));
+    c.hitArea = isOpen
+      ? new Rectangle((backW - faceW) / 2, (backH - faceH) / 2, faceW, faceH)
+      : new Rectangle(0, 0, backW, backH);
+    c.interactiveChildren = false;
     const flipping = this.revealTargetId === player.id && this.revealPulse > 0;
     const pulseRatio = flipping ? 1 - this.revealPulse / 850 : 0;
 
     const flipper = new Container();
     flipper.name = 'flipper';
     flipper.eventMode = 'none';
-    flipper.pivot.set(w / 2, h / 2);
-    flipper.x = w / 2;
-    flipper.y = h / 2;
+    flipper.pivot.set(backW / 2, backH / 2);
+    flipper.x = backW / 2;
+    flipper.y = backH / 2;
 
-    const backFace = this.createBlindCardBack(w, h);
-    backFace.x = -w / 2;
-    backFace.y = -h / 2;
-    const frontFace = this.createBlindCardFront(player, w, h, allRevealed);
-    frontFace.x = -w / 2;
-    frontFace.y = -h / 2;
+    const backFace = this.createBlindCardBack(backW, backH);
+    backFace.x = -backW / 2;
+    backFace.y = -backH / 2;
+    const frontFace = this.createBlindCardFront(player, faceW, faceH, isOpen);
+    frontFace.x = -faceW / 2;
+    frontFace.y = -faceH / 2;
     backFace.visible = !isOpen;
     frontFace.visible = isOpen;
     flipper.addChild(backFace, frontFace);
     c.addChild(flipper);
 
     if (flipping) {
-      this.drawRevealParticles(c, w, h, pulseRatio);
+      this.drawRevealParticles(c, backW, backH, pulseRatio);
     }
 
     c.on('pointertap', () => {
@@ -1250,8 +1254,6 @@ export class FormationScene extends BaseScene {
         this.triggerReveal(player, index);
         return;
       }
-      const everyRevealed = this.modalCandidates.every((candidate) => this.revealed.has(candidate.id));
-      if (!everyRevealed) return;
       if (this.modalSlotId) {
         this.game.sound.play('select');
         this.game.fillSlot(this.modalSlotId, player);
@@ -1274,7 +1276,7 @@ export class FormationScene extends BaseScene {
     return face;
   }
 
-  private createBlindCardFront(player: PlayerCardData, w: number, h: number, allRevealed: boolean) {
+  private createBlindCardFront(player: PlayerCardData, w: number, h: number, isRevealed: boolean) {
     const face = new Container();
     const bg = this.cardBgSprite(player.rarity);
     bg.width = w;
@@ -1299,7 +1301,7 @@ export class FormationScene extends BaseScene {
     skill.anchor.set(0.5);
     skill.x = w / 2;
     skill.y = h * 0.75;
-    const choose = label(allRevealed ? '选择' : '待全部开启', Math.round(w * (allRevealed ? 0.14 : 0.1)), allRevealed ? palette.white : 0xfff0b3, '900');
+    const choose = label(isRevealed ? '选择' : '点击开启', Math.round(w * (isRevealed ? 0.092 : 0.1)), isRevealed ? palette.white : 0xfff0b3, '900');
     choose.anchor.set(0.5);
     choose.x = w / 2;
     choose.y = h * 0.88;
@@ -1330,7 +1332,7 @@ export class FormationScene extends BaseScene {
         cardsRow.removeChild(existing);
         existing.destroy({ children: true });
       }
-      const card = this.blindCard(candidate, layout.cardW, layout.cardH, index);
+      const card = this.blindCard(candidate, layout.cardW, layout.cardH, layout.faceW, layout.faceH, index);
       this.layoutBlindCard(card, index, layout);
       cardsRow.addChild(card);
     });
