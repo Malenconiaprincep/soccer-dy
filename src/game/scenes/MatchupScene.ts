@@ -240,11 +240,37 @@ export class MatchupScene extends BaseScene {
   }
 
   private pitchSprite(width: number, height: number) {
-    const sprite = Sprite.from('/assets/ui/squard-qc.png');
+    const c = new Container();
+    const fallback = this.pitchFallback(width, height);
+    const sprite = new Sprite(Texture.EMPTY);
     sprite.width = width;
     sprite.height = height;
     sprite.alpha = 0.86;
-    return sprite;
+    c.addChild(fallback, sprite);
+    void Assets.load<Texture>('/assets/ui/squard-qc.png').then((texture) => {
+      if (sprite.destroyed) return;
+      sprite.texture = texture;
+      sprite.width = width;
+      sprite.height = height;
+    });
+    return c;
+  }
+
+  private pitchFallback(width: number, height: number) {
+    const g = new Graphics();
+    g.roundRect(0, 0, width, height, 14);
+    g.fill({ color: 0x0b3f1f, alpha: 0.9 });
+    for (let i = 0; i < 8; i += 1) {
+      g.rect(0, (height / 8) * i, width, height / 8);
+      g.fill({ color: i % 2 === 0 ? 0x0e5228 : 0x0a381d, alpha: 0.38 });
+    }
+    g.roundRect(0, 0, width, height, 14);
+    g.stroke({ color: 0x79b786, alpha: 0.38, width: 2 });
+    g.moveTo(0, height / 2);
+    g.lineTo(width, height / 2);
+    g.circle(width / 2, height / 2, Math.min(width, height) * 0.16);
+    g.stroke({ color: 0xbce4bf, alpha: 0.28, width: 2 });
+    return g;
   }
 
   private previewSlotY(y: number) {

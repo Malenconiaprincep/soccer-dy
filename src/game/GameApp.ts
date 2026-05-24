@@ -131,6 +131,8 @@ export class GameApp {
       '/assets/ui/players-bg.png',
       '/assets/ui/draft-button.png',
       '/assets/ui/play.png',
+      '/assets/ui/squard-qc.png',
+      '/assets/ui/vs-squard.png',
       ...new Set(players.map((player) => player.portrait))
     ]);
     this.app.ticker.add((ticker) => this.scene?.update(ticker.deltaMS));
