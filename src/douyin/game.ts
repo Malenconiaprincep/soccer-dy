@@ -1,12 +1,26 @@
 type TtApi = {
   createCanvas: () => MiniCanvas;
   createImage?: () => unknown;
-  getSystemInfoSync: () => { windowWidth: number; windowHeight: number; pixelRatio?: number };
+  getSystemInfoSync: () => {
+    windowWidth: number;
+    windowHeight: number;
+    pixelRatio?: number;
+    statusBarHeight?: number;
+    safeArea?: { top: number; left: number; right: number; bottom: number; width: number; height: number };
+  };
+  getMenuButtonBoundingClientRect?: () => {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  };
   onWindowResize?: (listener: (res: { size: { windowWidth: number; windowHeight: number } }) => void) => void;
-  onTouchStart?: (listener: (event: MiniTouchEvent) => void) => void;
-  onTouchMove?: (listener: (event: MiniTouchEvent) => void) => void;
-  onTouchEnd?: (listener: (event: MiniTouchEvent) => void) => void;
-  onTouchCancel?: (listener: (event: MiniTouchEvent) => void) => void;
+  onTouchStart?: (listener: (event: TtTouchEvent) => void) => void;
+  onTouchMove?: (listener: (event: TtTouchEvent) => void) => void;
+  onTouchEnd?: (listener: (event: TtTouchEvent) => void) => void;
+  onTouchCancel?: (listener: (event: TtTouchEvent) => void) => void;
   request?: (options: {
     url: string;
     method?: string;
@@ -48,7 +62,7 @@ type MiniTouch = {
   pageY?: number;
 };
 
-type MiniTouchEvent = {
+type TtTouchEvent = {
   touches?: MiniTouch[];
   changedTouches?: MiniTouch[];
   timeStamp?: number;
@@ -62,6 +76,19 @@ if (!ttApi) {
 
 const systemInfo = ttApi.getSystemInfoSync();
 const pixelRatio = Math.min(systemInfo.pixelRatio ?? 1, 2);
+const readSafeInsets = (info: typeof systemInfo) => {
+  const top = Math.max(0, info.safeArea?.top ?? info.statusBarHeight ?? 0);
+  const menuRect = ttApi.getMenuButtonBoundingClientRect?.();
+  let contentRight = info.windowWidth;
+  if (menuRect?.left != null && menuRect.left > 0) {
+    contentRight = menuRect.left;
+  } else if (info.safeArea?.right != null && info.safeArea.right > 0 && info.safeArea.right < info.windowWidth) {
+    contentRight = info.safeArea.right;
+  } else {
+    contentRight -= 96;
+  }
+  return { top, contentRight };
+};
 const listeners = new Map<string, Set<EventListenerOrEventListenerObject>>();
 
 const addListener = (type: string, listener: EventListenerOrEventListenerObject) => {
@@ -73,6 +100,67 @@ const addListener = (type: string, listener: EventListenerOrEventListenerObject)
 const removeListener = (type: string, listener: EventListenerOrEventListenerObject) => {
   listeners.get(type)?.delete(listener);
 };
+
+class MiniPointerEvent {
+  type: string;
+  pointerId = 1;
+  pointerType = 'touch';
+  isPrimary = true;
+  button = 0;
+  buttons = 0;
+  clientX = 0;
+  clientY = 0;
+  pageX = 0;
+  pageY = 0;
+  screenX = 0;
+  screenY = 0;
+  offsetX = 0;
+  offsetY = 0;
+  movementX = 0;
+  movementY = 0;
+  pressure = 0;
+  width = 1;
+  height = 1;
+  tiltX = 0;
+  tiltY = 0;
+  twist = 0;
+  tangentialPressure = 0;
+  touches: MiniTouch[] = [];
+  changedTouches: MiniTouch[] = [];
+  target: unknown = null;
+  currentTarget: unknown = null;
+  srcElement: unknown = null;
+  timeStamp = 0;
+  isTrusted = true;
+
+  constructor(type: string, init: Record<string, unknown> = {}) {
+    this.type = type;
+    Object.assign(this, init);
+  }
+
+  preventDefault() {}
+  stopPropagation() {}
+}
+
+class MiniMouseEvent extends MiniPointerEvent {}
+
+class MiniTouchEvent {
+  type: string;
+  touches: MiniTouch[] = [];
+  changedTouches: MiniTouch[] = [];
+  target: unknown = null;
+  currentTarget: unknown = null;
+  timeStamp = 0;
+  isTrusted = true;
+
+  constructor(type: string, init: Record<string, unknown> = {}) {
+    this.type = type;
+    Object.assign(this, init);
+  }
+
+  preventDefault() {}
+  stopPropagation() {}
+}
 
 const mainCanvas = ttApi.createCanvas();
 mainCanvas.width = Math.floor(systemInfo.windowWidth * pixelRatio);
@@ -150,7 +238,7 @@ const makeImage = () => {
   throw new Error('No image factory is available in Douyin runtime.');
 };
 
-const callListeners = (type: string, event: Record<string, unknown>) => {
+const callListeners = (type: string, event: unknown) => {
   listeners.get(type)?.forEach((listener) => {
     if (typeof listener === 'function') {
       listener(event as unknown as Event);
@@ -160,59 +248,84 @@ const callListeners = (type: string, event: Record<string, unknown>) => {
   });
 };
 
-const makePointerEvent = (type: string, touch: MiniTouch, source: MiniTouchEvent) => ({
-  type,
-  pointerId: touch.identifier ?? 1,
-  pointerType: 'touch',
-  isPrimary: true,
-  button: 0,
-  buttons: type === 'pointerup' || type === 'pointercancel' ? 0 : 1,
-  clientX: touch.clientX,
-  clientY: touch.clientY,
-  pageX: touch.pageX ?? touch.clientX,
-  pageY: touch.pageY ?? touch.clientY,
-  screenX: touch.clientX,
-  screenY: touch.clientY,
-  offsetX: touch.clientX,
-  offsetY: touch.clientY,
-  movementX: 0,
-  movementY: 0,
-  pressure: type === 'pointerup' || type === 'pointercancel' ? 0 : 0.5,
-  width: 1,
-  height: 1,
-  tiltX: 0,
-  tiltY: 0,
-  twist: 0,
-  tangentialPressure: 0,
-  touches: source.touches ?? [],
-  changedTouches: source.changedTouches ?? [],
-  target: mainCanvas,
-  currentTarget: mainCanvas,
-  srcElement: mainCanvas,
-  timeStamp: source.timeStamp ?? Date.now(),
-  isTrusted: true,
-  preventDefault() {},
-  stopPropagation() {}
-});
+const makePointerEvent = (type: string, touch: MiniTouch, source: TtTouchEvent) =>
+  new MiniPointerEvent(type, {
+    pointerId: touch.identifier ?? 1,
+    pointerType: 'touch',
+    isPrimary: true,
+    button: 0,
+    buttons: type === 'pointerup' || type === 'pointercancel' ? 0 : 1,
+    clientX: touch.clientX,
+    clientY: touch.clientY,
+    pageX: touch.pageX ?? touch.clientX,
+    pageY: touch.pageY ?? touch.clientY,
+    screenX: touch.clientX,
+    screenY: touch.clientY,
+    offsetX: touch.clientX,
+    offsetY: touch.clientY,
+    movementX: 0,
+    movementY: 0,
+    pressure: type === 'pointerup' || type === 'pointercancel' ? 0 : 0.5,
+    width: 1,
+    height: 1,
+    tiltX: 0,
+    tiltY: 0,
+    twist: 0,
+    tangentialPressure: 0,
+    touches: source.touches ?? [],
+    changedTouches: source.changedTouches ?? [],
+    target: mainCanvas,
+    currentTarget: mainCanvas,
+    srcElement: mainCanvas,
+    timeStamp: source.timeStamp ?? Date.now(),
+    isTrusted: true
+  });
 
-const dispatchTouch = (pointerType: string, touchType: string, event: MiniTouchEvent) => {
+const dispatchTouch = (pointerType: string, touchType: string, event: TtTouchEvent) => {
   const changedTouches = event.changedTouches?.length ? event.changedTouches : event.touches ?? [];
   changedTouches.forEach((touch) => {
     const pointerEvent = makePointerEvent(pointerType, touch, event);
+    const mouseInit = {
+      pointerId: pointerEvent.pointerId,
+      pointerType: pointerEvent.pointerType,
+      isPrimary: pointerEvent.isPrimary,
+      button: pointerEvent.button,
+      buttons: pointerEvent.buttons,
+      clientX: pointerEvent.clientX,
+      clientY: pointerEvent.clientY,
+      pageX: pointerEvent.pageX,
+      pageY: pointerEvent.pageY,
+      screenX: pointerEvent.screenX,
+      screenY: pointerEvent.screenY,
+      offsetX: pointerEvent.offsetX,
+      offsetY: pointerEvent.offsetY,
+      movementX: pointerEvent.movementX,
+      movementY: pointerEvent.movementY,
+      pressure: pointerEvent.pressure,
+      width: pointerEvent.width,
+      height: pointerEvent.height,
+      target: pointerEvent.target,
+      currentTarget: pointerEvent.currentTarget,
+      srcElement: pointerEvent.srcElement,
+      timeStamp: pointerEvent.timeStamp,
+      isTrusted: pointerEvent.isTrusted
+    };
     callListeners(pointerType, pointerEvent);
-    if (pointerType === 'pointerdown') callListeners('mousedown', { ...pointerEvent, type: 'mousedown' });
-    if (pointerType === 'pointermove') callListeners('mousemove', { ...pointerEvent, type: 'mousemove' });
-    if (pointerType === 'pointerup') callListeners('mouseup', { ...pointerEvent, type: 'mouseup' });
+    if (pointerType === 'pointerdown') callListeners('mousedown', new MiniMouseEvent('mousedown', mouseInit));
+    if (pointerType === 'pointermove') callListeners('mousemove', new MiniMouseEvent('mousemove', mouseInit));
+    if (pointerType === 'pointerup') callListeners('mouseup', new MiniMouseEvent('mouseup', mouseInit));
   });
-  callListeners(touchType, {
-    type: touchType,
-    touches: event.touches ?? [],
-    changedTouches,
-    target: mainCanvas,
-    currentTarget: mainCanvas,
-    preventDefault() {},
-    stopPropagation() {}
-  });
+  callListeners(
+    touchType,
+    new MiniTouchEvent(touchType, {
+      touches: event.touches ?? [],
+      changedTouches,
+      target: mainCanvas,
+      currentTarget: mainCanvas,
+      timeStamp: event.timeStamp ?? Date.now(),
+      isTrusted: true
+    })
+  );
 };
 
 ttApi.onTouchStart?.((event) => dispatchTouch('pointerdown', 'touchstart', event));
@@ -311,9 +424,9 @@ const miniDocument = {
 Object.assign(globalThis, {
   window: miniWindow,
   document: miniDocument,
-  PointerEvent: undefined,
-  MouseEvent: undefined,
-  TouchEvent: undefined,
+  PointerEvent: MiniPointerEvent,
+  MouseEvent: MiniMouseEvent,
+  TouchEvent: MiniTouchEvent,
   ResizeObserver: class MiniGameResizeObserver {
     observe() {}
     unobserve() {}
@@ -349,12 +462,15 @@ void Promise.all([import('pixi.js/unsafe-eval'), import('pixi.js')]).then(async 
     appendChild: () => undefined,
     addEventListener: addListener
   };
+  const safeInsets = readSafeInsets(systemInfo);
   const game = new GameApp(mount, {
     canvas: mainCanvas,
     width: systemInfo.windowWidth,
     height: systemInfo.windowHeight,
     pixelRatio,
-    miniGame: true
+    miniGame: true,
+    safeAreaTop: safeInsets.top,
+    safeContentRight: safeInsets.contentRight
   });
   Object.assign(globalThis, { __soccerGame: game });
   void game.start();
@@ -364,6 +480,9 @@ void Promise.all([import('pixi.js/unsafe-eval'), import('pixi.js')]).then(async 
     mount.clientHeight = size.windowHeight;
     mainCanvas.width = Math.floor(size.windowWidth * pixelRatio);
     mainCanvas.height = Math.floor(size.windowHeight * pixelRatio);
+    const insets = readSafeInsets(ttApi.getSystemInfoSync());
+    game.setSafeAreaInsets(insets);
     game.app.renderer.resize(size.windowWidth, size.windowHeight);
+    game.onViewportResize();
   });
 });

@@ -5,6 +5,7 @@ import { avatar, coverSprite, glassPanel, label, palette } from '../ui';
 const HOME_BG = '/assets/home-bg.jpg';
 const TOP_BUTTON = '/assets/ui/top-button.png';
 const AVATAR_BG = '/assets/ui/avatar-bg.png';
+const AVATAR_RING_FRAME = new Rectangle(291, 118, 503, 503);
 const TOP_BAR_FRAME = { width: 1024, height: 289 };
 const TOP_GEM_FRAME = new Rectangle(0, 0, TOP_BAR_FRAME.width, TOP_BAR_FRAME.height);
 const TOP_ENERGY_FRAME = new Rectangle(TOP_BAR_FRAME.width, 0, TOP_BAR_FRAME.width, TOP_BAR_FRAME.height);
@@ -54,11 +55,17 @@ export class HomeScene extends BaseScene {
     });
   }
 
+  private getHomeTopInset() {
+    return Math.max(18, this.game.safeAreaTop + (this.game.isMiniGame ? 6 : 18));
+  }
+
   private drawTopBar() {
     const top = new Container();
     const layout = this.getTopBarLayout();
-    top.x = (this.game.width - layout.totalWidth) / 2;
-    top.y = 18 + this.game.contentTopOffset * 0.05;
+    const sidePad = 16;
+    const zoneRight = this.game.isMiniGame ? layout.contentRight : this.game.width - sidePad;
+    top.x = sidePad + Math.max(0, (zoneRight - sidePad - layout.totalWidth) / 2);
+    top.y = this.getHomeTopInset();
 
     const sheet = Texture.from(TOP_BUTTON);
     const barY = (layout.avatarHeight - layout.barHeight) / 2;
@@ -81,12 +88,21 @@ export class HomeScene extends BaseScene {
   private getTopBarLayout() {
     const sidePad = 16;
     const gap = 8;
-    const maxWidth = this.game.width - sidePad * 2;
-    const avatarSize = 96;
+    const contentRight = this.game.isMiniGame
+      ? Math.min(this.game.safeContentRight, this.game.width - sidePad)
+      : this.game.width - sidePad;
+    const maxWidth = Math.max(280, contentRight - sidePad);
+    let avatarSize = 96;
+    if (this.game.isMiniGame && maxWidth < 500) avatarSize = 88;
+    if (this.game.isMiniGame && maxWidth < 440) avatarSize = 80;
     const avatarLayout = this.getAvatarLayout(avatarSize);
-    const barWidth = Math.max(160, (maxWidth - avatarLayout.width - gap * 2) / 2);
+    let barWidth = Math.max(120, (maxWidth - avatarLayout.width - gap * 2) / 2);
     const barHeight = barWidth / (TOP_BAR_FRAME.width / TOP_BAR_FRAME.height);
-    const totalWidth = avatarLayout.width + gap + barWidth + gap + barWidth;
+    let totalWidth = avatarLayout.width + gap + barWidth + gap + barWidth;
+    if (totalWidth > maxWidth) {
+      barWidth = Math.max(108, (maxWidth - avatarLayout.width - gap * 2) / 2);
+      totalWidth = avatarLayout.width + gap + barWidth + gap + barWidth;
+    }
 
     return {
       avatarSize,
@@ -95,15 +111,15 @@ export class HomeScene extends BaseScene {
       barWidth,
       barHeight,
       gap,
-      totalWidth: Math.min(totalWidth, maxWidth)
+      totalWidth,
+      contentRight
     };
   }
 
   private getAvatarLayout(size: number) {
-    const texture = Texture.from(AVATAR_BG);
-    const scale = size / texture.height;
+    const scale = size / AVATAR_RING_FRAME.height;
     return {
-      width: texture.width * scale,
+      width: AVATAR_RING_FRAME.width * scale,
       height: size,
       scale
     };
@@ -112,20 +128,27 @@ export class HomeScene extends BaseScene {
   private drawAvatarBlock(size: number) {
     const block = new Container();
     const layout = this.getAvatarLayout(size);
+    const centerX = layout.width / 2;
+    const centerY = layout.height / 2;
 
-    const avatarSlot = new Container();
-    avatarSlot.x = layout.width / 2;
-    avatarSlot.y = layout.height / 2;
-    this.drawTopAvatar(avatarSlot, size * 0.64);
-    block.addChild(avatarSlot);
-
-    const ring = new Sprite(Texture.from(AVATAR_BG));
+    const ring = new Sprite(
+      new Texture({
+        source: Texture.from(AVATAR_BG).source,
+        frame: AVATAR_RING_FRAME
+      })
+    );
     ring.anchor.set(0.5);
-    ring.scale.set(layout.scale);
-    ring.x = layout.width / 2;
-    ring.y = layout.height / 2;
-    block.addChild(ring);
+    ring.width = layout.width;
+    ring.height = layout.height;
+    ring.x = centerX;
+    ring.y = centerY;
 
+    const photoWrap = new Container();
+    photoWrap.x = centerX;
+    photoWrap.y = centerY;
+    this.drawTopAvatar(photoWrap, size * 0.64);
+
+    block.addChild(photoWrap, ring);
     return block;
   }
 
@@ -149,21 +172,28 @@ export class HomeScene extends BaseScene {
   }
 
   private drawTopAvatar(parent: Container, size: number) {
+    const photoLayer = new Container();
     const mask = new Graphics();
     mask.circle(0, 0, size / 2);
     mask.fill(0xffffff);
-    parent.addChild(mask);
-    parent.mask = mask;
+
+    const mountPhoto = (node: Container | Sprite) => {
+      if (node instanceof Sprite) {
+        node.anchor.set(0.5);
+      } else {
+        node.x = -size / 2;
+        node.y = -size / 2;
+      }
+      photoLayer.removeChildren();
+      photoLayer.addChild(node, mask);
+      photoLayer.mask = mask;
+    };
 
     const fallback = this.game.platform.name === 'web' ? WEB_AVATAR : undefined;
     const url = this.game.user.avatarUrl ?? fallback;
-    const drawFallback = () => {
-      const placeholder = avatar(Math.round(size));
-      placeholder.x = -size / 2;
-      placeholder.y = -size / 2;
-      parent.addChild(placeholder);
-    };
+    const drawFallback = () => mountPhoto(avatar(Math.round(size)));
 
+    parent.addChild(photoLayer);
     if (!url) {
       drawFallback();
       return;
@@ -172,10 +202,9 @@ export class HomeScene extends BaseScene {
     void Assets.load<Texture>(url)
       .then((texture) => {
         const sprite = Sprite.from(texture);
-        sprite.anchor.set(0.5);
-        const scale = Math.max(size / sprite.texture.width, size / sprite.texture.height);
+        const scale = Math.max((size * 1.08) / sprite.texture.width, (size * 1.08) / sprite.texture.height);
         sprite.scale.set(scale);
-        parent.addChild(sprite);
+        mountPhoto(sprite);
       })
       .catch(drawFallback);
   }
@@ -245,7 +274,7 @@ export class HomeScene extends BaseScene {
     const sidePad = 14;
     const leftX = sidePad;
     const rightX = this.game.width - sidePad - SHORTCUT_BTN_W;
-    const startY = 152 + this.game.contentTopOffset * 0.16;
+    const startY = this.getHomeTopInset() + 132;
     const itemGap = 14;
     const sign = this.sideShortcutButton(0, '七日签到');
     sign.x = leftX;

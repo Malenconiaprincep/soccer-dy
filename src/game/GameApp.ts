@@ -29,6 +29,8 @@ interface GameRuntime {
   height?: number;
   pixelRatio?: number;
   miniGame?: boolean;
+  safeAreaTop?: number;
+  safeContentRight?: number;
 }
 
 export class GameApp {
@@ -56,9 +58,13 @@ export class GameApp {
   battleSource = defaultBattleSource;
   private viewportWidth = DESIGN_WIDTH;
   private viewportHeight = DESIGN_HEIGHT;
+  private safeAreaInsetTopPx = 0;
+  private safeContentRightPx = 0;
 
   constructor(private readonly mount: GameMount, private readonly runtime: GameRuntime = {}) {
     this.platform = runtime.miniGame ? new DouyinPlatform() : new WebPlatform();
+    this.safeAreaInsetTopPx = runtime.safeAreaTop ?? 0;
+    this.safeContentRightPx = runtime.safeContentRight ?? 0;
   }
 
   async start() {
@@ -265,13 +271,64 @@ export class GameApp {
     return this.viewportHeight;
   }
 
+  get isMiniGame() {
+    return !!this.runtime.miniGame;
+  }
+
+  get safeAreaTop() {
+    return this.screenPxToDesignY(this.safeAreaInsetTopPx);
+  }
+
+  get safeContentRight() {
+    if (!this.isMiniGame || this.safeContentRightPx <= 0) return this.viewportWidth;
+    return Math.max(this.viewportWidth * 0.52, this.screenPxToDesignX(this.safeContentRightPx) - 14);
+  }
+
   get contentTopOffset() {
-    return Math.max(0, this.viewportHeight - DESIGN_HEIGHT) * 0.42;
+    const tallBonus = Math.max(0, this.viewportHeight - DESIGN_HEIGHT) * 0.42;
+    const miniPad = this.isMiniGame ? 12 : 0;
+    return this.safeAreaTop + miniPad + tallBonus;
+  }
+
+  setSafeAreaInsets(insets: { top?: number; contentRight?: number }) {
+    if (insets.top != null) this.safeAreaInsetTopPx = Math.max(0, insets.top);
+    if (insets.contentRight != null) this.safeContentRightPx = Math.max(0, insets.contentRight);
+  }
+
+  setSafeAreaInsetTop(topPx: number) {
+    this.setSafeAreaInsets({ top: topPx });
+  }
+
+  onViewportResize() {
+    this.resize();
+  }
+
+  private screenPxToDesignX(screenX: number) {
+    if (screenX <= 0) return 0;
+    const scale = this.getLayoutScale();
+    if (scale <= 0) return screenX;
+    const rootX = (this.app.renderer.width - this.viewportWidth * scale) / 2;
+    return (screenX - rootX) / scale;
+  }
+
+  private screenPxToDesignY(screenY: number) {
+    if (screenY <= 0) return 0;
+    const scale = this.getLayoutScale();
+    if (scale <= 0) return screenY;
+    const rootY = (this.app.renderer.height - this.viewportHeight * scale) / 2;
+    return Math.max(0, (screenY - rootY) / scale);
+  }
+
+  private getLayoutScale() {
+    return Math.min(
+      this.app.renderer.width / this.viewportWidth,
+      this.app.renderer.height / this.viewportHeight
+    );
   }
 
   private resize() {
     this.updateViewport();
-    const scale = Math.min(this.app.renderer.width / this.viewportWidth, this.app.renderer.height / this.viewportHeight);
+    const scale = this.getLayoutScale();
     this.root.scale.set(scale);
     this.root.x = (this.app.renderer.width - this.viewportWidth * scale) / 2;
     this.root.y = (this.app.renderer.height - this.viewportHeight * scale) / 2;
