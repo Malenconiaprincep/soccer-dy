@@ -43,6 +43,7 @@ export class GameApp {
   user = { userId: 'local-user', nickname: '本地经理', avatarUrl: undefined as string | undefined };
   selectedFormation: FormationData = formations[1];
   lineup: LineupSlot[] = formations[1].slots.map((slot) => ({ ...slot }));
+  substitutes: Array<PlayerCardData | undefined> = Array.from({ length: 5 }, () => undefined);
   coins = 1286000;
   gems = 5688;
   energy = 120;
@@ -110,6 +111,7 @@ export class GameApp {
     const savedLineup = this.storage.applyLineup(save);
     this.selectedFormation = savedLineup.formation;
     this.lineup = savedLineup.lineup;
+    this.substitutes = this.storage.applySubstitutes(save, this.lineup);
     const auth = await this.platform.login();
     this.user = {
       userId: auth.userId || this.user.userId,
@@ -174,6 +176,18 @@ export class GameApp {
       if (slot.player?.id === player.id) return { ...slot, player: undefined };
       if (slot.id === slotId) return { ...slot, player };
       return slot;
+    });
+    this.substitutes = this.substitutes.map((substitute) => (substitute?.id === player.id ? undefined : substitute));
+    void this.persist();
+  }
+
+  fillSubstitute(index: number, player: PlayerCardData) {
+    if (!this.collectionIds.has(player.id) || index < 0 || index >= this.substitutes.length) return;
+    this.lineup = this.lineup.map((slot) => (slot.player?.id === player.id ? { ...slot, player: undefined } : slot));
+    this.substitutes = this.substitutes.map((substitute, itemIndex) => {
+      if (substitute?.id === player.id) return undefined;
+      if (itemIndex === index) return player;
+      return substitute;
     });
     void this.persist();
   }
@@ -257,6 +271,7 @@ export class GameApp {
       dailyTaskDate: this.dailyTaskDate,
       selectedFormationId: this.selectedFormation.id,
       lineup: this.lineup.map((slot) => ({ slotId: slot.id, playerId: slot.player?.id })),
+      substitutes: this.substitutes.map((player, index) => ({ index, playerId: player?.id })),
       updatedAt: new Date().toISOString()
     });
   }

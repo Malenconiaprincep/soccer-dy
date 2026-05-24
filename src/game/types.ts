@@ -62,6 +62,7 @@ export interface PlayerSaveData {
   dailyTaskDate: string;
   selectedFormationId: string;
   lineup: Array<{ slotId: string; playerId?: string }>;
+  substitutes: Array<{ index: number; playerId?: string }>;
   updatedAt: string;
 }
 

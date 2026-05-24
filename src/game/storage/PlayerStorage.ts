@@ -1,5 +1,5 @@
 import { defaultCollectionIds, formations, players, starterCollectionIds } from '../data';
-import type { LineupSlot, PlayerSaveData, Position } from '../types';
+import type { LineupSlot, PlayerCardData, PlayerSaveData, Position } from '../types';
 
 const SAVE_KEY = 'soccer-dy3-player-save';
 
@@ -71,7 +71,13 @@ export class PlayerStorage {
     }
   }
 
-  toSaveData(userId: string, nickname: string, selectedFormationId: string, lineup: LineupSlot[]): PlayerSaveData {
+  toSaveData(
+    userId: string,
+    nickname: string,
+    selectedFormationId: string,
+    lineup: LineupSlot[],
+    substitutes: Array<PlayerCardData | undefined> = []
+  ): PlayerSaveData {
     return {
       userId,
       nickname,
@@ -86,6 +92,7 @@ export class PlayerStorage {
       dailyTaskDate: this.todayKey(),
       selectedFormationId,
       lineup: lineup.map((slot) => ({ slotId: slot.id, playerId: slot.player?.id })),
+      substitutes: this.serializeSubstitutes(substitutes),
       updatedAt: new Date().toISOString()
     };
   }
@@ -109,6 +116,24 @@ export class PlayerStorage {
     };
   }
 
+  applySubstitutes(save: PlayerSaveData, lineup: LineupSlot[]) {
+    const playerById = new Map(players.map((player) => [player.id, player]));
+    const collectionIds = save.collection?.length ? save.collection : defaultCollectionIds;
+    const ownedIds = new Set(collectionIds);
+    const usedIds = new Set(lineup.flatMap((slot) => (slot.player ? [slot.player.id] : [])));
+    const substitutes: Array<PlayerCardData | undefined> = Array.from({ length: 5 }, () => undefined);
+
+    (save.substitutes ?? []).forEach((slot) => {
+      if (slot.index < 0 || slot.index >= substitutes.length || !slot.playerId) return;
+      const player = ownedIds.has(slot.playerId) ? playerById.get(slot.playerId) : undefined;
+      if (!player || usedIds.has(player.id)) return;
+      substitutes[slot.index] = player;
+      usedIds.add(player.id);
+    });
+
+    return substitutes;
+  }
+
   normalizeSave(save: PlayerSaveData): PlayerSaveData {
     const today = this.todayKey();
     const dailyReset = save.dailyTaskDate !== today;
@@ -119,7 +144,8 @@ export class PlayerStorage {
       wins: Number(save.wins ?? 0),
       collection: this.withDefaultCollection(save.collection),
       claimedTasks: dailyReset ? [] : save.claimedTasks ?? [],
-      dailyTaskDate: today
+      dailyTaskDate: today,
+      substitutes: this.normalizeSubstitutes(save.substitutes)
     };
   }
 
@@ -147,6 +173,7 @@ export class PlayerStorage {
       dailyTaskDate: this.todayKey(),
       selectedFormationId: formations[1].id,
       lineup: this.createStarterLineup(formations[1]),
+      substitutes: this.emptySubstitutes(),
       updatedAt: new Date().toISOString()
     };
   }
@@ -182,6 +209,7 @@ export class PlayerStorage {
       daily_task_date: save.dailyTaskDate,
       selected_formation_id: save.selectedFormationId,
       lineup: save.lineup,
+      substitutes: save.substitutes,
       updated_at: save.updatedAt
     };
   }
@@ -201,6 +229,7 @@ export class PlayerStorage {
       dailyTaskDate: String(row.daily_task_date ?? this.todayKey()),
       selectedFormationId: String(row.selected_formation_id ?? formations[1].id),
       lineup: Array.isArray(row.lineup) ? (row.lineup as PlayerSaveData['lineup']) : [],
+      substitutes: Array.isArray(row.substitutes) ? (row.substitutes as PlayerSaveData['substitutes']) : this.emptySubstitutes(),
       updatedAt: String(row.updated_at ?? new Date().toISOString())
     };
   }
@@ -218,6 +247,19 @@ export class PlayerStorage {
       if (player) usedIds.add(player.id);
       return { slotId: slot.id, playerId: player?.id };
     });
+  }
+
+  private serializeSubstitutes(substitutes: Array<PlayerCardData | undefined>) {
+    return Array.from({ length: 5 }, (_item, index) => ({ index, playerId: substitutes[index]?.id }));
+  }
+
+  private normalizeSubstitutes(substitutes?: PlayerSaveData['substitutes']) {
+    const byIndex = new Map((substitutes ?? []).map((slot) => [slot.index, slot.playerId]));
+    return Array.from({ length: 5 }, (_item, index) => ({ index, playerId: byIndex.get(index) }));
+  }
+
+  private emptySubstitutes() {
+    return Array.from({ length: 5 }, (_item, index) => ({ index, playerId: undefined }));
   }
 
   private bestAvailable(position: Position, ownedIds: Set<string>, usedIds: Set<string>) {

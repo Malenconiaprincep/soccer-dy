@@ -8,6 +8,7 @@ export class FormationScene extends BaseScene {
   private field?: Container;
   private modal?: Container;
   private modalSlotId?: string;
+  private modalBenchIndex?: number;
   private modalCandidates: PlayerCardData[] = [];
   private revealed = new Set<string>();
   private modalTime = 0;
@@ -411,11 +412,9 @@ export class FormationScene extends BaseScene {
     panel.addChild(swapBtn);
 
     const itemGap = (panelW - 184) / 4;
-    const hasStarter = this.game.lineup.some((slot) => slot.player);
-    const usedIds = new Set(this.game.lineup.flatMap((slot) => (slot.player ? [slot.player.id] : [])));
-    const bench = hasStarter ? this.game.ownedPlayers().filter((player) => !usedIds.has(player.id)).slice(0, 5) : [];
     for (let index = 0; index < 5; index += 1) {
-      const item = bench[index] ? this.benchPlayer(bench[index]) : this.emptyBenchSlot();
+      const player = this.game.substitutes[index];
+      const item = player ? this.benchPlayer(player, index) : this.emptyBenchSlot(index);
       item.x = 92 + itemGap * index;
       item.y = panelH * 0.78;
       panel.addChild(item);
@@ -424,7 +423,7 @@ export class FormationScene extends BaseScene {
     this.container.addChild(panel);
   }
 
-  private emptyBenchSlot() {
+  private emptyBenchSlot(index: number) {
     const c = new Container();
     const frame = this.emptyCardFrame();
     frame.scale.set(0.68);
@@ -440,10 +439,16 @@ export class FormationScene extends BaseScene {
     text.anchor.set(0.5);
     text.y = 33;
     c.addChild(frame, plus, nameBg, text);
+    c.eventMode = 'static';
+    c.cursor = 'pointer';
+    c.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.openBenchBlindBox(index);
+    });
     return c;
   }
 
-  private benchPlayer(player: PlayerCardData) {
+  private benchPlayer(player: PlayerCardData, index: number) {
     const c = new Container();
     const scale = 0.88;
     const card = new Container();
@@ -472,6 +477,12 @@ export class FormationScene extends BaseScene {
     name.anchor.set(0.5);
     name.y = 33;
     c.addChild(card, nameBg, name);
+    c.eventMode = 'static';
+    c.cursor = 'pointer';
+    c.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.openBenchBlindBox(index);
+    });
     return c;
   }
 
@@ -1089,20 +1100,40 @@ export class FormationScene extends BaseScene {
 
   private openBlindBox(slot: LineupSlot) {
     this.modalSlotId = slot.id;
+    this.modalBenchIndex = undefined;
     this.revealed.clear();
     this.revealPulse = 0;
     this.revealTargetId = undefined;
-    const selectedIds = this.game.lineup.flatMap((item) => (item.player ? [item.player.id] : []));
+    const selectedIds = this.game.lineup.flatMap((item) =>
+      item.id !== slot.id && item.player ? [item.player.id] : []
+    );
     this.modalCandidates = this.shufflePlayers(
       this.game
         .ownedPlayers(slot.position)
         .filter((player) => player.id === slot.player?.id || !selectedIds.includes(player.id))
     ).slice(0, 4);
     this.modalCandidates.forEach((player) => this.revealed.add(player.id));
-    this.drawBlindBoxModal(slot.position);
+    this.drawBlindBoxModal(this.positionName(slot.position), '点击一张卡加入首发，重复球员会自动移出原位置');
   }
 
-  private drawBlindBoxModal(position: Position) {
+  private openBenchBlindBox(index: number) {
+    this.modalSlotId = undefined;
+    this.modalBenchIndex = index;
+    this.revealed.clear();
+    this.revealPulse = 0;
+    this.revealTargetId = undefined;
+    const currentPlayer = this.game.substitutes[index];
+    const selectedIds = this.game.substitutes.flatMap((player, itemIndex) =>
+      player && itemIndex !== index ? [player.id] : []
+    );
+    this.modalCandidates = this.shufflePlayers(
+      this.game.ownedPlayers().filter((player) => player.id === currentPlayer?.id || !selectedIds.includes(player.id))
+    ).slice(0, 4);
+    this.modalCandidates.forEach((player) => this.revealed.add(player.id));
+    this.drawBlindBoxModal(`替补${index + 1}`, '点击一张卡加入替补，重复球员会自动移出原位置');
+  }
+
+  private drawBlindBoxModal(titleText: string, hintText: string) {
     this.closeModal();
     const shift = this.game.contentTopOffset * 0.7;
     const modal = new Container();
@@ -1114,11 +1145,11 @@ export class FormationScene extends BaseScene {
     mask.eventMode = 'static';
     modal.addChild(mask);
 
-    const title = label(`${this.positionName(position)} 4选1`, 46, palette.white, '900');
+    const title = label(`${titleText} 4选1`, 46, palette.white, '900');
     title.anchor.set(0.5);
     title.x = this.game.width / 2;
     title.y = 166 + shift;
-    const hint = label('点击一张卡加入首发，重复球员会自动移出原位置', 22, 0xcfe0ff, '700');
+    const hint = label(hintText, 22, 0xcfe0ff, '700');
     hint.anchor.set(0.5);
     hint.x = this.game.width / 2;
     hint.y = 218 + shift;
@@ -1230,6 +1261,9 @@ export class FormationScene extends BaseScene {
       if (this.modalSlotId) {
         this.game.sound.play('select');
         this.game.fillSlot(this.modalSlotId, player);
+      } else if (this.modalBenchIndex !== undefined) {
+        this.game.sound.play('select');
+        this.game.fillSubstitute(this.modalBenchIndex, player);
       }
       this.closeModal();
       this.resize();
