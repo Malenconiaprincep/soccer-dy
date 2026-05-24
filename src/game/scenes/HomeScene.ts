@@ -9,19 +9,21 @@ const TOP_BAR_FRAME = { width: 1024, height: 289 };
 const TOP_GEM_FRAME = new Rectangle(0, 0, TOP_BAR_FRAME.width, TOP_BAR_FRAME.height);
 const TOP_ENERGY_FRAME = new Rectangle(TOP_BAR_FRAME.width, 0, TOP_BAR_FRAME.width, TOP_BAR_FRAME.height);
 const WEB_AVATAR = '/assets/players/generated/saka.png';
+const SIDE_BUTTONS = '/assets/ui/buttons.png';
+const SIDE_BUTTON_CELL = { width: 256, height: 512, cropY: 96, cropSize: 280 };
+const SHORTCUT_BTN_W = 88;
+const SHORTCUT_ICON = 84;
 
 export class HomeScene extends BaseScene {
   private taskModal?: Container;
   private elapsedMs = 0;
-  private startGlow?: Graphics;
-  private startShine?: Graphics;
-  private startShineWidth = 0;
+  private startLightSweep?: Container;
+  private startLightSweepWidth = 0;
   private floaters: { node: Container; baseY: number; amplitude: number; phase: number }[] = [];
 
   protected build() {
     this.elapsedMs = 0;
-    this.startGlow = undefined;
-    this.startShine = undefined;
+    this.startLightSweep = undefined;
     this.floaters = [];
     this.container.addChild(coverSprite(HOME_BG, this.game.width, this.game.height));
     this.drawVignette();
@@ -38,12 +40,14 @@ export class HomeScene extends BaseScene {
 
   update(deltaMs: number) {
     this.elapsedMs += deltaMs;
-    const pulse = (Math.sin(this.elapsedMs * 0.0042) + 1) / 2;
-    if (this.startGlow) this.startGlow.alpha = 0.18 + pulse * 0.24;
-    if (this.startShine && this.startShineWidth > 0) {
-      const progress = (this.elapsedMs % 2200) / 2200;
-      this.startShine.x = -this.startShineWidth * 0.24 + progress * this.startShineWidth * 1.22;
-      this.startShine.alpha = progress > 0.12 && progress < 0.72 ? 0.16 : 0;
+    if (this.startLightSweep && this.startLightSweepWidth > 0) {
+      const cycle = 3200;
+      const progress = (this.elapsedMs % cycle) / cycle;
+      const active = progress > 0.12 && progress < 0.78;
+      const travel = this.startLightSweepWidth * 1.28;
+      const eased = active ? Math.sin(((progress - 0.12) / 0.66) * Math.PI) : 0;
+      this.startLightSweep.x = -this.startLightSweepWidth * 0.28 + progress * travel;
+      this.startLightSweep.alpha = eased * 0.42;
     }
     this.floaters.forEach((item) => {
       item.node.y = item.baseY + Math.sin(this.elapsedMs * 0.002 + item.phase) * item.amplitude;
@@ -194,7 +198,9 @@ export class HomeScene extends BaseScene {
 
   private drawCommandDeck() {
     const matchW = Math.min(408, this.game.width - 270);
-    const matchY = this.game.height - matchW * (410 / 832) - 56;
+    const matchTexture = Texture.from('/assets/ui/start.png');
+    const matchH = matchW * (matchTexture.height / matchTexture.width);
+    const matchY = this.game.height - matchH - 56;
     const start = this.matchButton(matchW);
     start.x = (this.game.width - matchW) / 2;
     start.y = matchY;
@@ -209,36 +215,37 @@ export class HomeScene extends BaseScene {
   private drawHeroPlayer() {
     const sprite = new Sprite(Texture.from('/assets/ui/hero.png'));
     sprite.anchor.set(0.5, 1);
-    const maxHeight = Math.max(340, this.game.height - 650);
-    const maxWidth = Math.min(360, this.game.width * 0.48);
+    const maxHeight = Math.max(400, this.game.height - 600);
+    const maxWidth = Math.min(430, this.game.width * 0.56);
     const scale = Math.min(maxHeight / sprite.texture.height, maxWidth / sprite.texture.width);
     sprite.scale.set(scale);
     sprite.x = this.game.width / 2;
-    sprite.y = this.game.height - 368;
+    sprite.y = this.game.height - 352;
     this.container.addChild(sprite);
   }
 
   private drawSideShortcuts() {
-    const leftX = 22;
-    const rightX = this.game.width - 88;
+    const sidePad = 14;
+    const leftX = sidePad;
+    const rightX = this.game.width - sidePad - SHORTCUT_BTN_W;
     const startY = 152 + this.game.contentTopOffset * 0.16;
-    const gap = 100;
-    const sign = this.spriteMenuButton('sign');
+    const itemGap = 14;
+    const sign = this.sideShortcutButton(0, '七日签到');
     sign.x = leftX;
     sign.y = startY;
     this.floaters.push({ node: sign, baseY: sign.y, amplitude: 1.4, phase: 0 });
-    const shop = this.spriteMenuButton('shop');
+    const shop = this.sideShortcutButton(1, '商城');
     shop.x = leftX;
-    shop.y = startY + gap;
+    shop.y = startY + this.sideShortcutBlockHeight() + itemGap;
     this.floaters.push({ node: shop, baseY: shop.y, amplitude: 1.4, phase: 1.6 });
 
-    const follow = this.rightSpriteMenuButton('gift', '关注领奖');
+    const follow = this.sideShortcutButton(2, '关注领奖');
     follow.x = rightX;
     follow.y = startY;
     this.floaters.push({ node: follow, baseY: follow.y, amplitude: 1.2, phase: 0.3 });
-    const rank = this.spriteMenuButton('rank');
+    const rank = this.sideShortcutButton(3, '排行榜');
     rank.x = rightX;
-    rank.y = startY + gap;
+    rank.y = startY + this.sideShortcutBlockHeight() + itemGap;
     this.floaters.push({ node: rank, baseY: rank.y, amplitude: 1.2, phase: 1.2 });
     this.container.addChild(sign, shop, follow, rank);
   }
@@ -339,29 +346,56 @@ export class HomeScene extends BaseScene {
 
   private matchButton(width: number) {
     const c = new Container();
-    const height = width * (410 / 832);
-    const glow = new Graphics();
-    glow.roundRect(-8, -8, width + 16, height + 16, 28);
-    glow.fill({ color: 0xffd25a, alpha: 1 });
-    glow.alpha = 0.28;
-    const sprite = new Sprite(Texture.from('/assets/ui/start.png'));
+    const texture = Texture.from('/assets/ui/start.png');
+    const height = width * (texture.height / texture.width);
+    const radius = height * 0.2;
+
+    const shadow = new Graphics();
+    shadow.roundRect(5, 8, width, height, radius);
+    shadow.fill({ color: 0x0a1a10, alpha: 0.22 });
+
+    const sprite = new Sprite(texture);
     sprite.width = width;
     sprite.height = height;
-    const shine = new Graphics();
-    shine.roundRect(0, 14, width * 0.22, 16, 8);
-    shine.fill({ color: 0xffffff, alpha: 1 });
-    shine.rotation = -0.18;
-    shine.alpha = 0;
-    c.addChild(glow, sprite, shine);
-    this.startGlow = glow;
-    this.startShine = shine;
-    this.startShineWidth = width;
+
+    const clipMask = new Graphics();
+    clipMask.roundRect(0, 0, width, height, radius);
+    clipMask.fill(0xffffff);
+
+    const lightLayer = new Container();
+    const sweep = this.createStartLightSweep(width, height);
+    lightLayer.addChild(sweep);
+
+    c.addChild(shadow, clipMask, sprite, lightLayer);
+    lightLayer.mask = clipMask;
+
+    this.startLightSweep = sweep;
+    this.startLightSweepWidth = width;
     c.eventMode = 'static';
     c.cursor = 'pointer';
     c.on('pointerdown', () => c.scale.set(0.985));
     c.on('pointerup', () => c.scale.set(1));
     c.on('pointerupoutside', () => c.scale.set(1));
     return c;
+  }
+
+  private createStartLightSweep(width: number, height: number) {
+    const sweep = new Container();
+    sweep.y = height / 2;
+    const beam = new Graphics();
+    const bandH = height * 0.72;
+    const layers = [
+      { w: width * 0.22, a: 0.04 },
+      { w: width * 0.14, a: 0.08 },
+      { w: width * 0.07, a: 0.14 },
+    ];
+    layers.forEach(({ w, a }) => {
+      beam.roundRect(-w / 2, -bandH / 2, w, bandH, w * 0.45);
+      beam.fill({ color: 0xffffff, alpha: a });
+    });
+    sweep.addChild(beam);
+    sweep.rotation = -0.18;
+    return sweep;
   }
 
   private sidePlayButton(iconText: string, text: string, accent: number) {
@@ -602,67 +636,39 @@ export class HomeScene extends BaseScene {
     return c;
   }
 
-  private spriteMenuButton(kind: 'sign' | 'task' | 'shop' | 'rank', badge = 0) {
-    const frames = {
-      sign: new Rectangle(14, 24, 125, 149),
-      task: new Rectangle(206, 24, 130, 150),
-      shop: new Rectangle(393, 23, 118, 152),
-      rank: new Rectangle(577, 22, 123, 154)
-    };
-    const base = Texture.from('/assets/ui/buttons.png');
-    const texture = new Texture({ source: base.source, frame: frames[kind] });
-    const c = new Container();
-    const sprite = new Sprite(texture);
-    sprite.anchor.set(0.5, 0);
-    sprite.x = 41;
-    sprite.y = 0;
-    sprite.width = 82;
-    sprite.height = 82 * (frames[kind].height / frames[kind].width);
-    c.addChild(sprite);
-    if (badge > 0) {
-      const badgeBg = new Graphics();
-      badgeBg.circle(88, 10, 12);
-      badgeBg.fill({ color: 0xff3333, alpha: 0.98 });
-      badgeBg.stroke({ color: 0xffffff, alpha: 0.86, width: 2 });
-      const badgeText = label(String(badge), 15, palette.white, '900');
-      badgeText.anchor.set(0.5);
-      badgeText.x = 88;
-      badgeText.y = 10;
-      c.addChild(badgeBg, badgeText);
-    }
-    c.eventMode = 'static';
-    c.cursor = 'pointer';
-    return c;
+  private sideShortcutBlockHeight() {
+    const iconBottom = SIDE_BUTTON_CELL.cropSize * (SHORTCUT_ICON / SIDE_BUTTON_CELL.width);
+    return iconBottom + 30;
   }
 
-  private rightSpriteMenuButton(kind: 'gift', text: string) {
-    const iconFrames = {
-      gift: new Rectangle(21, 24, 113, 113)
-    };
+  private sideShortcutButton(index: number, caption: string) {
     const c = new Container();
-    const base = Texture.from('/assets/ui/buttons.png');
-    const iconFrame = iconFrames[kind];
-    const icon = new Sprite(new Texture({ source: base.source, frame: iconFrame }));
+    const base = Texture.from(SIDE_BUTTONS);
+    const frame = new Rectangle(
+      index * SIDE_BUTTON_CELL.width,
+      SIDE_BUTTON_CELL.cropY,
+      SIDE_BUTTON_CELL.width,
+      SIDE_BUTTON_CELL.cropSize
+    );
+    const scale = SHORTCUT_ICON / SIDE_BUTTON_CELL.width;
+    const icon = new Sprite(new Texture({ source: base.source, frame }));
     icon.anchor.set(0.5, 0);
-    icon.x = 41;
+    icon.scale.set(scale);
+    icon.x = SHORTCUT_BTN_W / 2;
     icon.y = 0;
-    icon.width = 72;
-    icon.height = 72;
+    c.addChild(icon);
 
-    const plateShadow = new Graphics();
-    plateShadow.roundRect(4, 62, 76, 38, 12);
-    plateShadow.fill({ color: 0x000000, alpha: 0.42 });
-    const plate = new Graphics();
-    plate.roundRect(0, 58, 82, 40, 12);
-    plate.fill({ color: 0x061752, alpha: 0.98 });
-    plate.stroke({ color: 0x6d91ff, alpha: 0.92, width: 3 });
-    const title = label(text, 15, palette.white, '900');
-    title.anchor.set(0.5);
-    title.x = 41;
-    title.y = 78;
-    c.addChild(icon, plateShadow, plate, title);
+    const iconBottom = SIDE_BUTTON_CELL.cropSize * scale;
+    const title = label(caption, 18, palette.white, '900');
+    title.anchor.set(0.5, 0);
+    title.x = SHORTCUT_BTN_W / 2;
+    title.y = iconBottom + 8;
+    c.addChild(title);
+
+    const blockHeight = this.sideShortcutBlockHeight();
     c.eventMode = 'static';
     c.cursor = 'pointer';
+    c.hitArea = new Rectangle(0, 0, SHORTCUT_BTN_W, blockHeight);
     return c;
   }
 
