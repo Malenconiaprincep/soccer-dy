@@ -905,6 +905,31 @@ export class FormationScene extends BaseScene {
     return t;
   }
 
+  private fitSkillLabel(text: string, size: number, maxWidth: number, minScale = 0.72) {
+    const t = new Text({
+      text,
+      style: new TextStyle({
+        fill: 0xfff0b3,
+        fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
+        fontSize: size,
+        fontWeight: '700',
+        align: 'center',
+        stroke: { color: 0x2a1400, width: 3 },
+        dropShadow: {
+          color: 0x000000,
+          blur: 4,
+          distance: 2,
+          alpha: 0.78
+        }
+      })
+    });
+    if (t.width > maxWidth) {
+      const scale = Math.max(minScale, maxWidth / t.width);
+      t.scale.set(scale);
+    }
+    return t;
+  }
+
   private pageButton(text: string) {
     const btn = new Container();
     btn.addChild(glassPanel(46, 44, 0x10245c, 0x20b8ff));
@@ -1143,7 +1168,7 @@ export class FormationScene extends BaseScene {
         .ownedPlayers(slot.position)
         .filter((player) => player.id === slot.player?.id || !selectedIds.includes(player.id))
     ).slice(0, FormationScene.BLIND_BOX_PICK_COUNT);
-    this.drawBlindBoxModal(this.positionName(slot.position), '点击卡片开启，翻开即可选择球员');
+    this.drawBlindBoxModal(this.positionName(slot.position), '点击卡片全部开启后，再选择球员');
   }
 
   private openBenchBlindBox(index: number) {
@@ -1159,7 +1184,7 @@ export class FormationScene extends BaseScene {
     this.modalCandidates = this.shufflePlayers(
       this.game.ownedPlayers().filter((player) => player.id === currentPlayer?.id || !selectedIds.includes(player.id))
     ).slice(0, FormationScene.BLIND_BOX_PICK_COUNT);
-    this.drawBlindBoxModal(`替补${index + 1}`, '点击卡片开启，翻开即可选择球员');
+    this.drawBlindBoxModal(`替补${index + 1}`, '点击卡片全部开启后，再选择球员');
   }
 
   private getBlindCardAspect() {
@@ -1256,14 +1281,19 @@ export class FormationScene extends BaseScene {
     this.animateModalCards();
   }
 
+  private allBlindCardsRevealed() {
+    return this.modalCandidates.length > 0 && this.modalCandidates.every((player) => this.revealed.has(player.id));
+  }
+
   private blindCard(player: PlayerCardData, backW: number, backH: number, faceW: number, faceH: number, index: number) {
     const c = new Container();
     c.name = `blind-card-${index}`;
     c.eventMode = 'static';
-    c.cursor = 'pointer';
     c.hitArea = new Rectangle(0, 0, backW, backH);
     c.interactiveChildren = false;
     const isOpen = this.revealed.has(player.id);
+    const canSelect = this.allBlindCardsRevealed();
+    c.cursor = !isOpen || canSelect ? 'pointer' : 'default';
     const flipping = this.revealTargetId === player.id && this.revealPulse > 0;
     const pulseRatio = flipping ? 1 - this.revealPulse / FormationScene.BLIND_REVEAL_DURATION : 0;
 
@@ -1287,6 +1317,7 @@ export class FormationScene extends BaseScene {
         this.triggerReveal(player, index);
         return;
       }
+      if (!this.allBlindCardsRevealed()) return;
       if (this.modalSlotId) {
         this.game.sound.play('select');
         this.game.fillSlot(this.modalSlotId, player);
@@ -1335,7 +1366,7 @@ export class FormationScene extends BaseScene {
     const portrait = this.portrait(player, faceSize);
     portrait.x = bx + (bw - faceSize) / 2;
     portrait.y = by + bh * layout.portraitY;
-    const skill = this.fitLabel(`#${player.skill}`, Math.round(bw * 0.1), bw * 0.86, 0xfff0b3, '700', 0.72);
+    const skill = this.fitSkillLabel(`#${player.skill}`, Math.round(bw * 0.1), bw * 0.86);
     skill.anchor.set(0.5);
     skill.x = bx + bw / 2;
     skill.y = by + bh * layout.skillY;
@@ -1402,6 +1433,8 @@ export class FormationScene extends BaseScene {
       const frontFace = child.getChildAt(1);
       const flipping = this.revealTargetId === player.id && this.revealPulse > 0;
       const isOpen = this.revealed.has(player.id);
+      const canSelect = this.allBlindCardsRevealed();
+      child.cursor = !isOpen || canSelect ? 'pointer' : 'default';
       if (flipping) {
         const progress = 1 - this.revealPulse / FormationScene.BLIND_REVEAL_DURATION;
         backFace.visible = true;
