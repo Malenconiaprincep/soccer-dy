@@ -11,6 +11,16 @@ export class FormationScene extends BaseScene {
   private static readonly BLIND_CARD_BACK = '/assets/ui/card-guess.png';
   private static readonly BLIND_FACE_SCALE = 0.86;
   private static readonly BLIND_BACK_BOOST = 1.14;
+  private static readonly BLIND_REVEAL_DURATION = 600;
+  private static readonly BLIND_BOX_LIFT = 50;
+  private static readonly CARD_BG_FRAMES: Record<Rarity, Rectangle> = {
+    bronze: new Rectangle(77, -10, 249, 357),
+    silver: new Rectangle(413, -10, 251, 357),
+    purple: new Rectangle(747, -10, 250, 357),
+    gold: new Rectangle(76, 350, 253, 327),
+    legend: new Rectangle(399, 348, 276, 331),
+    orange: new Rectangle(721, 347, 304, 337)
+  };
   private field?: Container;
   private modal?: Container;
   private modalSlotId?: string;
@@ -845,32 +855,38 @@ export class FormationScene extends BaseScene {
     const innerH = h;
     const contentOffsetX = innerW * 0.04;
 
+    const fit = this.fitCardBgBounds(player.rarity, innerW, innerH);
     const bg = this.cardBgSprite(player.rarity);
-    bg.x = innerX;
-    bg.y = innerY;
-    bg.width = innerW;
-    bg.height = innerH;
+    bg.x = fit.offsetX;
+    bg.y = fit.offsetY;
+    bg.width = fit.drawW;
+    bg.height = fit.drawH;
     c.addChild(bg);
 
-    const faceSize = innerW * 0.54;
+    const bx = fit.offsetX;
+    const by = fit.offsetY;
+    const bw = fit.drawW;
+    const bh = fit.drawH;
+    const faceSize = bw * 0.54;
     const face = this.portrait(player, faceSize);
-    face.x = innerX + (innerW - faceSize) / 2 + contentOffsetX;
-    face.y = innerY + innerH * 0.3;
+    face.x = bx + (bw - faceSize) / 2 + contentOffsetX;
+    face.y = by + bh * 0.3;
     c.addChild(face);
 
-    const rating = label(String(player.rating), Math.round(innerW * 0.23), palette.white, '900');
-    rating.x = innerX + innerW * 0.12 + contentOffsetX;
-    rating.y = innerY + innerH * 0.07;
-    const pos = this.cardMetaLabel(player.position, Math.round(innerW * 0.14));
-    pos.x = innerX + innerW * 0.13 + contentOffsetX;
-    pos.y = innerY + innerH * 0.23;
+    const rating = label(String(player.rating), Math.round(bw * 0.23), palette.white, '900');
+    rating.x = bx + bw * 0.12 + contentOffsetX;
+    rating.y = by + bh * 0.07;
+    const pos = this.cardMetaLabel(player.position, Math.round(bw * 0.14));
+    pos.x = bx + bw * 0.13 + contentOffsetX;
+    pos.y = by + bh * 0.23;
     c.addChild(rating, pos);
 
     const nameText = this.compactPlayerName(player.name);
-    const name = this.fitLabel(nameText, Math.round(innerW * 0.14), innerW * 0.66, palette.white, '900', 0.86);
+    const layout = this.cardFaceLayout(player.rarity);
+    const name = this.fitLabel(nameText, Math.round(bw * 0.12), bw * 0.66, palette.white, '900', 0.82);
     name.anchor.set(0.5);
-    name.x = w / 2 + contentOffsetX;
-    name.y = innerY + innerH * (player.rarity === 'gold' ? 0.86 : 0.82);
+    name.x = bx + bw / 2 + contentOffsetX;
+    name.y = by + bh * layout.nameY;
     c.addChild(name);
     return c;
   }
@@ -940,28 +956,51 @@ export class FormationScene extends BaseScene {
     const shadow = new Graphics();
     shadow.roundRect(-width / 2 + 7, -height / 2 + 12, width - 14, height - 18, 16);
     shadow.fill({ color: 0x000000, alpha: 0.38 });
+    const fit = this.fitCardBgBounds(rarity, width, height);
     const bg = this.cardBgSprite(rarity);
     bg.anchor.set(0.5);
-    bg.width = width;
-    bg.height = height;
+    bg.width = fit.drawW;
+    bg.height = fit.drawH;
     c.addChild(shadow, bg);
     return c;
   }
 
-  private cardBgSprite(rarity: Rarity) {
-    const map: Record<Rarity, Rectangle> = {
-      bronze: new Rectangle(64, 0, 280, 340),
-      silver: new Rectangle(392, 0, 288, 340),
-      purple: new Rectangle(720, 0, 288, 340),
-      gold: new Rectangle(64, 354, 286, 310),
-      legend: new Rectangle(396, 354, 296, 310),
-      orange: new Rectangle(716, 346, 304, 330)
+  private cardFaceLayout(rarity: Rarity) {
+    if (rarity === 'orange') {
+      return { portraitY: 0.27, roleY: 0.16, skillY: 0.68, nameY: 0.86 };
+    }
+    if (rarity === 'gold' || rarity === 'legend') {
+      return { portraitY: 0.28, roleY: 0.17, skillY: 0.68, nameY: 0.875 };
+    }
+    return { portraitY: 0.28, roleY: 0.17, skillY: 0.68, nameY: 0.825 };
+  }
+
+  private cardBgAspect(rarity: Rarity) {
+    const frame = FormationScene.CARD_BG_FRAMES[rarity];
+    return frame.width / frame.height;
+  }
+
+  private fitCardBgBounds(rarity: Rarity, boxW: number, boxH: number) {
+    const aspect = this.cardBgAspect(rarity);
+    const boxAspect = boxW / boxH;
+    let drawW = boxW;
+    let drawH = boxH;
+    if (aspect > boxAspect) drawH = boxW / aspect;
+    else if (aspect < boxAspect) drawW = boxH * aspect;
+    return {
+      drawW,
+      drawH,
+      offsetX: (boxW - drawW) / 2,
+      offsetY: (boxH - drawH) / 2
     };
+  }
+
+  private cardBgSprite(rarity: Rarity) {
     const texture = Texture.from('/assets/ui/cardbg.png');
     return new Sprite(
       new Texture({
         source: texture.source,
-        frame: map[rarity]
+        frame: FormationScene.CARD_BG_FRAMES[rarity]
       })
     );
   }
@@ -1135,14 +1174,16 @@ export class FormationScene extends BaseScene {
     const count = FormationScene.BLIND_BOX_PICK_COUNT;
     const sidePad = 18;
     const gap = 8;
-    const faceW = Math.floor(((this.game.width - sidePad * 2 - gap * (count - 1)) / count) * FormationScene.BLIND_FACE_SCALE);
+    const availableW = this.game.width - sidePad * 2 - gap * (count - 1);
+    const cardW = Math.floor((availableW / count) * FormationScene.BLIND_FACE_SCALE * FormationScene.BLIND_BACK_BOOST);
+    const cardH = Math.round(cardW * this.getBlindCardAspect());
+    const faceW = Math.round(cardW / FormationScene.BLIND_BACK_BOOST);
     const faceH = Math.round(faceW * this.getBlindCardAspect());
-    const cardW = Math.round(faceW * FormationScene.BLIND_BACK_BOOST);
-    const cardH = Math.round(faceH * FormationScene.BLIND_BACK_BOOST);
     const rowW = cardW * count + gap * (count - 1);
-    const rowX = (this.game.width - rowW) / 2 + 100;
-    const titleY = 166 + shift;
-    const hintY = 218 + shift;
+    const rowX = (this.game.width - rowW) / 2;
+    const lift = FormationScene.BLIND_BOX_LIFT;
+    const titleY = 166 + shift - lift;
+    const hintY = 218 + shift - lift;
     const contentTop = hintY + 52;
     const contentBottom = this.game.height - Math.max(88, this.game.height * 0.1);
     const contentCenterY = contentTop + Math.max(cardH, contentBottom - contentTop) / 2;
@@ -1200,10 +1241,12 @@ export class FormationScene extends BaseScene {
     title.anchor.set(0.5);
     title.x = this.game.width / 2;
     title.y = layout.titleY;
+    title.eventMode = 'none';
     const hint = label(hintText, 22, 0xcfe0ff, '700');
     hint.anchor.set(0.5);
     hint.x = this.game.width / 2;
     hint.y = layout.hintY;
+    hint.eventMode = 'none';
     modal.addChild(title, hint);
 
     this.mountBlindBoxCards(modal, layout);
@@ -1218,31 +1261,21 @@ export class FormationScene extends BaseScene {
     c.name = `blind-card-${index}`;
     c.eventMode = 'static';
     c.cursor = 'pointer';
-    const isOpen = this.revealed.has(player.id);
-    c.hitArea = isOpen
-      ? new Rectangle((backW - faceW) / 2, (backH - faceH) / 2, faceW, faceH)
-      : new Rectangle(0, 0, backW, backH);
+    c.hitArea = new Rectangle(0, 0, backW, backH);
     c.interactiveChildren = false;
+    const isOpen = this.revealed.has(player.id);
     const flipping = this.revealTargetId === player.id && this.revealPulse > 0;
-    const pulseRatio = flipping ? 1 - this.revealPulse / 850 : 0;
-
-    const flipper = new Container();
-    flipper.name = 'flipper';
-    flipper.eventMode = 'none';
-    flipper.pivot.set(backW / 2, backH / 2);
-    flipper.x = backW / 2;
-    flipper.y = backH / 2;
+    const pulseRatio = flipping ? 1 - this.revealPulse / FormationScene.BLIND_REVEAL_DURATION : 0;
 
     const backFace = this.createBlindCardBack(backW, backH);
-    backFace.x = -backW / 2;
-    backFace.y = -backH / 2;
-    const frontFace = this.createBlindCardFront(player, faceW, faceH, isOpen);
-    frontFace.x = -faceW / 2;
-    frontFace.y = -faceH / 2;
+    const frontFace = this.createBlindCardFront(player, faceW, faceH);
+    frontFace.x = (backW - faceW) / 2;
+    frontFace.y = (backH - faceH) / 2;
     backFace.visible = !isOpen;
     frontFace.visible = isOpen;
-    flipper.addChild(backFace, frontFace);
-    c.addChild(flipper);
+    backFace.alpha = isOpen ? 0 : 1;
+    frontFace.alpha = isOpen ? 1 : 0;
+    c.addChild(backFace, frontFace);
 
     if (flipping) {
       this.drawRevealParticles(c, backW, backH, pulseRatio);
@@ -1276,43 +1309,48 @@ export class FormationScene extends BaseScene {
     return face;
   }
 
-  private createBlindCardFront(player: PlayerCardData, w: number, h: number, isRevealed: boolean) {
+  private createBlindCardFront(player: PlayerCardData, w: number, h: number) {
     const face = new Container();
+    const layout = this.cardFaceLayout(player.rarity);
+    const fit = this.fitCardBgBounds(player.rarity, w, h);
     const bg = this.cardBgSprite(player.rarity);
-    bg.width = w;
-    bg.height = h;
+    bg.x = fit.offsetX;
+    bg.y = fit.offsetY;
+    bg.width = fit.drawW;
+    bg.height = fit.drawH;
     face.addChild(bg);
 
-    const rating = label(String(player.rating), Math.round(w * 0.19), palette.white, '900');
-    rating.x = w * 0.09;
-    rating.y = h * 0.05;
-    const role = label(this.positionName(player.position), Math.round(w * 0.1), palette.white, '900');
-    role.x = w * 0.1;
-    role.y = h * 0.17;
-    const faceSize = w * 0.58;
+    const bx = fit.offsetX;
+    const by = fit.offsetY;
+    const bw = fit.drawW;
+    const bh = fit.drawH;
+
+    const rating = label(String(player.rating), Math.round(bw * 0.19), palette.white, '900');
+    rating.x = bx + bw * 0.09;
+    rating.y = by + bh * 0.05;
+    const role = label(this.positionName(player.position), Math.round(bw * 0.1), palette.white, '900');
+    role.x = bx + bw * 0.1;
+    role.y = by + bh * layout.roleY;
+    const faceSize = bw * 0.58;
     const portrait = this.portrait(player, faceSize);
-    portrait.x = (w - faceSize) / 2;
-    portrait.y = h * 0.25;
-    const name = this.fitLabel(player.name, Math.round(w * 0.16), w * 0.84, palette.white, '900', 0.76);
-    name.anchor.set(0.5);
-    name.x = w / 2;
-    name.y = h * 0.62;
-    const skill = this.fitLabel(`#${player.skill}`, Math.round(w * 0.1), w * 0.86, 0xfff0b3, '700', 0.72);
+    portrait.x = bx + (bw - faceSize) / 2;
+    portrait.y = by + bh * layout.portraitY;
+    const skill = this.fitLabel(`#${player.skill}`, Math.round(bw * 0.1), bw * 0.86, 0xfff0b3, '700', 0.72);
     skill.anchor.set(0.5);
-    skill.x = w / 2;
-    skill.y = h * 0.75;
-    const choose = label(isRevealed ? '选择' : '点击开启', Math.round(w * (isRevealed ? 0.092 : 0.1)), isRevealed ? palette.white : 0xfff0b3, '900');
-    choose.anchor.set(0.5);
-    choose.x = w / 2;
-    choose.y = h * 0.88;
-    face.addChild(rating, role, portrait, name, skill, choose);
+    skill.x = bx + bw / 2;
+    skill.y = by + bh * layout.skillY;
+    const name = this.fitLabel(player.name, Math.round(bw * 0.13), bw * 0.84, palette.white, '900', 0.72);
+    name.anchor.set(0.5);
+    name.x = bx + bw / 2;
+    name.y = by + bh * layout.nameY;
+    face.addChild(rating, role, portrait, name, skill);
     return face;
   }
 
   private triggerReveal(player: PlayerCardData, _index: number) {
     if (this.revealed.has(player.id) || this.revealTargetId === player.id) return;
     this.revealTargetId = player.id;
-    this.revealPulse = 850;
+    this.revealPulse = FormationScene.BLIND_REVEAL_DURATION;
     this.game.sound.play('reveal');
   }
 
@@ -1360,18 +1398,21 @@ export class FormationScene extends BaseScene {
       const offset = Math.sin(this.modalTime / 420 + index * 0.8) * 3;
       this.layoutBlindCard(child, index, layout, offset);
 
-      const flipper = child.getChildByName('flipper') as Container | undefined;
-      if (!flipper) return;
+      const backFace = child.getChildAt(0);
+      const frontFace = child.getChildAt(1);
       const flipping = this.revealTargetId === player.id && this.revealPulse > 0;
+      const isOpen = this.revealed.has(player.id);
       if (flipping) {
-        const progress = 1 - this.revealPulse / 850;
-        flipper.scale.x = Math.max(0.04, Math.abs(Math.cos(progress * Math.PI)));
-        const backFace = flipper.getChildAt(0);
-        const frontFace = flipper.getChildAt(1);
-        backFace.visible = progress < 0.5;
-        frontFace.visible = progress >= 0.5;
+        const progress = 1 - this.revealPulse / FormationScene.BLIND_REVEAL_DURATION;
+        backFace.visible = true;
+        frontFace.visible = true;
+        backFace.alpha = 1 - progress;
+        frontFace.alpha = progress;
       } else {
-        flipper.scale.x = 1;
+        backFace.visible = !isOpen;
+        frontFace.visible = isOpen;
+        backFace.alpha = isOpen ? 0 : 1;
+        frontFace.alpha = isOpen ? 1 : 0;
       }
     });
   }

@@ -48,9 +48,9 @@ export class HomeScene extends BaseScene {
       const cycle = 3200;
       const progress = (this.elapsedMs % cycle) / cycle;
       const active = progress > 0.12 && progress < 0.78;
-      const travel = this.startLightSweepWidth * 1.28;
+      const travel = this.startLightSweepWidth * 1.12;
       const eased = active ? Math.sin(((progress - 0.12) / 0.66) * Math.PI) : 0;
-      this.startLightSweep.x = -this.startLightSweepWidth * 0.28 + progress * travel;
+      this.startLightSweep.x = -this.startLightSweepWidth * 0.08 + progress * travel;
       this.startLightSweep.alpha = eased * 0.58;
     }
     this.floaters.forEach((item) => {
@@ -416,21 +416,11 @@ export class HomeScene extends BaseScene {
     const lightLayer = new Container();
     lightLayer.addChild(this.createStartLightSweep(width, height));
 
-    const topGloss = new Graphics();
-    topGloss.roundRect(width * 0.05, height * 0.05, width * 0.56, height * 0.3, radius * 0.32);
-    topGloss.fill({ color: 0xffffff, alpha: 0.2 });
-    const specular = new Graphics();
-    specular.ellipse(width * 0.11, height * 0.13, width * 0.09, height * 0.065);
-    specular.fill({ color: 0xffffff, alpha: 0.32 });
-    const bottomShade = new Graphics();
-    bottomShade.roundRect(width * 0.06, height * 0.58, width * 0.88, height * 0.34, radius * 0.22);
-    bottomShade.fill({ color: 0x6b3200, alpha: 0.14 });
-
     const btnSurface = new Container();
-    btnSurface.addChild(sprite, bottomShade, lightLayer, topGloss, specular);
+    btnSurface.addChild(clipMask, sprite, lightLayer);
     btnSurface.mask = clipMask;
 
-    c.addChild(shadow, clipMask, btnSurface);
+    c.addChild(shadow, btnSurface);
     this.startLightSweep = lightLayer.children[0] as Container;
     this.startLightSweepWidth = width;
     c.eventMode = 'static';
@@ -443,20 +433,20 @@ export class HomeScene extends BaseScene {
 
   private createStartLightSweep(width: number, height: number) {
     const sweep = new Container();
-    sweep.y = height / 2;
+    sweep.y = height * 0.52;
     const beam = new Graphics();
-    const bandH = height * 0.72;
+    const bandH = height * 0.54;
     const layers = [
-      { w: width * 0.22, a: 0.06 },
-      { w: width * 0.14, a: 0.13 },
-      { w: width * 0.07, a: 0.22 },
+      { w: width * 0.18, a: 0.05 },
+      { w: width * 0.11, a: 0.1 },
+      { w: width * 0.05, a: 0.16 },
     ];
     layers.forEach(({ w, a }) => {
-      beam.roundRect(-w / 2, -bandH / 2, w, bandH, w * 0.45);
+      beam.roundRect(-w / 2, -bandH / 2, w, bandH, Math.min(w * 0.35, bandH * 0.22));
       beam.fill({ color: 0xffffff, alpha: a });
     });
     sweep.addChild(beam);
-    sweep.rotation = -0.18;
+    sweep.rotation = -0.14;
     return sweep;
   }
 
