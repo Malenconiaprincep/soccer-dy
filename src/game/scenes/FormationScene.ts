@@ -4,7 +4,11 @@ import { formations } from '../data';
 import type { FormationData, LineupSlot, PlayerCardData, Position, Rarity } from '../types';
 import { coverSprite, glassPanel, label, palette } from '../ui';
 
+const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
+
 export class FormationScene extends BaseScene {
+  private static readonly BLIND_BOX_PICK_COUNT = 3;
+  private static readonly BLIND_CARD_BACK = '/assets/ui/card-guess.png';
   private field?: Container;
   private modal?: Container;
   private modalSlotId?: string;
@@ -42,7 +46,7 @@ export class FormationScene extends BaseScene {
   protected build() {
     this.container.addChild(this.formationBackground());
     this.drawHeader();
-    this.drawDebugAutofill();
+    if (runtimeEnv.DEV) this.drawDebugAutofill();
     this.drawFormationCards();
     this.drawField();
     this.drawBench();
@@ -58,6 +62,11 @@ export class FormationScene extends BaseScene {
     this.animateFormationSlide();
     if (this.revealPulse > 0) {
       this.revealPulse = Math.max(0, this.revealPulse - deltaMs);
+      if (this.revealPulse === 0 && this.revealTargetId) {
+        this.revealed.add(this.revealTargetId);
+        this.revealTargetId = undefined;
+        this.refreshBlindBoxCards();
+      }
     }
     if (this.modal) this.animateModalCards();
   }
@@ -389,27 +398,8 @@ export class FormationScene extends BaseScene {
 
     const title = label('替补球员', 28, palette.white, '900');
     title.x = 34;
-    title.y = 24;
+    title.y = 30;
     panel.addChild(title);
-
-    const swapBtn = new Container();
-    swapBtn.x = panelW - 184;
-    swapBtn.y = 22;
-    swapBtn.addChild(glassPanel(142, 40, 0x10245c, 0x20b8ff));
-    const swap = label('↔ 全部替补', 19, 0xdffbff, '900');
-    swap.anchor.set(0.5);
-    swap.x = 71;
-    swap.y = 20;
-    swapBtn.addChild(swap);
-    swapBtn.eventMode = 'static';
-    swapBtn.cursor = 'pointer';
-    swapBtn.hitArea = new Rectangle(0, 0, 142, 40);
-    swapBtn.on('pointertap', () => {
-      this.game.sound.play('tap');
-      this.warehousePage = 0;
-      this.openCardWarehouse();
-    });
-    panel.addChild(swapBtn);
 
     const itemGap = (panelW - 184) / 4;
     for (let index = 0; index < 5; index += 1) {
@@ -427,17 +417,17 @@ export class FormationScene extends BaseScene {
     const c = new Container();
     const frame = this.emptyCardFrame();
     frame.scale.set(0.68);
-    frame.y = -62;
+    frame.y = -72;
     const nameBg = new Graphics();
-    nameBg.roundRect(-54, 16, 108, 34, 8);
+    nameBg.roundRect(-54, 8, 108, 34, 8);
     nameBg.fill({ color: 0x071e41, alpha: 0.58 });
     nameBg.stroke({ color: 0x56a8ff, alpha: 0.3, width: 2 });
     const plus = label('+', 30, 0x6ce8ff, '900');
     plus.anchor.set(0.5);
-    plus.y = -62;
+    plus.y = -72;
     const text = label('空位', 18, 0x89b8dc, '900');
     text.anchor.set(0.5);
-    text.y = 33;
+    text.y = 25;
     c.addChild(frame, plus, nameBg, text);
     c.eventMode = 'static';
     c.cursor = 'pointer';
@@ -1111,9 +1101,8 @@ export class FormationScene extends BaseScene {
       this.game
         .ownedPlayers(slot.position)
         .filter((player) => player.id === slot.player?.id || !selectedIds.includes(player.id))
-    ).slice(0, 4);
-    this.modalCandidates.forEach((player) => this.revealed.add(player.id));
-    this.drawBlindBoxModal(this.positionName(slot.position), '点击一张卡加入首发，重复球员会自动移出原位置');
+    ).slice(0, FormationScene.BLIND_BOX_PICK_COUNT);
+    this.drawBlindBoxModal(this.positionName(slot.position), '点击卡片开启，全部翻开后可选择');
   }
 
   private openBenchBlindBox(index: number) {
@@ -1128,9 +1117,61 @@ export class FormationScene extends BaseScene {
     );
     this.modalCandidates = this.shufflePlayers(
       this.game.ownedPlayers().filter((player) => player.id === currentPlayer?.id || !selectedIds.includes(player.id))
-    ).slice(0, 4);
-    this.modalCandidates.forEach((player) => this.revealed.add(player.id));
-    this.drawBlindBoxModal(`替补${index + 1}`, '点击一张卡加入替补，重复球员会自动移出原位置');
+    ).slice(0, FormationScene.BLIND_BOX_PICK_COUNT);
+    this.drawBlindBoxModal(`替补${index + 1}`, '点击卡片开启，全部翻开后可选择');
+  }
+
+  private getBlindBoxLayout() {
+    const shift = this.game.contentTopOffset * 0.7;
+    const count = Math.max(1, this.modalCandidates.length || FormationScene.BLIND_BOX_PICK_COUNT);
+    const gap = 18;
+    const edgePad = 24;
+    const usableW = this.game.width - edgePad * 2;
+    const cardW = Math.min(228, (usableW - gap * (count - 1)) / count);
+    const cardH = cardW * 1.48;
+    const rowW = cardW * count + gap * (count - 1);
+    const rowCenterX = this.game.width / 2;
+    const titleY = 166 + shift;
+    const hintY = 218 + shift;
+    const contentTop = hintY + 74;
+    const contentBottom = this.game.height - Math.max(96, this.game.height * 0.11);
+    const contentCenterY = contentTop + Math.max(cardH, contentBottom - contentTop) / 2;
+    const cardY = Math.max(contentTop, contentCenterY - cardH / 2);
+    return { cardW, cardH, rowCenterX, cardY, gap, shift, rowW, count, titleY, hintY };
+  }
+
+  private getBlindCardRow() {
+    return this.modal?.getChildByName('blind-cards-row') as Container | undefined;
+  }
+
+  private layoutBlindCard(card: Container, index: number, layout: ReturnType<FormationScene['getBlindBoxLayout']>, yOffset = 0) {
+    card.x = index * (layout.cardW + layout.gap);
+    card.y = yOffset;
+  }
+
+  private syncBlindCardRowLayout(cardsRow: Container, layout: ReturnType<FormationScene['getBlindBoxLayout']>) {
+    cardsRow.pivot.set(layout.rowW / 2, 0);
+    cardsRow.x = layout.rowCenterX;
+    cardsRow.y = layout.cardY;
+  }
+
+  private mountBlindBoxCards(modal: Container, layout: ReturnType<FormationScene['getBlindBoxLayout']>) {
+    const existingRow = modal.getChildByName('blind-cards-row');
+    if (existingRow) {
+      existingRow.destroy({ children: true });
+      modal.removeChild(existingRow);
+    }
+
+    const cardsRow = new Container();
+    cardsRow.name = 'blind-cards-row';
+    modal.addChild(cardsRow);
+    this.syncBlindCardRowLayout(cardsRow, layout);
+
+    this.modalCandidates.forEach((player, index) => {
+      const card = this.blindCard(player, layout.cardW, layout.cardH, index);
+      this.layoutBlindCard(card, index, layout);
+      cardsRow.addChild(card);
+    });
   }
 
   private drawBlindBoxModal(titleText: string, hintText: string) {
@@ -1145,31 +1186,23 @@ export class FormationScene extends BaseScene {
     mask.eventMode = 'static';
     modal.addChild(mask);
 
-    const title = label(`${titleText} 4选1`, 46, palette.white, '900');
+    const title = label(`${titleText} 3选1`, 46, palette.white, '900');
     title.anchor.set(0.5);
     title.x = this.game.width / 2;
-    title.y = 166 + shift;
+    title.y = layout.titleY;
     const hint = label(hintText, 22, 0xcfe0ff, '700');
     hint.anchor.set(0.5);
     hint.x = this.game.width / 2;
-    hint.y = 218 + shift;
+    hint.y = layout.hintY;
     modal.addChild(title, hint);
 
+    const layout = this.getBlindBoxLayout();
     const aura = new Graphics();
-    aura.ellipse(this.game.width / 2, 534 + shift, 330, 196);
+    aura.ellipse(layout.rowCenterX, layout.cardY + layout.cardH * 0.52, layout.rowW * 0.56, layout.cardH * 0.62);
     aura.fill({ color: 0xffc43b, alpha: 0.08 + this.revealPulse / 9000 });
     modal.addChild(aura);
 
-    const gap = 12;
-    const cardW = Math.min(164, (this.game.width - 58 - gap * 3) / 4);
-    const cardH = cardW * 1.48;
-    const startX = (this.game.width - cardW * 4 - gap * 3) / 2;
-    this.modalCandidates.forEach((player, index) => {
-      const card = this.blindCard(player, cardW, cardH, index);
-      card.x = startX + index * (cardW + gap);
-      card.y = 360 + shift;
-      modal.addChild(card);
-    });
+    this.mountBlindBoxCards(modal, layout);
 
     this.modal = modal;
     this.container.addChild(modal);
@@ -1181,83 +1214,45 @@ export class FormationScene extends BaseScene {
     c.name = `blind-card-${index}`;
     const isOpen = this.revealed.has(player.id);
     const allRevealed = this.modalCandidates.every((candidate) => this.revealed.has(candidate.id));
-    const fill = isOpen ? player.color : 0x17234f;
-    const border = isOpen ? 0xffef9a : 0x5d74bd;
-    const pulseRatio = this.revealTargetId === player.id ? this.revealPulse / 850 : 0;
+    const flipping = this.revealTargetId === player.id && this.revealPulse > 0;
+    const pulseRatio = flipping ? 1 - this.revealPulse / 850 : 0;
+
     const glow = new Graphics();
-    glow.roundRect(-12 - pulseRatio * 14, -12 - pulseRatio * 14, w + 24 + pulseRatio * 28, h + 24 + pulseRatio * 28, 26);
-    glow.fill({ color: isOpen ? fill : 0xffdf76, alpha: isOpen ? 0.32 : 0.16 + pulseRatio * 0.34 });
-    c.addChild(glow, glassPanel(w, h, fill, border));
+    glow.roundRect(0, 0, w, h, 22);
+    glow.fill({ color: isOpen || flipping ? player.color : 0x58d0ff, alpha: isOpen ? 0.32 : 0.12 + pulseRatio * 0.28 });
+    c.addChild(glow);
 
-    const pattern = new Graphics();
-    for (let i = 0; i < 8; i += 1) {
-      pattern.moveTo(14, 34 + i * 30);
-      pattern.lineTo(w - 14, 14 + i * 30);
-      pattern.stroke({ color: 0xffffff, alpha: isOpen ? 0.08 : 0.04, width: 1 });
-    }
-    c.addChild(pattern);
+    const flipper = new Container();
+    flipper.name = 'flipper';
+    flipper.pivot.set(w / 2, h / 2);
+    flipper.x = w / 2;
+    flipper.y = h / 2;
 
-    if (!isOpen) {
-      const seal = new Graphics();
-      seal.circle(w / 2, h * 0.38, w * 0.25 + pulseRatio * 16);
-      seal.fill({ color: 0xffdf76, alpha: 0.08 + pulseRatio * 0.18 });
-      const sparkle = new Graphics();
-      const twinkle = (Math.sin(this.modalTime / 180 + index) + 1) / 2;
-      for (let i = 0; i < 8; i += 1) {
-        const sx = 24 + ((i * 37) % Math.floor(w - 48));
-        const sy = 28 + ((i * 53) % Math.floor(h - 56));
-        sparkle.star(sx, sy, 4, 5 + twinkle * 4, 1.5);
-        sparkle.fill({ color: i % 2 ? 0xfff1a6 : 0xffffff, alpha: 0.16 + twinkle * 0.22 });
-      }
-      const q = label('?', Math.round(w * 0.48), 0xffdf76, '900');
-      q.anchor.set(0.5);
-      q.x = w / 2;
-      q.y = h * 0.43;
-      const text = label('球员盲盒', Math.round(w * 0.13), palette.white, '900');
-      text.anchor.set(0.5);
-      text.x = w / 2;
-      text.y = h * 0.68;
-      const tap = label('点击开启', Math.round(w * 0.1), 0xfff0b3, '900');
-      tap.anchor.set(0.5);
-      tap.x = w / 2;
-      tap.y = h * 0.82;
-      c.addChild(seal, sparkle, q, text, tap);
-    } else {
-      const rating = label(String(player.rating), Math.round(w * 0.19), palette.white, '900');
-      rating.x = w * 0.09;
-      rating.y = h * 0.05;
-      const role = label(this.positionName(player.position), Math.round(w * 0.1), palette.white, '900');
-      role.x = w * 0.1;
-      role.y = h * 0.17;
-      const badge = new Graphics();
-      badge.roundRect(w - w * 0.23, h * 0.05, w * 0.14, h * 0.16, 10);
-      badge.fill({ color: 0xffffff, alpha: 0.14 });
-      badge.stroke({ color: 0xffffff, alpha: 0.3, width: 1 });
-      const faceSize = w * 0.58;
-      const face = this.portrait(player, faceSize);
-      face.x = (w - faceSize) / 2;
-      face.y = h * 0.25;
-      const name = this.fitLabel(player.name, Math.round(w * 0.16), w * 0.84, palette.white, '900', 0.76);
-      name.anchor.set(0.5);
-      name.x = w / 2;
-      name.y = h * 0.62;
-      const skill = this.fitLabel(`#${player.skill}`, Math.round(w * 0.1), w * 0.86, 0xfff0b3, '700', 0.72);
-      skill.anchor.set(0.5);
-      skill.x = w / 2;
-      skill.y = h * 0.75;
-      const choose = label(allRevealed ? '选择' : '待全部开启', Math.round(w * (allRevealed ? 0.14 : 0.1)), allRevealed ? palette.white : 0xfff0b3, '900');
-      choose.anchor.set(0.5);
-      choose.x = w / 2;
-      choose.y = h * 0.88;
-      c.addChild(badge, rating, role, face, name, skill, choose);
-      if (this.revealTargetId === player.id && this.revealPulse > 0) {
-        this.drawRevealParticles(c, w, h, pulseRatio);
-      }
+    const backFace = this.createBlindCardBack(w, h);
+    backFace.x = -w / 2;
+    backFace.y = -h / 2;
+    const frontFace = this.createBlindCardFront(player, w, h, allRevealed);
+    frontFace.x = -w / 2;
+    frontFace.y = -h / 2;
+    backFace.visible = !isOpen;
+    frontFace.visible = isOpen;
+    flipper.addChild(backFace, frontFace);
+    c.addChild(flipper);
+
+    if (flipping) {
+      this.drawRevealParticles(c, w, h, pulseRatio);
     }
 
     c.eventMode = 'static';
     c.cursor = 'pointer';
     c.on('pointertap', () => {
+      if (!this.revealed.has(player.id)) {
+        if (this.revealPulse > 0) return;
+        this.triggerReveal(player, index);
+        return;
+      }
+      const everyRevealed = this.modalCandidates.every((candidate) => this.revealed.has(candidate.id));
+      if (!everyRevealed) return;
       if (this.modalSlotId) {
         this.game.sound.play('select');
         this.game.fillSlot(this.modalSlotId, player);
@@ -1271,23 +1266,120 @@ export class FormationScene extends BaseScene {
     return c;
   }
 
+  private createBlindCardBack(w: number, h: number) {
+    const face = new Container();
+    const bg = new Sprite(Texture.from(FormationScene.BLIND_CARD_BACK));
+    bg.width = w;
+    bg.height = h;
+    face.addChild(bg);
+    return face;
+  }
+
+  private createBlindCardFront(player: PlayerCardData, w: number, h: number, allRevealed: boolean) {
+    const face = new Container();
+    face.addChild(glassPanel(w, h, player.color, 0xffef9a));
+
+    const pattern = new Graphics();
+    for (let i = 0; i < 8; i += 1) {
+      pattern.moveTo(14, 34 + i * 30);
+      pattern.lineTo(w - 14, 14 + i * 30);
+      pattern.stroke({ color: 0xffffff, alpha: 0.08, width: 1 });
+    }
+    const rating = label(String(player.rating), Math.round(w * 0.19), palette.white, '900');
+    rating.x = w * 0.09;
+    rating.y = h * 0.05;
+    const role = label(this.positionName(player.position), Math.round(w * 0.1), palette.white, '900');
+    role.x = w * 0.1;
+    role.y = h * 0.17;
+    const badge = new Graphics();
+    badge.roundRect(w - w * 0.23, h * 0.05, w * 0.14, h * 0.16, 10);
+    badge.fill({ color: 0xffffff, alpha: 0.14 });
+    badge.stroke({ color: 0xffffff, alpha: 0.3, width: 1 });
+    const faceSize = w * 0.58;
+    const portrait = this.portrait(player, faceSize);
+    portrait.x = (w - faceSize) / 2;
+    portrait.y = h * 0.25;
+    const name = this.fitLabel(player.name, Math.round(w * 0.16), w * 0.84, palette.white, '900', 0.76);
+    name.anchor.set(0.5);
+    name.x = w / 2;
+    name.y = h * 0.62;
+    const skill = this.fitLabel(`#${player.skill}`, Math.round(w * 0.1), w * 0.86, 0xfff0b3, '700', 0.72);
+    skill.anchor.set(0.5);
+    skill.x = w / 2;
+    skill.y = h * 0.75;
+    const choose = label(allRevealed ? '选择' : '待全部开启', Math.round(w * (allRevealed ? 0.14 : 0.1)), allRevealed ? palette.white : 0xfff0b3, '900');
+    choose.anchor.set(0.5);
+    choose.x = w / 2;
+    choose.y = h * 0.88;
+    face.addChild(pattern, badge, rating, role, portrait, name, skill, choose);
+    return face;
+  }
+
+  private triggerReveal(player: PlayerCardData, _index: number) {
+    if (this.revealed.has(player.id) || this.revealTargetId === player.id) return;
+    this.revealTargetId = player.id;
+    this.revealPulse = 850;
+    this.game.sound.play('reveal');
+  }
+
+  private refreshBlindBoxCards() {
+    const modal = this.modal;
+    if (!modal) return;
+    const layout = this.getBlindBoxLayout();
+    const cardsRow = this.getBlindCardRow();
+    if (!cardsRow) {
+      this.mountBlindBoxCards(modal, layout);
+      return;
+    }
+    this.syncBlindCardRowLayout(cardsRow, layout);
+    this.modalCandidates.forEach((candidate, index) => {
+      const existing = cardsRow.getChildByName(`blind-card-${index}`);
+      if (existing) {
+        cardsRow.removeChild(existing);
+        existing.destroy({ children: true });
+      }
+      const card = this.blindCard(candidate, layout.cardW, layout.cardH, index);
+      this.layoutBlindCard(card, index, layout);
+      cardsRow.addChild(card);
+    });
+  }
+
   private closeModal() {
     if (!this.modal) return;
     this.container.removeChild(this.modal);
     this.modal.destroy({ children: true });
     this.modal = undefined;
+    this.revealTargetId = undefined;
+    this.revealPulse = 0;
   }
 
   private animateModalCards() {
     if (!this.modal) return;
-    const shift = this.game.contentTopOffset * 0.7;
-    this.modalCandidates.forEach((_player, index) => {
-      const child = this.modal?.getChildByName(`blind-card-${index}`) as Container | undefined;
+    const layout = this.getBlindBoxLayout();
+    const cardsRow = this.getBlindCardRow();
+    if (!cardsRow) return;
+    this.syncBlindCardRowLayout(cardsRow, layout);
+    this.modalCandidates.forEach((player, index) => {
+      const child = cardsRow.getChildByName(`blind-card-${index}`) as Container | undefined;
       if (!child) return;
       const offset = Math.sin(this.modalTime / 420 + index * 0.8) * 5;
-      const scale = 1 + Math.sin(this.modalTime / 520 + index) * 0.012;
-      child.y = 360 + shift + offset;
-      child.scale.set(scale);
+      const bob = 1 + Math.sin(this.modalTime / 520 + index) * 0.012;
+      this.layoutBlindCard(child, index, layout, offset);
+      child.scale.set(bob, bob);
+
+      const flipper = child.getChildByName('flipper') as Container | undefined;
+      if (!flipper) return;
+      const flipping = this.revealTargetId === player.id && this.revealPulse > 0;
+      if (flipping) {
+        const progress = 1 - this.revealPulse / 850;
+        flipper.scale.x = Math.max(0.04, Math.abs(Math.cos(progress * Math.PI)));
+        const backFace = flipper.getChildAt(0);
+        const frontFace = flipper.getChildAt(1);
+        backFace.visible = progress < 0.5;
+        frontFace.visible = progress >= 0.5;
+      } else {
+        flipper.scale.x = 1;
+      }
     });
   }
 
@@ -1369,6 +1461,12 @@ export class FormationScene extends BaseScene {
       if (player) usedIds.add(player.id);
       return { ...slot, player };
     });
+
+    const benchPool = this.game
+      .ownedPlayers()
+      .filter((player) => !usedIds.has(player.id))
+      .sort((a, b) => b.rating - a.rating);
+    this.game.substitutes = Array.from({ length: 5 }, (_, index) => benchPool[index]);
   }
 
   private positionName(position: Position) {
