@@ -119,6 +119,7 @@ export class GameApp {
       avatarUrl: auth.avatarUrl
     };
     await Assets.load([
+      '/assets/loading-bg.png',
       '/assets/page-bg.jpg',
       '/assets/home-bg.jpg',
       '/assets/ui/top-button.png',

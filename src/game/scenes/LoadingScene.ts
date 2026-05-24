@@ -1,14 +1,15 @@
 import { Graphics } from 'pixi.js';
 import { BaseScene } from './BaseScene';
-import { label, palette } from '../ui';
+import { coverSprite, label, palette } from '../ui';
+
+const LOADING_BG = '/assets/loading-bg.png';
 
 export class LoadingScene extends BaseScene {
   private progress = 0;
   private bar?: Graphics;
 
   protected build() {
-    this.container.addChild(this.stadiumBackground());
-    this.drawShade();
+    this.container.addChild(coverSprite(LOADING_BG, this.game.width, this.game.height));
 
     const logo = label('足球经理', 46, 0xfff3b0, '900');
     logo.anchor.set(0.5);
@@ -47,19 +48,6 @@ export class LoadingScene extends BaseScene {
     this.bar.fill({ color: 0x101a40, alpha: 0.9 });
     this.bar.roundRect(x + 3, y + 3, (w - 6) * this.progress, 12, 6);
     this.bar.fill(0xffb21a);
-  }
-
-  private drawShade() {
-    const shade = new Graphics();
-    shade.rect(0, 0, this.game.width, this.game.height);
-    shade.fill({ color: 0x020817, alpha: 0.06 });
-    shade.rect(0, this.game.height * 0.34, this.game.width, this.game.height * 0.36);
-    shade.fill({ color: 0x020817, alpha: 0.1 });
-    shade.rect(0, this.game.height * 0.78, this.game.width, this.game.height * 0.22);
-    shade.fill({ color: 0x020817, alpha: 0.24 });
-    shade.ellipse(this.game.width / 2, this.game.height * 0.58, this.game.width * 0.38, this.game.height * 0.16);
-    shade.fill({ color: 0xffd45a, alpha: 0.06 });
-    this.container.addChild(shade);
   }
 
   private drawAntiAddictionNotice() {

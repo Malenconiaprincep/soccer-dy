@@ -1121,23 +1121,30 @@ export class FormationScene extends BaseScene {
     this.drawBlindBoxModal(`替补${index + 1}`, '点击卡片开启，全部翻开后可选择');
   }
 
+  private getBlindCardAspect() {
+    const texture = Texture.from(FormationScene.BLIND_CARD_BACK);
+    const width = texture.width || 680;
+    const height = texture.height || 1024;
+    return height / width;
+  }
+
   private getBlindBoxLayout() {
     const shift = this.game.contentTopOffset * 0.7;
-    const count = Math.max(1, this.modalCandidates.length || FormationScene.BLIND_BOX_PICK_COUNT);
-    const gap = 18;
-    const edgePad = 24;
-    const usableW = this.game.width - edgePad * 2;
-    const cardW = Math.min(228, (usableW - gap * (count - 1)) / count);
-    const cardH = cardW * 1.48;
+    const count = FormationScene.BLIND_BOX_PICK_COUNT;
+    const sidePad = 18;
+    const gap = 8;
+    const cardScale = 0.86;
+    const cardW = Math.floor(((this.game.width - sidePad * 2 - gap * (count - 1)) / count) * cardScale);
+    const cardH = Math.round(cardW * this.getBlindCardAspect());
     const rowW = cardW * count + gap * (count - 1);
-    const rowCenterX = this.game.width / 2 + Math.min(88, this.game.width * 0.112);
+    const rowX = (this.game.width - rowW) / 2 + 100;
     const titleY = 166 + shift;
     const hintY = 218 + shift;
-    const contentTop = hintY + 74;
-    const contentBottom = this.game.height - Math.max(96, this.game.height * 0.11);
+    const contentTop = hintY + 52;
+    const contentBottom = this.game.height - Math.max(88, this.game.height * 0.1);
     const contentCenterY = contentTop + Math.max(cardH, contentBottom - contentTop) / 2;
-    const cardY = Math.max(contentTop, contentCenterY - cardH / 2);
-    return { cardW, cardH, rowCenterX, cardY, gap, shift, rowW, count, titleY, hintY };
+    const rowY = Math.max(contentTop, contentCenterY - cardH / 2);
+    return { cardW, cardH, rowX, rowY, gap, rowW, count, titleY, hintY };
   }
 
   private getBlindCardRow() {
@@ -1149,10 +1156,9 @@ export class FormationScene extends BaseScene {
     card.y = yOffset;
   }
 
-  private syncBlindCardRowLayout(cardsRow: Container, layout: ReturnType<FormationScene['getBlindBoxLayout']>) {
-    cardsRow.pivot.set(layout.rowW / 2, 0);
-    cardsRow.x = layout.rowCenterX;
-    cardsRow.y = layout.cardY;
+  private syncBlindCardRow(cardsRow: Container, layout: ReturnType<FormationScene['getBlindBoxLayout']>, yOffset = 0) {
+    cardsRow.x = layout.rowX;
+    cardsRow.y = layout.rowY + yOffset;
   }
 
   private mountBlindBoxCards(modal: Container, layout: ReturnType<FormationScene['getBlindBoxLayout']>) {
@@ -1164,8 +1170,9 @@ export class FormationScene extends BaseScene {
 
     const cardsRow = new Container();
     cardsRow.name = 'blind-cards-row';
+    cardsRow.eventMode = 'passive';
     modal.addChild(cardsRow);
-    this.syncBlindCardRowLayout(cardsRow, layout);
+    this.syncBlindCardRow(cardsRow, layout);
 
     this.modalCandidates.forEach((player, index) => {
       const card = this.blindCard(player, layout.cardW, layout.cardH, index);
@@ -1178,12 +1185,12 @@ export class FormationScene extends BaseScene {
     this.closeModal();
     const layout = this.getBlindBoxLayout();
     const modal = new Container();
-    modal.eventMode = 'static';
+    modal.eventMode = 'passive';
 
     const mask = new Graphics();
     mask.rect(0, 0, this.game.width, this.game.height);
     mask.fill({ color: 0x020613, alpha: 0.72 });
-    mask.eventMode = 'static';
+    mask.eventMode = 'none';
     modal.addChild(mask);
 
     const title = label(`${titleText} 3选1`, 46, palette.white, '900');
@@ -1206,18 +1213,18 @@ export class FormationScene extends BaseScene {
   private blindCard(player: PlayerCardData, w: number, h: number, index: number) {
     const c = new Container();
     c.name = `blind-card-${index}`;
+    c.eventMode = 'static';
+    c.cursor = 'pointer';
+    c.hitArea = new Rectangle(0, 0, w, h);
+    c.interactiveChildren = false;
     const isOpen = this.revealed.has(player.id);
     const allRevealed = this.modalCandidates.every((candidate) => this.revealed.has(candidate.id));
     const flipping = this.revealTargetId === player.id && this.revealPulse > 0;
     const pulseRatio = flipping ? 1 - this.revealPulse / 850 : 0;
 
-    const glow = new Graphics();
-    glow.roundRect(0, 0, w, h, 22);
-    glow.fill({ color: isOpen || flipping ? player.color : 0x58d0ff, alpha: isOpen ? 0.32 : 0.12 + pulseRatio * 0.28 });
-    c.addChild(glow);
-
     const flipper = new Container();
     flipper.name = 'flipper';
+    flipper.eventMode = 'none';
     flipper.pivot.set(w / 2, h / 2);
     flipper.x = w / 2;
     flipper.y = h / 2;
@@ -1237,8 +1244,6 @@ export class FormationScene extends BaseScene {
       this.drawRevealParticles(c, w, h, pulseRatio);
     }
 
-    c.eventMode = 'static';
-    c.cursor = 'pointer';
     c.on('pointertap', () => {
       if (!this.revealed.has(player.id)) {
         if (this.revealPulse > 0) return;
@@ -1271,24 +1276,17 @@ export class FormationScene extends BaseScene {
 
   private createBlindCardFront(player: PlayerCardData, w: number, h: number, allRevealed: boolean) {
     const face = new Container();
-    face.addChild(glassPanel(w, h, player.color, 0xffef9a));
+    const bg = this.cardBgSprite(player.rarity);
+    bg.width = w;
+    bg.height = h;
+    face.addChild(bg);
 
-    const pattern = new Graphics();
-    for (let i = 0; i < 8; i += 1) {
-      pattern.moveTo(14, 34 + i * 30);
-      pattern.lineTo(w - 14, 14 + i * 30);
-      pattern.stroke({ color: 0xffffff, alpha: 0.08, width: 1 });
-    }
     const rating = label(String(player.rating), Math.round(w * 0.19), palette.white, '900');
     rating.x = w * 0.09;
     rating.y = h * 0.05;
     const role = label(this.positionName(player.position), Math.round(w * 0.1), palette.white, '900');
     role.x = w * 0.1;
     role.y = h * 0.17;
-    const badge = new Graphics();
-    badge.roundRect(w - w * 0.23, h * 0.05, w * 0.14, h * 0.16, 10);
-    badge.fill({ color: 0xffffff, alpha: 0.14 });
-    badge.stroke({ color: 0xffffff, alpha: 0.3, width: 1 });
     const faceSize = w * 0.58;
     const portrait = this.portrait(player, faceSize);
     portrait.x = (w - faceSize) / 2;
@@ -1305,7 +1303,7 @@ export class FormationScene extends BaseScene {
     choose.anchor.set(0.5);
     choose.x = w / 2;
     choose.y = h * 0.88;
-    face.addChild(pattern, badge, rating, role, portrait, name, skill, choose);
+    face.addChild(rating, role, portrait, name, skill, choose);
     return face;
   }
 
@@ -1325,7 +1323,7 @@ export class FormationScene extends BaseScene {
       this.mountBlindBoxCards(modal, layout);
       return;
     }
-    this.syncBlindCardRowLayout(cardsRow, layout);
+    this.syncBlindCardRow(cardsRow, layout);
     this.modalCandidates.forEach((candidate, index) => {
       const existing = cardsRow.getChildByName(`blind-card-${index}`);
       if (existing) {
@@ -1352,14 +1350,13 @@ export class FormationScene extends BaseScene {
     const layout = this.getBlindBoxLayout();
     const cardsRow = this.getBlindCardRow();
     if (!cardsRow) return;
-    this.syncBlindCardRowLayout(cardsRow, layout);
+    const rowOffset = Math.sin(this.modalTime / 520) * 2;
+    this.syncBlindCardRow(cardsRow, layout, rowOffset);
     this.modalCandidates.forEach((player, index) => {
       const child = cardsRow.getChildByName(`blind-card-${index}`) as Container | undefined;
       if (!child) return;
-      const offset = Math.sin(this.modalTime / 420 + index * 0.8) * 5;
-      const bob = 1 + Math.sin(this.modalTime / 520 + index) * 0.012;
+      const offset = Math.sin(this.modalTime / 420 + index * 0.8) * 3;
       this.layoutBlindCard(child, index, layout, offset);
-      child.scale.set(bob, bob);
 
       const flipper = child.getChildByName('flipper') as Container | undefined;
       if (!flipper) return;
