@@ -56,10 +56,12 @@ type MiniImage = {
 
 type MiniTouch = {
   identifier?: number;
-  clientX: number;
-  clientY: number;
+  clientX?: number;
+  clientY?: number;
   pageX?: number;
   pageY?: number;
+  x?: number;
+  y?: number;
 };
 
 type TtTouchEvent = {
@@ -140,6 +142,9 @@ class MiniPointerEvent {
 
   preventDefault() {}
   stopPropagation() {}
+  composedPath() {
+    return [this.target];
+  }
 }
 
 class MiniMouseEvent extends MiniPointerEvent {}
@@ -163,18 +168,28 @@ class MiniTouchEvent {
 }
 
 const mainCanvas = ttApi.createCanvas();
-mainCanvas.width = Math.floor(systemInfo.windowWidth * pixelRatio);
-mainCanvas.height = Math.floor(systemInfo.windowHeight * pixelRatio);
-mainCanvas.style = { width: `${systemInfo.windowWidth}px`, height: `${systemInfo.windowHeight}px` };
+let canvasClientWidth = systemInfo.windowWidth;
+let canvasClientHeight = systemInfo.windowHeight;
+const getCanvasBounds = () => ({
+  left: 0,
+  top: 0,
+  width: canvasClientWidth,
+  height: canvasClientHeight,
+  right: canvasClientWidth,
+  bottom: canvasClientHeight,
+  x: 0,
+  y: 0,
+  toJSON: () => getCanvasBounds()
+});
+
+mainCanvas.width = Math.floor(canvasClientWidth * pixelRatio);
+mainCanvas.height = Math.floor(canvasClientHeight * pixelRatio);
+mainCanvas.style = { width: `${canvasClientWidth}px`, height: `${canvasClientHeight}px` };
+Object.defineProperty(mainCanvas, 'isConnected', { value: true, configurable: true });
 mainCanvas.addEventListener ??= addListener;
 mainCanvas.removeEventListener ??= removeListener;
 mainCanvas.dispatchEvent ??= () => true;
-mainCanvas.getBoundingClientRect ??= () => ({
-  left: 0,
-  top: 0,
-  width: systemInfo.windowWidth,
-  height: systemInfo.windowHeight
-});
+mainCanvas.getBoundingClientRect = () => getCanvasBounds() as DOMRect;
 
 const normalizeAssetUrl = (url: string) => url.replace(/^\/assets\//, 'assets/');
 
@@ -248,21 +263,35 @@ const callListeners = (type: string, event: unknown) => {
   });
 };
 
-const makePointerEvent = (type: string, touch: MiniTouch, source: TtTouchEvent) =>
-  new MiniPointerEvent(type, {
-    pointerId: touch.identifier ?? 1,
+const normalizeTouchPoint = (touch: MiniTouch) => {
+  const clientX = touch.clientX ?? touch.x ?? touch.pageX ?? 0;
+  const clientY = touch.clientY ?? touch.y ?? touch.pageY ?? 0;
+  return {
+    ...touch,
+    identifier: touch.identifier ?? 1,
+    clientX,
+    clientY,
+    pageX: touch.pageX ?? clientX,
+    pageY: touch.pageY ?? clientY
+  };
+};
+
+const makePointerEvent = (type: string, touch: MiniTouch, source: TtTouchEvent) => {
+  const point = normalizeTouchPoint(touch);
+  return new MiniPointerEvent(type, {
+    pointerId: point.identifier ?? 1,
     pointerType: 'touch',
     isPrimary: true,
     button: 0,
     buttons: type === 'pointerup' || type === 'pointercancel' ? 0 : 1,
-    clientX: touch.clientX,
-    clientY: touch.clientY,
-    pageX: touch.pageX ?? touch.clientX,
-    pageY: touch.pageY ?? touch.clientY,
-    screenX: touch.clientX,
-    screenY: touch.clientY,
-    offsetX: touch.clientX,
-    offsetY: touch.clientY,
+    clientX: point.clientX,
+    clientY: point.clientY,
+    pageX: point.pageX,
+    pageY: point.pageY,
+    screenX: point.clientX,
+    screenY: point.clientY,
+    offsetX: point.clientX,
+    offsetY: point.clientY,
     movementX: 0,
     movementY: 0,
     pressure: type === 'pointerup' || type === 'pointercancel' ? 0 : 0.5,
@@ -272,14 +301,15 @@ const makePointerEvent = (type: string, touch: MiniTouch, source: TtTouchEvent) 
     tiltY: 0,
     twist: 0,
     tangentialPressure: 0,
-    touches: source.touches ?? [],
-    changedTouches: source.changedTouches ?? [],
+    touches: (source.touches ?? []).map(normalizeTouchPoint),
+    changedTouches: (source.changedTouches ?? source.touches ?? []).map(normalizeTouchPoint),
     target: mainCanvas,
     currentTarget: mainCanvas,
     srcElement: mainCanvas,
     timeStamp: source.timeStamp ?? Date.now(),
     isTrusted: true
   });
+};
 
 const dispatchTouch = (pointerType: string, touchType: string, event: TtTouchEvent) => {
   const changedTouches = event.changedTouches?.length ? event.changedTouches : event.touches ?? [];
@@ -478,8 +508,14 @@ void Promise.all([import('pixi.js/unsafe-eval'), import('pixi.js')]).then(async 
   ttApi.onWindowResize?.(({ size }) => {
     mount.clientWidth = size.windowWidth;
     mount.clientHeight = size.windowHeight;
+    canvasClientWidth = size.windowWidth;
+    canvasClientHeight = size.windowHeight;
     mainCanvas.width = Math.floor(size.windowWidth * pixelRatio);
     mainCanvas.height = Math.floor(size.windowHeight * pixelRatio);
+    if (mainCanvas.style) {
+      mainCanvas.style.width = `${size.windowWidth}px`;
+      mainCanvas.style.height = `${size.windowHeight}px`;
+    }
     const insets = readSafeInsets(ttApi.getSystemInfoSync());
     game.setSafeAreaInsets(insets);
     game.app.renderer.resize(size.windowWidth, size.windowHeight);

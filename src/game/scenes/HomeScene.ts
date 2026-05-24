@@ -27,10 +27,13 @@ export class HomeScene extends BaseScene {
     this.startLightSweep = undefined;
     this.floaters = [];
     this.container.addChild(coverSprite(HOME_BG, this.game.width, this.game.height));
+    this.container.eventMode = 'passive';
+    this.container.interactiveChildren = true;
+    if (this.container.children[0]) this.container.children[0].eventMode = 'none';
     this.drawVignette();
     this.drawTopBar();
-    this.drawCommandDeck();
     this.drawHeroPlayer();
+    this.drawCommandDeck();
     this.drawSideShortcuts();
   }
 
@@ -222,6 +225,7 @@ export class HomeScene extends BaseScene {
     shade.fill({ color: 0x020613, alpha: 0.14 });
     shade.rect(0, this.game.height - 290, this.game.width, 290);
     shade.fill({ color: 0x020613, alpha: 0.18 });
+    shade.eventMode = 'none';
     this.container.addChild(shade);
   }
 
@@ -267,6 +271,7 @@ export class HomeScene extends BaseScene {
     sprite.scale.set(layout.heroScale);
     sprite.x = layout.heroX;
     sprite.y = layout.heroY;
+    sprite.eventMode = 'none';
     this.container.addChild(sprite);
   }
 
