@@ -33,8 +33,8 @@ export class HomeScene extends BaseScene {
     this.drawVignette();
     this.drawTopBar();
     this.drawHeroPlayer();
-    this.drawCommandDeck();
     this.drawSideShortcuts();
+    this.drawCommandDeck();
   }
 
   resize() {
@@ -169,8 +169,7 @@ export class HomeScene extends BaseScene {
     if (value.width > maxTextWidth) value.scale.x = maxTextWidth / value.width;
 
     c.addChild(bg, value);
-    c.eventMode = 'static';
-    c.cursor = 'pointer';
+    c.eventMode = 'none';
     return c;
   }
 
@@ -231,10 +230,10 @@ export class HomeScene extends BaseScene {
 
   private drawCommandDeck() {
     const layout = this.getHomeStageLayout();
-    const start = this.matchButton(layout.matchW);
+    const start = this.matchButton(layout.matchW, layout.matchH);
     start.x = (this.game.width - layout.matchW) / 2;
     start.y = layout.matchY;
-    start.on('pointertap', () => {
+    start.on('pointerup', () => {
       this.game.sound.play('confirm');
       this.game.clearLineup();
       this.game.changeScene('formation');
@@ -247,7 +246,8 @@ export class HomeScene extends BaseScene {
     const matchTexture = Texture.from('/assets/ui/start.png');
     const matchW = Math.min(436, this.game.width - 220);
     const matchH = matchW * (matchTexture.height / matchTexture.width);
-    const matchY = this.game.height - matchH - 30;
+    const bottomPad = 30 + (this.game.isMiniGame ? Math.max(12, this.game.safeAreaBottom) : 0);
+    const matchY = this.game.height - matchH - bottomPad;
     const heroAnchorY = matchY + matchH * 0.34;
     const heroTopMin = 192 + this.game.contentTopOffset * 0.04;
     const maxHeroHeight = Math.max(620, heroAnchorY - heroTopMin);
@@ -395,28 +395,32 @@ export class HomeScene extends BaseScene {
     return c;
   }
 
-  private matchButton(width: number) {
+  private matchButton(width: number, height: number) {
     const c = new Container();
     const texture = Texture.from('/assets/ui/start.png');
-    const height = width * (texture.height / texture.width);
     const radius = height * 0.2;
 
     const shadow = new Graphics();
     shadow.roundRect(6, 10, width, height, radius);
     shadow.fill({ color: 0x0a1a10, alpha: 0.34 });
+    shadow.eventMode = 'none';
 
     const clipMask = new Graphics();
     clipMask.roundRect(0, 0, width, height, radius);
     clipMask.fill(0xffffff);
+    clipMask.eventMode = 'none';
 
     const sprite = new Sprite(texture);
     sprite.width = width;
     sprite.height = height;
+    sprite.eventMode = 'none';
 
     const lightLayer = new Container();
+    lightLayer.eventMode = 'none';
     lightLayer.addChild(this.createStartLightSweep(width, height));
 
     const btnSurface = new Container();
+    btnSurface.eventMode = 'none';
     btnSurface.addChild(clipMask, sprite, lightLayer);
     btnSurface.mask = clipMask;
 
@@ -425,9 +429,12 @@ export class HomeScene extends BaseScene {
     this.startLightSweepWidth = width;
     c.eventMode = 'static';
     c.cursor = 'pointer';
+    c.interactiveChildren = false;
+    c.hitArea = new Rectangle(0, 0, width, height);
     c.on('pointerdown', () => c.scale.set(0.985));
     c.on('pointerup', () => c.scale.set(1));
     c.on('pointerupoutside', () => c.scale.set(1));
+    c.on('pointercancel', () => c.scale.set(1));
     return c;
   }
 

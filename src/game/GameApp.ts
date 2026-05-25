@@ -30,6 +30,7 @@ interface GameRuntime {
   pixelRatio?: number;
   miniGame?: boolean;
   safeAreaTop?: number;
+  safeAreaBottom?: number;
   safeContentRight?: number;
 }
 
@@ -60,11 +61,13 @@ export class GameApp {
   private viewportWidth = DESIGN_WIDTH;
   private viewportHeight = DESIGN_HEIGHT;
   private safeAreaInsetTopPx = 0;
+  private safeAreaInsetBottomPx = 0;
   private safeContentRightPx = 0;
 
   constructor(private readonly mount: GameMount, private readonly runtime: GameRuntime = {}) {
     this.platform = runtime.miniGame ? new DouyinPlatform() : new WebPlatform();
     this.safeAreaInsetTopPx = runtime.safeAreaTop ?? 0;
+    this.safeAreaInsetBottomPx = runtime.safeAreaBottom ?? 0;
     this.safeContentRightPx = runtime.safeContentRight ?? 0;
   }
 
@@ -298,6 +301,10 @@ export class GameApp {
     return this.screenPxToDesignY(this.safeAreaInsetTopPx);
   }
 
+  get safeAreaBottom() {
+    return this.screenPxToDesignY(this.safeAreaInsetBottomPx);
+  }
+
   get safeContentRight() {
     if (!this.isMiniGame || this.safeContentRightPx <= 0) return this.viewportWidth;
     return Math.max(this.viewportWidth * 0.52, this.screenPxToDesignX(this.safeContentRightPx) - 14);
@@ -309,8 +316,9 @@ export class GameApp {
     return this.safeAreaTop + miniPad + tallBonus;
   }
 
-  setSafeAreaInsets(insets: { top?: number; contentRight?: number }) {
+  setSafeAreaInsets(insets: { top?: number; bottom?: number; contentRight?: number }) {
     if (insets.top != null) this.safeAreaInsetTopPx = Math.max(0, insets.top);
+    if (insets.bottom != null) this.safeAreaInsetBottomPx = Math.max(0, insets.bottom);
     if (insets.contentRight != null) this.safeContentRightPx = Math.max(0, insets.contentRight);
   }
 

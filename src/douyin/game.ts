@@ -80,6 +80,9 @@ const systemInfo = ttApi.getSystemInfoSync();
 const pixelRatio = Math.min(systemInfo.pixelRatio ?? 1, 2);
 const readSafeInsets = (info: typeof systemInfo) => {
   const top = Math.max(0, info.safeArea?.top ?? info.statusBarHeight ?? 0);
+  const bottom = info.safeArea?.bottom != null
+    ? Math.max(0, info.windowHeight - info.safeArea.bottom)
+    : 0;
   const menuRect = ttApi.getMenuButtonBoundingClientRect?.();
   let contentRight = info.windowWidth;
   if (menuRect?.left != null && menuRect.left > 0) {
@@ -89,7 +92,7 @@ const readSafeInsets = (info: typeof systemInfo) => {
   } else {
     contentRight -= 96;
   }
-  return { top, contentRight };
+  return { top, bottom, contentRight };
 };
 const listeners = new Map<string, Set<EventListenerOrEventListenerObject>>();
 
@@ -263,16 +266,25 @@ const callListeners = (type: string, event: unknown) => {
   });
 };
 
+const toCanvasClientCoord = (value: number, clientSize: number) => {
+  if (value <= clientSize + 1) return value;
+  const physicalSize = clientSize * pixelRatio;
+  if (value <= physicalSize + 1) return value / pixelRatio;
+  return value;
+};
+
 const normalizeTouchPoint = (touch: MiniTouch) => {
-  const clientX = touch.clientX ?? touch.x ?? touch.pageX ?? 0;
-  const clientY = touch.clientY ?? touch.y ?? touch.pageY ?? 0;
+  const rawX = touch.clientX ?? touch.x ?? touch.pageX ?? 0;
+  const rawY = touch.clientY ?? touch.y ?? touch.pageY ?? 0;
+  const clientX = toCanvasClientCoord(rawX, canvasClientWidth);
+  const clientY = toCanvasClientCoord(rawY, canvasClientHeight);
   return {
     ...touch,
     identifier: touch.identifier ?? 1,
     clientX,
     clientY,
-    pageX: touch.pageX ?? clientX,
-    pageY: touch.pageY ?? clientY
+    pageX: toCanvasClientCoord(touch.pageX ?? rawX, canvasClientWidth),
+    pageY: toCanvasClientCoord(touch.pageY ?? rawY, canvasClientHeight)
   };
 };
 
@@ -500,6 +512,7 @@ void Promise.all([import('pixi.js/unsafe-eval'), import('pixi.js')]).then(async 
     pixelRatio,
     miniGame: true,
     safeAreaTop: safeInsets.top,
+    safeAreaBottom: safeInsets.bottom,
     safeContentRight: safeInsets.contentRight
   });
   Object.assign(globalThis, { __soccerGame: game });
