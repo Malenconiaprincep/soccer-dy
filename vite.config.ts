@@ -10,9 +10,6 @@ export default defineConfig(({ mode }) => {
       target: 'es2018',
       minify: false,
       sourcemap: false,
-      watch: {
-        include: ['src/**', 'public/**']
-      },
       rollupOptions: {
         input: 'src/douyin/game.ts',
         output: {

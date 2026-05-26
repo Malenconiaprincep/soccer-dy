@@ -1,6 +1,6 @@
 import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
-import type { LineupSlot, PlayerCardData } from '../types';
+import type { LineupSlot, PlayerCardData, Position } from '../types';
 import { glassPanel, label, palette, pillButton } from '../ui';
 
 export class MatchupScene extends BaseScene {
@@ -396,11 +396,18 @@ export class MatchupScene extends BaseScene {
     const name = label(player?.name ?? '待定', 15, palette.white, '900');
     name.x = right ? -boxW + avatarSize + 58 : avatarSize + 58;
     name.y = 12;
-    const role = label(player ? `${player.position} · ${player.role}` : '核心球员', 12, 0xcfe0ff, '700');
+    const role = label(player ? `${this.positionName(player.position)} · ${player.role}` : '核心球员', 12, 0xcfe0ff, '700');
     role.x = right ? -boxW + avatarSize + 16 : avatarSize + 16;
     role.y = 41;
     c.addChild(bg, avatar, rating, name, role);
     return c;
+  }
+
+  private positionName(position: Position) {
+    if (position === 'GK') return '门将';
+    if (position === 'DF') return '后卫';
+    if (position === 'MF') return '中场';
+    return '前锋';
   }
 
   private drawStatRow(parent: Container, title: string, leftValue: number, rightValue: number, x: number, y: number, w: number) {

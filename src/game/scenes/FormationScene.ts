@@ -463,7 +463,7 @@ export class FormationScene extends BaseScene {
     rating.anchor.set(0.5);
     rating.x = -28;
     rating.y = -28;
-    const pos = this.cardMetaLabel(player.position, 17);
+    const pos = this.cardMetaLabel(this.positionName(player.position), 17);
     pos.anchor.set(0.5);
     pos.x = -28;
     pos.y = -8;
@@ -472,12 +472,12 @@ export class FormationScene extends BaseScene {
     card.y = -62;
 
     const nameBg = new Graphics();
-    nameBg.roundRect(-54, 16, 108, 34, 8);
+    nameBg.roundRect(-54, -4, 108, 34, 8);
     nameBg.fill({ color: 0x071e41, alpha: 0.92 });
     nameBg.stroke({ color: 0x56a8ff, alpha: 0.46, width: 2 });
-    const name = label(player.name, 19, palette.white, '900');
+    const name = this.fitLabel(player.name, 19, 96, palette.white, '900', 0.78);
     name.anchor.set(0.5);
-    name.y = 33;
+    name.y = 13;
     c.addChild(card, nameBg, name);
     c.eventMode = 'static';
     c.cursor = 'pointer';
@@ -627,12 +627,13 @@ export class FormationScene extends BaseScene {
     const modal = new Container();
     modal.eventMode = 'static';
     const lineupIds = new Set(this.game.lineup.flatMap((slot) => (slot.player ? [slot.player.id] : [])));
-    const activePosition = targetSlot?.position ?? this.warehouseFilter;
+    const activePosition = this.warehouseFilter;
     const owned = this.game
       .ownedPlayers()
       .filter((player) => {
         if (targetSlot) {
-          return player.position === targetSlot.position && (player.id === targetSlot.player?.id || !lineupIds.has(player.id));
+          const availableForSlot = player.id === targetSlot.player?.id || !lineupIds.has(player.id);
+          return availableForSlot && (!activePosition || player.position === activePosition);
         }
         return !lineupIds.has(player.id) && (!activePosition || player.position === activePosition);
       })
@@ -710,8 +711,8 @@ export class FormationScene extends BaseScene {
       tabButton.x = index * tabW + 8;
       tabButton.y = tabY;
       tabButton.hitArea = new Rectangle(0, 0, tabW - 16, 46);
-      tabButton.eventMode = targetSlot ? 'none' : 'static';
-      tabButton.cursor = targetSlot ? 'default' : 'pointer';
+      tabButton.eventMode = 'static';
+      tabButton.cursor = 'pointer';
       const tab = new Graphics();
       tab.roundRect(0, 0, tabW - 16, 46, 10);
       tab.fill({ color: index === activeTab ? 0x10234b : 0x061936, alpha: index === activeTab ? 0.96 : 0.74 });
@@ -721,14 +722,12 @@ export class FormationScene extends BaseScene {
       tabText.x = tabW / 2 - 8;
       tabText.y = 24;
       tabButton.addChild(tab, tabText);
-      if (!targetSlot) {
-        tabButton.on('pointertap', () => {
-          this.game.sound.play('tap');
-          this.warehouseFilter = item.position;
-          this.warehouseScrollY = 0;
-          this.openCardWarehouse();
-        });
-      }
+      tabButton.on('pointertap', () => {
+        this.game.sound.play('tap');
+        this.warehouseFilter = item.position;
+        this.warehouseScrollY = 0;
+        this.openCardWarehouse(targetSlot);
+      });
       panel.addChild(tabButton);
       if (index === activeTab) {
         const line = new Graphics();
@@ -876,7 +875,7 @@ export class FormationScene extends BaseScene {
     const rating = label(String(player.rating), Math.round(bw * 0.23), palette.white, '900');
     rating.x = bx + bw * 0.12 + contentOffsetX;
     rating.y = by + bh * 0.07;
-    const pos = this.cardMetaLabel(player.position, Math.round(bw * 0.14));
+    const pos = this.cardMetaLabel(this.positionName(player.position), Math.round(bw * 0.12));
     pos.x = bx + bw * 0.13 + contentOffsetX;
     pos.y = by + bh * 0.23;
     c.addChild(rating, pos);
@@ -1060,97 +1059,6 @@ export class FormationScene extends BaseScene {
   }
 
   private roleForSlot(slot: LineupSlot) {
-    if (slot.position === 'GK') return 'GK';
-    if (this.game.selectedFormation.id === '433') {
-      const roles: Record<string, string> = {
-        fw1: 'LW',
-        fw2: 'ST',
-        fw3: 'RW',
-        mf1: 'CM',
-        mf2: 'CAM',
-        mf3: 'CM',
-        df1: 'LB',
-        df2: 'CB',
-        df3: 'CB',
-        df4: 'RB'
-      };
-      return roles[slot.id] ?? this.positionName(slot.position);
-    }
-    if (this.game.selectedFormation.id === '4231') {
-      const roles: Record<string, string> = {
-        fw: 'ST',
-        mf1: 'CDM',
-        mf2: 'CDM',
-        mf3: 'LM',
-        mf4: 'CAM',
-        mf5: 'RM',
-        df1: 'LB',
-        df2: 'CB',
-        df3: 'CB',
-        df4: 'RB'
-      };
-      return roles[slot.id] ?? this.positionName(slot.position);
-    }
-    if (this.game.selectedFormation.id === '532') {
-      const roles: Record<string, string> = {
-        fw1: 'ST',
-        fw2: 'ST',
-        mf1: 'CM',
-        mf2: 'CAM',
-        mf3: 'CM',
-        df1: 'LWB',
-        df2: 'CB',
-        df3: 'CB',
-        df4: 'CB',
-        df5: 'RWB'
-      };
-      return roles[slot.id] ?? this.positionName(slot.position);
-    }
-    if (this.game.selectedFormation.id === '442') {
-      const roles: Record<string, string> = {
-        fw1: 'ST',
-        fw2: 'ST',
-        mf1: 'LM',
-        mf2: 'CM',
-        mf3: 'CM',
-        mf4: 'RM',
-        df1: 'LB',
-        df2: 'CB',
-        df3: 'CB',
-        df4: 'RB'
-      };
-      return roles[slot.id] ?? this.positionName(slot.position);
-    }
-    if (this.game.selectedFormation.id === '352') {
-      const roles: Record<string, string> = {
-        fw1: 'ST',
-        fw2: 'ST',
-        mf1: 'LM',
-        mf2: 'CM',
-        mf3: 'CAM',
-        mf4: 'CM',
-        mf5: 'RM',
-        df1: 'CB',
-        df2: 'CB',
-        df3: 'CB'
-      };
-      return roles[slot.id] ?? this.positionName(slot.position);
-    }
-    if (this.game.selectedFormation.id === '343') {
-      const roles: Record<string, string> = {
-        fw1: 'LW',
-        fw2: 'ST',
-        fw3: 'RW',
-        mf1: 'LM',
-        mf2: 'CM',
-        mf3: 'CM',
-        mf4: 'RM',
-        df1: 'CB',
-        df2: 'CB',
-        df3: 'CB'
-      };
-      return roles[slot.id] ?? this.positionName(slot.position);
-    }
     return this.positionName(slot.position);
   }
 
@@ -1165,7 +1073,7 @@ export class FormationScene extends BaseScene {
     );
     this.modalCandidates = this.shufflePlayers(
       this.game
-        .ownedPlayers(slot.position)
+        .ownedPlayers()
         .filter((player) => player.id === slot.player?.id || !selectedIds.includes(player.id))
     ).slice(0, FormationScene.BLIND_BOX_PICK_COUNT);
     this.drawBlindBoxModal(this.positionName(slot.position), '点击卡片全部开启后，再选择球员');
@@ -1522,7 +1430,7 @@ export class FormationScene extends BaseScene {
     const usedIds = new Set<string>();
     this.game.lineup = this.game.lineup.map((slot) => {
       const player = this.game
-        .ownedPlayers(slot.position)
+        .ownedPlayers()
         .filter((item) => !usedIds.has(item.id))
         .sort((a, b) => b.rating - a.rating)[0];
       if (player) usedIds.add(player.id);
@@ -1537,10 +1445,10 @@ export class FormationScene extends BaseScene {
   }
 
   private positionName(position: Position) {
-    if (position === 'GK') return 'GK';
-    if (position === 'DF') return 'DF';
-    if (position === 'MF') return 'MF';
-    return 'FW';
+    if (position === 'GK') return '门将';
+    if (position === 'DF') return '后卫';
+    if (position === 'MF') return '中场';
+    return '前锋';
   }
 
   private portrait(player: PlayerCardData, size: number) {
