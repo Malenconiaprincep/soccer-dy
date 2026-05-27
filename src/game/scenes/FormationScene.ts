@@ -19,7 +19,7 @@ export class FormationScene extends BaseScene {
   private static readonly LINEUP_DRAG_DELAY = 320;
   private static readonly SLOT_HEX_OUTER_R = 60;
   private static readonly SLOT_HEX_INNER_R = 52;
-  private static readonly BENCH_HEX_SCALE = 0.68;
+  private static readonly BENCH_HEX_SCALE = 0.78;
   private static readonly CARD_BG_FRAMES: Record<Rarity, Rectangle> = {
     bronze: new Rectangle(77, -10, 249, 357),
     silver: new Rectangle(413, -10, 251, 357),
@@ -446,7 +446,7 @@ export class FormationScene extends BaseScene {
       const player = this.game.substitutes[index];
       const item = player ? this.benchPlayer(player, index) : this.emptyBenchSlot(index);
       item.x = 92 + itemGap * index;
-      item.y = panelH * 0.78;
+      item.y = panelH * 0.8;
       panel.addChild(item);
     }
 
@@ -500,24 +500,24 @@ export class FormationScene extends BaseScene {
     const face = this.portrait(player, faceSize, false);
     face.x = -faceSize / 2;
     face.y = -72 - faceSize / 2;
-    const rating = label(String(player.rating), Math.round(22 * scale), palette.white, '900');
+    const rating = label(String(player.rating), Math.round(31 * scale), palette.white, '900');
     rating.anchor.set(0, 0);
-    rating.x = face.x + 2;
-    rating.y = face.y + 4;
-    const pos = this.cardMetaLabel(this.positionName(player.position), Math.round(18 * scale));
+    rating.x = face.x - 5;
+    rating.y = face.y + 3;
+    const pos = this.cardMetaLabel(this.positionName(player.position), Math.round(26 * scale));
     pos.anchor.set(0, 0);
-    pos.x = face.x + 2;
-    pos.y = face.y + Math.round(22 * scale);
+    pos.x = face.x - 5;
+    pos.y = face.y + Math.round(31 * scale);
 
     const nameBg = new Graphics();
-    nameBg.roundRect(-50, -4, 100, 28, 7);
+    nameBg.roundRect(-58, -4, 116, 34, 8);
     nameBg.fill({ color: 0x071e41, alpha: 0.92 });
     nameBg.stroke({ color: 0x56a8ff, alpha: 0.46, width: 2 });
-    const name = this.fitLabel(player.name, 15, 92, palette.white, '900', 0.72);
+    const name = this.fitLabel(player.name, 17, 108, palette.white, '900', 0.72);
     name.anchor.set(0.5);
     name.y = 13;
     c.addChild(frame, face, rating, pos, nameBg, name);
-    if (this.selectedBenchIndex === index) c.addChild(this.slotSelectionRing(0.72));
+    if (this.selectedBenchIndex === index) c.addChild(this.slotSelectionRing(0.82));
     c.eventMode = 'static';
     c.cursor = 'pointer';
     this.bindDragHandlers(c, { type: 'bench', index }, player);
