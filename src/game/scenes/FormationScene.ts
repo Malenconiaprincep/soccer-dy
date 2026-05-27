@@ -10,7 +10,8 @@ type CardSource = { type: 'lineup'; slotId: string } | { type: 'bench'; index: n
 
 export class FormationScene extends BaseScene {
   private static readonly BLIND_BOX_PICK_COUNT = 3;
-  private static readonly BLIND_CARD_BACK = '/assets/ui/card-guess.png';
+  private static readonly BLIND_CARD_BACK = '/assets/ui/card-guess1.png';
+  private static readonly BLIND_CARD_BACK_FRAME = new Rectangle(185, 298, 350, 488);
   private static readonly BLIND_FACE_SCALE = 0.86;
   private static readonly BLIND_BACK_BOOST = 1.14;
   private static readonly BLIND_REVEAL_DURATION = 600;
@@ -1381,10 +1382,8 @@ export class FormationScene extends BaseScene {
   }
 
   private getBlindCardAspect() {
-    const texture = Texture.from(FormationScene.BLIND_CARD_BACK);
-    const width = texture.width || 680;
-    const height = texture.height || 1024;
-    return height / width;
+    const frame = FormationScene.BLIND_CARD_BACK_FRAME;
+    return frame.height / frame.width;
   }
 
   private getBlindBoxLayout() {
@@ -1526,11 +1525,21 @@ export class FormationScene extends BaseScene {
 
   private createBlindCardBack(w: number, h: number) {
     const face = new Container();
-    const bg = new Sprite(Texture.from(FormationScene.BLIND_CARD_BACK));
+    const bg = this.blindCardBackSprite();
     bg.width = w;
     bg.height = h;
     face.addChild(bg);
     return face;
+  }
+
+  private blindCardBackSprite() {
+    const texture = Texture.from(FormationScene.BLIND_CARD_BACK);
+    return new Sprite(
+      new Texture({
+        source: texture.source,
+        frame: FormationScene.BLIND_CARD_BACK_FRAME
+      })
+    );
   }
 
   private createBlindCardFront(player: PlayerCardData, w: number, h: number) {

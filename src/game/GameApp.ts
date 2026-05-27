@@ -135,7 +135,7 @@ export class GameApp {
       '/assets/ui/football-backgrond.png',
       '/assets/ui/replace_player.png',
       '/assets/ui/cardbg.png',
-      '/assets/ui/card-guess.png',
+      '/assets/ui/card-guess1.png',
       '/assets/ui/players-bg.png',
       '/assets/ui/draft-button.png',
       '/assets/ui/play.png',
