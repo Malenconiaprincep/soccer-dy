@@ -75,8 +75,7 @@ export class PlayerStorage {
     userId: string,
     nickname: string,
     selectedFormationId: string,
-    lineup: LineupSlot[],
-    substitutes: Array<PlayerCardData | undefined> = []
+    lineup: LineupSlot[]
   ): PlayerSaveData {
     return {
       userId,
@@ -92,7 +91,6 @@ export class PlayerStorage {
       dailyTaskDate: this.todayKey(),
       selectedFormationId,
       lineup: lineup.map((slot) => ({ slotId: slot.id, playerId: slot.player?.id })),
-      substitutes: this.serializeSubstitutes(substitutes),
       updatedAt: new Date().toISOString()
     };
   }
@@ -109,29 +107,12 @@ export class PlayerStorage {
       lineup: formation.slots.map((slot) => {
         const playerId = savedSlotById.get(slot.id);
         const savedPlayer = playerId && ownedIds.has(playerId) ? playerById.get(playerId) : undefined;
-        const player = savedPlayer ?? this.bestAvailable(slot.position, ownedIds, usedIds);
+        const validSavedPlayer = savedPlayer && this.canPlacePlayerInSlot(savedPlayer, slot.position) ? savedPlayer : undefined;
+        const player = validSavedPlayer ?? this.bestAvailable(slot.position, ownedIds, usedIds);
         if (player) usedIds.add(player.id);
         return { ...slot, player };
       })
     };
-  }
-
-  applySubstitutes(save: PlayerSaveData, lineup: LineupSlot[]) {
-    const playerById = new Map(players.map((player) => [player.id, player]));
-    const collectionIds = save.collection?.length ? save.collection : defaultCollectionIds;
-    const ownedIds = new Set(collectionIds);
-    const usedIds = new Set(lineup.flatMap((slot) => (slot.player ? [slot.player.id] : [])));
-    const substitutes: Array<PlayerCardData | undefined> = Array.from({ length: 5 }, () => undefined);
-
-    (save.substitutes ?? []).forEach((slot) => {
-      if (slot.index < 0 || slot.index >= substitutes.length || !slot.playerId) return;
-      const player = ownedIds.has(slot.playerId) ? playerById.get(slot.playerId) : undefined;
-      if (!player || usedIds.has(player.id)) return;
-      substitutes[slot.index] = player;
-      usedIds.add(player.id);
-    });
-
-    return substitutes;
   }
 
   normalizeSave(save: PlayerSaveData): PlayerSaveData {
@@ -144,8 +125,7 @@ export class PlayerStorage {
       wins: Number(save.wins ?? 0),
       collection: this.withDefaultCollection(save.collection),
       claimedTasks: dailyReset ? [] : save.claimedTasks ?? [],
-      dailyTaskDate: today,
-      substitutes: this.normalizeSubstitutes(save.substitutes)
+      dailyTaskDate: today
     };
   }
 
@@ -173,7 +153,6 @@ export class PlayerStorage {
       dailyTaskDate: this.todayKey(),
       selectedFormationId: formations[1].id,
       lineup: this.createStarterLineup(formations[1]),
-      substitutes: this.emptySubstitutes(),
       updatedAt: new Date().toISOString()
     };
   }
@@ -209,7 +188,6 @@ export class PlayerStorage {
       daily_task_date: save.dailyTaskDate,
       selected_formation_id: save.selectedFormationId,
       lineup: save.lineup,
-      substitutes: save.substitutes,
       updated_at: save.updatedAt
     };
   }
@@ -229,7 +207,6 @@ export class PlayerStorage {
       dailyTaskDate: String(row.daily_task_date ?? this.todayKey()),
       selectedFormationId: String(row.selected_formation_id ?? formations[1].id),
       lineup: Array.isArray(row.lineup) ? (row.lineup as PlayerSaveData['lineup']) : [],
-      substitutes: Array.isArray(row.substitutes) ? (row.substitutes as PlayerSaveData['substitutes']) : this.emptySubstitutes(),
       updatedAt: String(row.updated_at ?? new Date().toISOString())
     };
   }
@@ -249,23 +226,14 @@ export class PlayerStorage {
     });
   }
 
-  private serializeSubstitutes(substitutes: Array<PlayerCardData | undefined>) {
-    return Array.from({ length: 5 }, (_item, index) => ({ index, playerId: substitutes[index]?.id }));
-  }
-
-  private normalizeSubstitutes(substitutes?: PlayerSaveData['substitutes']) {
-    const byIndex = new Map((substitutes ?? []).map((slot) => [slot.index, slot.playerId]));
-    return Array.from({ length: 5 }, (_item, index) => ({ index, playerId: byIndex.get(index) }));
-  }
-
-  private emptySubstitutes() {
-    return Array.from({ length: 5 }, (_item, index) => ({ index, playerId: undefined }));
-  }
-
   private bestAvailable(position: Position, ownedIds: Set<string>, usedIds: Set<string>) {
     return players
       .filter((player) => player.position === position && ownedIds.has(player.id) && !usedIds.has(player.id))
       .sort((a, b) => b.rating - a.rating)[0];
+  }
+
+  private canPlacePlayerInSlot(player: PlayerCardData, slotPosition: Position) {
+    return slotPosition === 'GK' ? player.position === 'GK' : player.position !== 'GK';
   }
 
   private withDefaultCollection(collection?: string[]) {

@@ -4,13 +4,14 @@ import { BlindBoxScene } from './scenes/BlindBoxScene';
 import { FormationScene } from './scenes/FormationScene';
 import { HomeScene } from './scenes/HomeScene';
 import { LoadingScene } from './scenes/LoadingScene';
+import { MatchmakingScene } from './scenes/MatchmakingScene';
 import { MatchupScene } from './scenes/MatchupScene';
 import { ResultScene } from './scenes/ResultScene';
 import { WebPlatform, DouyinPlatform, type PlatformApi } from './platform/Platform';
 import { defaultCollectionIds, drawScoutCandidates, formations, players } from './data';
 import { defaultBattleSource } from './battle/BattleMode';
 import { SoundFx } from './audio/SoundFx';
-import type { BattleEvent, FormationData, LineupSlot, PlayerCardData, Scene } from './types';
+import type { BattleEvent, FormationData, LineupSlot, PlayerCardData, Position, Scene } from './types';
 import { PlayerStorage } from './storage/PlayerStorage';
 
 const DESIGN_WIDTH = 720;
@@ -114,7 +115,7 @@ export class GameApp {
     const savedLineup = this.storage.applyLineup(save);
     this.selectedFormation = savedLineup.formation;
     this.lineup = savedLineup.lineup;
-    this.substitutes = this.storage.applySubstitutes(save, this.lineup);
+    this.substitutes = Array.from({ length: 5 }, () => undefined);
     const auth = await this.platform.login();
     this.user = {
       userId: auth.userId || this.user.userId,
@@ -147,7 +148,7 @@ export class GameApp {
     this.changeScene('loading');
   }
 
-  changeScene(name: 'loading' | 'home' | 'formation' | 'blindBox' | 'matchup' | 'battle' | 'result') {
+  changeScene(name: 'loading' | 'home' | 'formation' | 'blindBox' | 'matchmaking' | 'matchup' | 'battle' | 'result') {
     this.scene?.exit();
     this.root.removeChildren();
 
@@ -155,6 +156,7 @@ export class GameApp {
     if (name === 'home') this.scene = new HomeScene(this);
     if (name === 'formation') this.scene = new FormationScene(this);
     if (name === 'blindBox') this.scene = new BlindBoxScene(this);
+    if (name === 'matchmaking') this.scene = new MatchmakingScene(this);
     if (name === 'matchup') this.scene = new MatchupScene(this);
     if (name === 'battle') this.scene = new BattleScene(this);
     if (name === 'result') this.scene = new ResultScene(this);
@@ -166,8 +168,52 @@ export class GameApp {
 
   setFormation(formation: FormationData) {
     this.selectedFormation = formation;
-    this.lineup = formation.slots.map((slot) => ({ ...slot, player: undefined }));
+    this.lineup = this.arrangeLineupForFormation(formation);
     void this.persist();
+  }
+
+  private arrangeLineupForFormation(formation: FormationData) {
+    const previous = this.lineup.flatMap((slot) => (slot.player ? [{ player: slot.player, slotPosition: slot.position }] : []));
+    const usedIds = new Set<string>();
+    const next = formation.slots.map((slot) => ({ ...slot, player: undefined as PlayerCardData | undefined }));
+
+    const takePlayer = (positions: Position[]) => {
+      const player = previous.find(
+        (item) =>
+          !usedIds.has(item.player.id) &&
+          item.player.position !== 'GK' &&
+          positions.includes(item.player.position)
+      )?.player;
+      if (player) usedIds.add(player.id);
+      return player;
+    };
+
+    const gkSlot = next.find((slot) => slot.position === 'GK');
+    const goalkeeper = previous.find(
+      (item) => !usedIds.has(item.player.id) && item.slotPosition === 'GK' && item.player.position === 'GK'
+    )?.player;
+    if (gkSlot && goalkeeper) {
+      gkSlot.player = goalkeeper;
+      usedIds.add(goalkeeper.id);
+    }
+
+    const fallbackBySlot: Record<Exclude<Position, 'GK'>, Position[]> = {
+      FW: ['FW', 'MF', 'DF'],
+      MF: ['MF', 'FW', 'DF'],
+      DF: ['DF', 'MF', 'FW']
+    };
+
+    next.forEach((slot) => {
+      if (slot.position === 'GK') return;
+      slot.player = takePlayer(fallbackBySlot[slot.position]);
+    });
+
+    next.forEach((slot) => {
+      if (slot.position === 'GK' || slot.player) return;
+      slot.player = takePlayer(['FW', 'MF', 'DF']);
+    });
+
+    return next;
   }
 
   clearLineup() {
@@ -177,6 +223,8 @@ export class GameApp {
 
   fillSlot(slotId: string, player: PlayerCardData) {
     if (!this.collectionIds.has(player.id)) return;
+    const targetSlot = this.lineup.find((slot) => slot.id === slotId);
+    if (!targetSlot || !this.canPlacePlayerInSlot(player, targetSlot.position)) return;
     this.lineup = this.lineup.map((slot) => {
       if (slot.player?.id === player.id) return { ...slot, player: undefined };
       if (slot.id === slotId) return { ...slot, player };
@@ -184,6 +232,50 @@ export class GameApp {
     });
     this.substitutes = this.substitutes.map((substitute) => (substitute?.id === player.id ? undefined : substitute));
     void this.persist();
+  }
+
+  swapLineupSlots(fromSlotId: string, toSlotId: string) {
+    if (fromSlotId === toSlotId) return false;
+    const fromSlot = this.lineup.find((slot) => slot.id === fromSlotId);
+    const toSlot = this.lineup.find((slot) => slot.id === toSlotId);
+    if (!fromSlot || !toSlot || !fromSlot.player) return false;
+    if (!this.canPlacePlayerInSlot(fromSlot.player, toSlot.position)) return false;
+    if (toSlot.player && !this.canPlacePlayerInSlot(toSlot.player, fromSlot.position)) return false;
+
+    const fromPlayer = fromSlot.player;
+    const toPlayer = toSlot.player;
+    this.lineup = this.lineup.map((slot) => {
+      if (slot.id === fromSlotId) return { ...slot, player: toPlayer };
+      if (slot.id === toSlotId) return { ...slot, player: fromPlayer };
+      return slot;
+    });
+    void this.persist();
+    return true;
+  }
+
+  swapLineupWithSubstitute(slotId: string, substituteIndex: number) {
+    if (substituteIndex < 0 || substituteIndex >= this.substitutes.length) return false;
+    const slot = this.lineup.find((item) => item.id === slotId);
+    if (!slot) return false;
+    const substitute = this.substitutes[substituteIndex];
+    if (!slot.player && !substitute) return false;
+    if (substitute && !this.canPlacePlayerInSlot(substitute, slot.position)) return false;
+
+    this.lineup = this.lineup.map((item) => (item.id === slotId ? { ...item, player: substitute } : item));
+    this.substitutes = this.substitutes.map((item, index) => (index === substituteIndex ? slot.player : item));
+    void this.persist();
+    return true;
+  }
+
+  swapSubstitutes(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return false;
+    if (fromIndex < 0 || fromIndex >= this.substitutes.length || toIndex < 0 || toIndex >= this.substitutes.length) {
+      return false;
+    }
+    const next = [...this.substitutes];
+    [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+    this.substitutes = next;
+    return true;
   }
 
   fillSubstitute(index: number, player: PlayerCardData) {
@@ -195,6 +287,10 @@ export class GameApp {
       return substitute;
     });
     void this.persist();
+  }
+
+  private canPlacePlayerInSlot(player: PlayerCardData, slotPosition: Position) {
+    return slotPosition === 'GK' ? player.position === 'GK' : player.position !== 'GK';
   }
 
   addPlayerToCollection(player: PlayerCardData) {
@@ -276,7 +372,6 @@ export class GameApp {
       dailyTaskDate: this.dailyTaskDate,
       selectedFormationId: this.selectedFormation.id,
       lineup: this.lineup.map((slot) => ({ slotId: slot.id, playerId: slot.player?.id })),
-      substitutes: this.substitutes.map((player, index) => ({ index, playerId: player?.id })),
       updatedAt: new Date().toISOString()
     });
   }

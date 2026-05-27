@@ -6,6 +6,8 @@ import { coverSprite, glassPanel, label, palette } from '../ui';
 
 const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
 
+type CardSource = { type: 'lineup'; slotId: string } | { type: 'bench'; index: number };
+
 export class FormationScene extends BaseScene {
   private static readonly BLIND_BOX_PICK_COUNT = 3;
   private static readonly BLIND_CARD_BACK = '/assets/ui/card-guess.png';
@@ -13,6 +15,7 @@ export class FormationScene extends BaseScene {
   private static readonly BLIND_BACK_BOOST = 1.14;
   private static readonly BLIND_REVEAL_DURATION = 600;
   private static readonly BLIND_BOX_LIFT = 50;
+  private static readonly LINEUP_DRAG_DELAY = 320;
   private static readonly CARD_BG_FRAMES: Record<Rarity, Rectangle> = {
     bronze: new Rectangle(77, -10, 249, 357),
     silver: new Rectangle(413, -10, 251, 357),
@@ -54,6 +57,19 @@ export class FormationScene extends BaseScene {
     started: number;
     distance: number;
   };
+  private selectedSlotId?: string;
+  private selectedBenchIndex?: number;
+  private cardDrag?: {
+    pointerId: number;
+    source: CardSource;
+    player: PlayerCardData;
+    globalX: number;
+    globalY: number;
+    elapsed: number;
+    dragging: boolean;
+  };
+  private dragPreview?: Container;
+  private suppressNextSlotTap = false;
 
   protected build() {
     this.container.addChild(this.formationBackground());
@@ -72,6 +88,14 @@ export class FormationScene extends BaseScene {
   update(deltaMs: number) {
     this.modalTime += deltaMs;
     this.animateFormationSlide();
+    if (this.cardDrag && !this.cardDrag.dragging) {
+      this.cardDrag.elapsed += deltaMs;
+      if (this.cardDrag.elapsed >= FormationScene.LINEUP_DRAG_DELAY) {
+        this.cardDrag.dragging = true;
+        this.selectSource(this.cardDrag.source);
+        this.showDragPreview(this.cardDrag.player, this.cardDrag.globalX, this.cardDrag.globalY);
+      }
+    }
     if (this.revealPulse > 0) {
       this.revealPulse = Math.max(0, this.revealPulse - deltaMs);
       if (this.revealPulse === 0 && this.revealTargetId) {
@@ -376,11 +400,7 @@ export class FormationScene extends BaseScene {
   }
 
   private drawField() {
-    const shift = this.game.contentTopOffset;
-    const fieldW = Math.min(this.game.width + 42, 780);
-    const fieldH = Math.min(this.game.height - 450, 820);
-    const x = (this.game.width - fieldW) / 2;
-    const y = 232 + shift;
+    const { x, y, fieldW, fieldH } = this.fieldLayout();
     this.field = new Container();
     this.field.x = x;
     this.field.y = y;
@@ -392,12 +412,17 @@ export class FormationScene extends BaseScene {
     this.container.addChild(this.field);
   }
 
-  private drawBench() {
+  private fieldLayout() {
     const shift = this.game.contentTopOffset;
-    const panelW = Math.min(this.game.width - 38, 700);
-    const panelH = Math.min(286, panelW * 0.57);
-    const x = (this.game.width - panelW) / 2;
-    const y = 232 + shift + Math.min(this.game.height - 450, 820) - 44;
+    const fieldW = Math.min(this.game.width + 42, 780);
+    const fieldH = Math.min(this.game.height - 450, 820);
+    const x = (this.game.width - fieldW) / 2;
+    const y = 232 + shift;
+    return { x, y, fieldW, fieldH };
+  }
+
+  private drawBench() {
+    const { x, y, panelW, panelH, itemGap } = this.benchLayout();
     const panel = new Container();
     panel.x = x;
     panel.y = y;
@@ -411,9 +436,8 @@ export class FormationScene extends BaseScene {
     const title = label('替补球员', 28, palette.white, '900');
     title.x = 34;
     title.y = 30;
-    panel.addChild(title);
+    panel.addChild(title, this.startMatchButton(panelW));
 
-    const itemGap = (panelW - 184) / 4;
     for (let index = 0; index < 5; index += 1) {
       const player = this.game.substitutes[index];
       const item = player ? this.benchPlayer(player, index) : this.emptyBenchSlot(index);
@@ -423,6 +447,16 @@ export class FormationScene extends BaseScene {
     }
 
     this.container.addChild(panel);
+  }
+
+  private benchLayout() {
+    const shift = this.game.contentTopOffset;
+    const panelW = Math.min(this.game.width - 38, 700);
+    const panelH = Math.min(286, panelW * 0.57);
+    const x = (this.game.width - panelW) / 2;
+    const y = 232 + shift + Math.min(this.game.height - 450, 820) - 44;
+    const itemGap = (panelW - 184) / 4;
+    return { x, y, panelW, panelH, itemGap };
   }
 
   private emptyBenchSlot(index: number) {
@@ -441,49 +475,54 @@ export class FormationScene extends BaseScene {
     text.anchor.set(0.5);
     text.y = 13;
     c.addChild(frame, plus, nameBg, text);
+    if (this.selectedBenchIndex === index) c.addChild(this.slotSelectionRing(0.72));
     c.eventMode = 'static';
     c.cursor = 'pointer';
     c.on('pointertap', () => {
       this.game.sound.play('tap');
-      this.openBenchBlindBox(index);
+      this.handleBenchTap(index);
     });
     return c;
   }
 
   private benchPlayer(player: PlayerCardData, index: number) {
     const c = new Container();
-    const scale = 0.88;
     const card = new Container();
-    card.scale.set(scale);
-    card.addChild(this.cardFrame(player.rarity, 116, 132));
-    const face = this.portrait(player, 74);
-    face.x = -37;
-    face.y = -37;
-    const rating = label(String(player.rating), 20, palette.white, '900');
+    card.addChild(this.cardFrame(player.rarity, 132, 162));
+    const face = this.portrait(player, 80);
+    face.x = -40;
+    face.y = -44;
+    const rating = label(String(player.rating), 22, palette.white, '900');
     rating.anchor.set(0.5);
-    rating.x = -28;
-    rating.y = -28;
-    const pos = this.cardMetaLabel(this.positionName(player.position), 17);
+    rating.x = -31;
+    rating.y = -34;
+    const pos = this.cardMetaLabel(this.positionName(player.position), 18);
     pos.anchor.set(0.5);
-    pos.x = -28;
-    pos.y = -8;
+    pos.x = -31;
+    pos.y = -13;
     card.addChild(face, rating, pos);
     card.x = 0;
-    card.y = -62;
+    card.y = -78;
 
     const nameBg = new Graphics();
-    nameBg.roundRect(-54, -4, 108, 34, 8);
+    nameBg.roundRect(-58, 9, 116, 34, 8);
     nameBg.fill({ color: 0x071e41, alpha: 0.92 });
     nameBg.stroke({ color: 0x56a8ff, alpha: 0.46, width: 2 });
-    const name = this.fitLabel(player.name, 19, 96, palette.white, '900', 0.78);
+    const name = this.fitLabel(player.name, 19, 104, palette.white, '900', 0.78);
     name.anchor.set(0.5);
-    name.y = 13;
+    name.y = 26;
     c.addChild(card, nameBg, name);
+    if (this.selectedBenchIndex === index) c.addChild(this.slotSelectionRing(0.72));
     c.eventMode = 'static';
     c.cursor = 'pointer';
+    this.bindDragHandlers(c, { type: 'bench', index }, player);
     c.on('pointertap', () => {
+      if (this.suppressNextSlotTap) {
+        this.suppressNextSlotTap = false;
+        return;
+      }
       this.game.sound.play('tap');
-      this.openBenchBlindBox(index);
+      this.handleBenchTap(index);
     });
     return c;
   }
@@ -523,19 +562,232 @@ export class FormationScene extends BaseScene {
       face.x = -37;
       face.y = -37;
       c.addChild(bg, face, rating, nameBg, text, position);
+      this.bindDragHandlers(c, { type: 'lineup', slotId: slot.id }, slot.player);
     } else {
       const mark = label('+', 44, 0xffe27a, '900');
       mark.anchor.set(0.5);
       mark.alpha = 0.95;
       c.addChild(bg, mark, tag, tagText);
     }
+    if (this.selectedSlotId === slot.id) c.addChild(this.slotSelectionRing());
     c.eventMode = 'static';
     c.cursor = 'pointer';
     c.on('pointertap', () => {
+      if (this.suppressNextSlotTap) {
+        this.suppressNextSlotTap = false;
+        return;
+      }
       this.game.sound.play('tap');
-      this.openBlindBox(slot);
+      this.handleLineupSlotTap(slot);
     });
     return c;
+  }
+
+  private handleLineupSlotTap(slot: LineupSlot) {
+    const selected = this.selectedSource();
+    if (selected) {
+      if (this.sameSource(selected, { type: 'lineup', slotId: slot.id })) {
+        this.clearSelection();
+        this.resize();
+        return;
+      }
+      const swapped = this.applySwap(selected, { type: 'lineup', slot });
+      this.clearSelection();
+      if (!swapped && slot.player) this.selectSource({ type: 'lineup', slotId: slot.id });
+      this.resize();
+      return;
+    }
+    if (slot.player) {
+      this.selectSource({ type: 'lineup', slotId: slot.id });
+      this.resize();
+      return;
+    }
+    this.openBlindBox(slot);
+  }
+
+  private handleBenchTap(index: number) {
+    const player = this.game.substitutes[index];
+    const selected = this.selectedSource();
+    if (selected) {
+      if (this.sameSource(selected, { type: 'bench', index })) {
+        this.clearSelection();
+        this.resize();
+        return;
+      }
+      const swapped = this.applySwap(selected, { type: 'bench', index });
+      this.clearSelection();
+      if (!swapped && player) this.selectSource({ type: 'bench', index });
+      this.resize();
+      return;
+    }
+    if (player) {
+      this.selectSource({ type: 'bench', index });
+      this.resize();
+      return;
+    }
+    this.openBenchBlindBox(index);
+  }
+
+  private slotSelectionRing(scale = 1) {
+    const ring = new Graphics();
+    ring.roundRect(-52 * scale, -52 * scale, 104 * scale, 144 * scale, 10);
+    ring.stroke({ color: 0xffe56a, alpha: 0.98, width: 4 });
+    ring.roundRect(-58 * scale, -58 * scale, 116 * scale, 156 * scale, 14);
+    ring.stroke({ color: 0x47fff0, alpha: 0.45, width: 2 });
+    return ring;
+  }
+
+  private bindDragHandlers(target: Container, source: CardSource, player: PlayerCardData) {
+    target.on('pointerdown', (event: FederatedPointerEvent) => {
+      this.cardDrag = {
+        pointerId: event.pointerId,
+        source,
+        player,
+        globalX: event.global.x,
+        globalY: event.global.y,
+        elapsed: 0,
+        dragging: false
+      };
+    });
+    const move = (event: FederatedPointerEvent) => {
+      const drag = this.cardDrag;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      drag.globalX = event.global.x;
+      drag.globalY = event.global.y;
+      if (drag.dragging) this.moveDragPreview(drag.globalX, drag.globalY);
+    };
+    target.on('pointermove', move);
+    target.on('globalpointermove', move);
+    const finish = (event: FederatedPointerEvent) => {
+      const drag = this.cardDrag;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      this.cardDrag = undefined;
+      this.removeDragPreview();
+      if (!drag.dragging) return;
+      this.suppressNextSlotTap = true;
+      const targetSource = this.sourceAtGlobal(event.global.x, event.global.y);
+      this.clearSelection();
+      if (targetSource && this.applySwap(drag.source, targetSource)) {
+        this.game.sound.play('select');
+      } else {
+        this.game.sound.play('tap');
+      }
+      this.resize();
+    };
+    target.on('pointerup', finish);
+    target.on('pointerupoutside', finish);
+    target.on('pointercancel', finish);
+  }
+
+  private selectedSource(): CardSource | undefined {
+    if (this.selectedSlotId) return { type: 'lineup', slotId: this.selectedSlotId };
+    if (this.selectedBenchIndex !== undefined) return { type: 'bench', index: this.selectedBenchIndex };
+    return undefined;
+  }
+
+  private selectSource(source: CardSource) {
+    this.selectedSlotId = source.type === 'lineup' ? source.slotId : undefined;
+    this.selectedBenchIndex = source.type === 'bench' ? source.index : undefined;
+  }
+
+  private clearSelection() {
+    this.selectedSlotId = undefined;
+    this.selectedBenchIndex = undefined;
+  }
+
+  private sameSource(a: CardSource, b: CardSource) {
+    if (a.type !== b.type) return false;
+    if (a.type === 'lineup' && b.type === 'lineup') return a.slotId === b.slotId;
+    if (a.type === 'bench' && b.type === 'bench') return a.index === b.index;
+    return false;
+  }
+
+  private applySwap(from: CardSource, to: CardSource | { type: 'lineup'; slot: LineupSlot }) {
+    if (from.type === 'lineup' && to.type === 'lineup') {
+      const toSlotId = 'slot' in to ? to.slot.id : to.slotId;
+      return this.game.swapLineupSlots(from.slotId, toSlotId);
+    }
+    if (from.type === 'lineup' && to.type === 'bench') {
+      return this.game.swapLineupWithSubstitute(from.slotId, to.index);
+    }
+    if (from.type === 'bench' && to.type === 'lineup') {
+      const toSlotId = 'slot' in to ? to.slot.id : to.slotId;
+      return this.game.swapLineupWithSubstitute(toSlotId, from.index);
+    }
+    if (from.type === 'bench' && to.type === 'bench') {
+      return this.game.swapSubstitutes(from.index, to.index);
+    }
+    return false;
+  }
+
+  private showDragPreview(player: PlayerCardData, globalX: number, globalY: number) {
+    this.removeDragPreview();
+    const preview = new Container();
+    preview.scale.set(1.08);
+    preview.alpha = 0.92;
+    preview.addChild(this.cardFrame(player.rarity, 116, 132));
+    const face = this.portrait(player, 74);
+    face.x = -37;
+    face.y = -37;
+    const rating = label(String(player.rating), 20, palette.white, '900');
+    rating.anchor.set(0.5);
+    rating.x = -28;
+    rating.y = -28;
+    const pos = this.cardMetaLabel(this.positionName(player.position), 15);
+    pos.anchor.set(0.5);
+    pos.x = -28;
+    pos.y = -8;
+    const lift = new Graphics();
+    lift.roundRect(-50, -52, 100, 132, 12);
+    lift.stroke({ color: 0xffe56a, alpha: 0.9, width: 4 });
+    preview.addChild(face, rating, pos, lift);
+    this.dragPreview = preview;
+    this.container.addChild(preview);
+    this.moveDragPreview(globalX, globalY);
+  }
+
+  private moveDragPreview(globalX: number, globalY: number) {
+    if (!this.dragPreview) return;
+    const local = this.container.toLocal({ x: globalX, y: globalY });
+    this.dragPreview.x = local.x;
+    this.dragPreview.y = local.y - 12;
+  }
+
+  private removeDragPreview() {
+    this.dragPreview?.parent?.removeChild(this.dragPreview);
+    this.dragPreview?.destroy({ children: true });
+    this.dragPreview = undefined;
+  }
+
+  private sourceAtGlobal(globalX: number, globalY: number): CardSource | undefined {
+    const lineupSlot = this.slotAtGlobal(globalX, globalY);
+    if (lineupSlot) return { type: 'lineup', slotId: lineupSlot.id };
+    const benchIndex = this.benchIndexAtGlobal(globalX, globalY);
+    return benchIndex === undefined ? undefined : { type: 'bench', index: benchIndex };
+  }
+
+  private slotAtGlobal(globalX: number, globalY: number) {
+    if (!this.field) return undefined;
+    const local = this.field.toLocal({ x: globalX, y: globalY });
+    const { fieldW, fieldH } = this.fieldLayout();
+    return this.game.lineup.find((slot) => {
+      const visual = this.visualSlotPosition(slot);
+      const x = 66 + visual.x * (fieldW - 132);
+      const y = 60 + visual.y * (fieldH - 150);
+      return Math.abs(local.x - x) <= 64 && local.y >= y - 64 && local.y <= y + 96;
+    });
+  }
+
+  private benchIndexAtGlobal(globalX: number, globalY: number) {
+    const { x, y, panelH, itemGap } = this.benchLayout();
+    const localX = globalX - x;
+    const localY = globalY - y;
+    const itemY = panelH * 0.78;
+    for (let index = 0; index < 5; index += 1) {
+      const itemX = 92 + itemGap * index;
+      if (Math.abs(localX - itemX) <= 58 && localY >= itemY - 104 && localY <= itemY + 38) return index;
+    }
+    return undefined;
   }
 
   private visualSlotPosition(slot: LineupSlot) {
@@ -627,13 +879,18 @@ export class FormationScene extends BaseScene {
     const modal = new Container();
     modal.eventMode = 'static';
     const lineupIds = new Set(this.game.lineup.flatMap((slot) => (slot.player ? [slot.player.id] : [])));
-    const activePosition = this.warehouseFilter;
+    const activePosition =
+      targetSlot?.position === 'GK' ? 'GK' : targetSlot && this.warehouseFilter === 'GK' ? undefined : this.warehouseFilter;
     const owned = this.game
       .ownedPlayers()
       .filter((player) => {
         if (targetSlot) {
           const availableForSlot = player.id === targetSlot.player?.id || !lineupIds.has(player.id);
-          return availableForSlot && (!activePosition || player.position === activePosition);
+          return (
+            availableForSlot &&
+            this.canShowPlayerForSlot(player, targetSlot.position) &&
+            (!activePosition || player.position === activePosition)
+          );
         }
         return !lineupIds.has(player.id) && (!activePosition || player.position === activePosition);
       })
@@ -696,14 +953,17 @@ export class FormationScene extends BaseScene {
     plusButton.addChild(plusBg, plus);
     panel.addChild(close, divider, title, count, plusButton);
 
-    const tabs = [
-      { text: '全部', position: undefined },
-      { text: '前锋', position: 'FW' as Position },
-      { text: '中场', position: 'MF' as Position },
-      { text: '后卫', position: 'DF' as Position },
-      { text: '门将', position: 'GK' as Position }
-    ];
-    const activeTab = tabs.findIndex((tab) => tab.position === activePosition);
+    const tabs =
+      targetSlot?.position === 'GK'
+        ? [{ text: '门将', position: 'GK' as Position }]
+        : [
+            { text: '全部', position: undefined },
+            { text: '前锋', position: 'FW' as Position },
+            { text: '中场', position: 'MF' as Position },
+            { text: '后卫', position: 'DF' as Position },
+            ...(targetSlot ? [] : [{ text: '门将', position: 'GK' as Position }])
+          ];
+    const activeTab = Math.max(0, tabs.findIndex((tab) => tab.position === activePosition));
     const tabY = 108;
     const tabW = panelW / tabs.length;
     tabs.forEach((item, index) => {
@@ -1063,20 +1323,27 @@ export class FormationScene extends BaseScene {
   }
 
   private openBlindBox(slot: LineupSlot) {
+    if (slot.player) return;
     this.modalSlotId = slot.id;
     this.modalBenchIndex = undefined;
     this.revealed.clear();
     this.revealPulse = 0;
     this.revealTargetId = undefined;
-    const selectedIds = this.game.lineup.flatMap((item) =>
-      item.id !== slot.id && item.player ? [item.player.id] : []
-    );
+    const selectedIds = this.usedPlayerIds({ slotId: slot.id });
     this.modalCandidates = this.shufflePlayers(
       this.game
         .ownedPlayers()
-        .filter((player) => player.id === slot.player?.id || !selectedIds.includes(player.id))
+        .filter(
+          (player) =>
+            this.canShowPlayerForSlot(player, slot.position) &&
+            (player.id === slot.player?.id || !selectedIds.includes(player.id))
+        )
     ).slice(0, FormationScene.BLIND_BOX_PICK_COUNT);
     this.drawBlindBoxModal(this.positionName(slot.position), '点击卡片全部开启后，再选择球员');
+  }
+
+  private canShowPlayerForSlot(player: PlayerCardData, slotPosition: Position) {
+    return slotPosition === 'GK' ? player.position === 'GK' : player.position !== 'GK';
   }
 
   private openBenchBlindBox(index: number) {
@@ -1086,13 +1353,21 @@ export class FormationScene extends BaseScene {
     this.revealPulse = 0;
     this.revealTargetId = undefined;
     const currentPlayer = this.game.substitutes[index];
-    const selectedIds = this.game.substitutes.flatMap((player, itemIndex) =>
-      player && itemIndex !== index ? [player.id] : []
-    );
+    const selectedIds = this.usedPlayerIds({ benchIndex: index });
     this.modalCandidates = this.shufflePlayers(
       this.game.ownedPlayers().filter((player) => player.id === currentPlayer?.id || !selectedIds.includes(player.id))
     ).slice(0, FormationScene.BLIND_BOX_PICK_COUNT);
     this.drawBlindBoxModal(`替补${index + 1}`, '点击卡片全部开启后，再选择球员');
+  }
+
+  private usedPlayerIds(ignore: { slotId?: string; benchIndex?: number } = {}) {
+    const lineupIds = this.game.lineup.flatMap((slot) =>
+      slot.id !== ignore.slotId && slot.player ? [slot.player.id] : []
+    );
+    const benchIds = this.game.substitutes.flatMap((player, index) =>
+      index !== ignore.benchIndex && player ? [player.id] : []
+    );
+    return [...lineupIds, ...benchIds];
   }
 
   private getBlindCardAspect() {
@@ -1376,29 +1651,33 @@ export class FormationScene extends BaseScene {
     target.addChild(particles);
   }
 
-  private drawStartMatch() {
+  private startMatchButton(panelW: number) {
     const filled = this.game.lineup.filter((slot) => slot.player).length;
     const ready = filled >= this.game.lineup.length;
-    const y = this.game.height - 136;
 
-    const buttonW = Math.min(344, this.game.width - 118);
+    const buttonW = Math.min(214, panelW * 0.34);
+    const buttonH = 54;
     const btn = new Container();
-    btn.x = (this.game.width - buttonW) / 2;
-    btn.y = y;
-    const playTexture = Texture.from('/assets/ui/play.png');
-    const bg = new Sprite(new Texture({ source: playTexture.source, frame: new Rectangle(96, 184, 890, 294) }));
-    bg.width = buttonW;
-    bg.height = buttonW * (294 / 890);
+    btn.x = panelW - buttonW - 30;
+    btn.y = 24;
+    const bg = new Graphics();
+    bg.roundRect(0, 0, buttonW, buttonH, 14);
+    bg.fill({ color: ready ? 0xffd640 : 0x10234b, alpha: ready ? 0.98 : 0.78 });
+    bg.stroke({ color: ready ? 0xfff4a8 : 0x56a8ff, alpha: ready ? 0.92 : 0.52, width: 3 });
     btn.addChild(bg);
-    btn.hitArea = new Rectangle(0, 0, bg.width, bg.height);
+    btn.hitArea = new Rectangle(0, 0, buttonW, buttonH);
     btn.eventMode = 'static';
     btn.cursor = ready ? 'pointer' : 'default';
 
-    const power = label(`${this.game.lineupPower()} 战力`, 20, 0x233064, '900');
-    power.anchor.set(0.5);
-    power.x = buttonW / 2 + 18;
-    power.y = bg.height * 0.77;
-    btn.addChild(power);
+    const title = label(ready ? '开始匹配' : `还差${this.game.lineup.length - filled}人`, 22, ready ? 0x233064 : 0xbfd7ff, '900');
+    title.anchor.set(0.5);
+    title.x = buttonW / 2;
+    title.y = 18;
+    const subtitle = label(ready ? `${this.game.lineupPower()} 战力` : '补满首发', 15, ready ? 0x4a3b00 : 0x6ce8ff, '900');
+    subtitle.anchor.set(0.5);
+    subtitle.x = buttonW / 2;
+    subtitle.y = 38;
+    btn.addChild(title, subtitle);
     btn.alpha = ready ? 1 : 0.72;
     btn.on('pointertap', () => {
       if (!ready) {
@@ -1406,11 +1685,135 @@ export class FormationScene extends BaseScene {
         return;
       }
       this.game.sound.play('confirm');
-      this.game.prepareOpponent();
-      this.game.changeScene('matchup');
+      this.openMatchConfirmModal();
     });
-    this.container.addChild(btn);
+    return btn;
+  }
 
+  private openMatchConfirmModal() {
+    this.closeModal();
+    const modal = new Container();
+    modal.eventMode = 'static';
+
+    const mask = new Graphics();
+    mask.rect(0, 0, this.game.width, this.game.height);
+    mask.fill({ color: 0x020613, alpha: 0.82 });
+    mask.eventMode = 'static';
+    mask.on('pointertap', () => this.closeModal());
+    modal.addChild(mask);
+
+    const panelW = Math.min(this.game.width - 72, 620);
+    const panelH = 520;
+    const panelX = (this.game.width - panelW) / 2;
+    const panelY = Math.max(170, (this.game.height - panelH) / 2);
+    const panel = new Container();
+    panel.x = panelX;
+    panel.y = panelY;
+    panel.addChild(glassPanel(panelW, panelH, 0x071936, 0x56d7ff));
+    modal.addChild(panel);
+
+    const title = label('赛前确认', 38, palette.white, '900');
+    title.anchor.set(0.5);
+    title.x = panelW / 2;
+    title.y = 50;
+    const formation = label(`${this.game.selectedFormation.name}  ${this.game.selectedFormation.style}`, 24, 0xffe56a, '900');
+    formation.anchor.set(0.5);
+    formation.x = panelW / 2;
+    formation.y = 92;
+    panel.addChild(title, formation);
+
+    const powerBox = new Graphics();
+    powerBox.roundRect(42, 118, panelW - 84, 76, 14);
+    powerBox.fill({ color: 0xffd640, alpha: 0.96 });
+    powerBox.stroke({ color: 0xfff4a8, alpha: 0.9, width: 3 });
+    const power = label(`${this.game.lineupPower()} 战力`, 34, 0x233064, '900');
+    power.anchor.set(0.5);
+    power.x = panelW / 2;
+    power.y = 147;
+    const starterCount = label(`首发 ${this.game.lineup.filter((slot) => slot.player).length}/${this.game.lineup.length}`, 18, 0x4a3b00, '900');
+    starterCount.anchor.set(0.5);
+    starterCount.x = panelW / 2;
+    starterCount.y = 174;
+    panel.addChild(powerBox, power, starterCount);
+
+    const coreTitle = label('核心球员', 24, 0xcfffee, '900');
+    coreTitle.x = 46;
+    coreTitle.y = 222;
+    panel.addChild(coreTitle);
+
+    const cores = this.game.lineup
+      .flatMap((slot) => (slot.player ? [slot.player] : []))
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 3);
+    const cardGap = (panelW - 120) / 3;
+    cores.forEach((player, index) => {
+      const card = this.confirmCoreCard(player);
+      card.x = 72 + cardGap * index;
+      card.y = 320;
+      panel.addChild(card);
+    });
+
+    const cancel = this.confirmActionButton('继续调整', 44, panelH - 82, 0x10234b, 0x56a8ff, palette.white);
+    cancel.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.closeModal();
+    });
+    const go = this.confirmActionButton('进入匹配', panelW - 220, panelH - 82, 0xffd640, 0xfff4a8, 0x233064);
+    go.on('pointertap', () => {
+      this.game.sound.play('confirm');
+      this.closeModal();
+      this.game.changeScene('matchmaking');
+    });
+    panel.addChild(cancel, go);
+
+    this.modal = modal;
+    this.container.addChild(modal);
+  }
+
+  private confirmCoreCard(player: PlayerCardData) {
+    const c = new Container();
+    c.addChild(this.cardFrame(player.rarity, 92, 104));
+    const face = this.portrait(player, 58);
+    face.x = -29;
+    face.y = -30;
+    const rating = label(String(player.rating), 17, palette.white, '900');
+    rating.anchor.set(0.5);
+    rating.x = -22;
+    rating.y = -22;
+    const pos = this.cardMetaLabel(this.positionName(player.position), 13);
+    pos.anchor.set(0.5);
+    pos.x = -22;
+    pos.y = -5;
+    const nameBg = new Graphics();
+    nameBg.roundRect(-48, 48, 96, 30, 8);
+    nameBg.fill({ color: 0x071e41, alpha: 0.92 });
+    nameBg.stroke({ color: 0x56a8ff, alpha: 0.46, width: 2 });
+    const name = this.fitLabel(player.name, 17, 86, palette.white, '900', 0.72);
+    name.anchor.set(0.5);
+    name.y = 63;
+    c.addChild(face, rating, pos, nameBg, name);
+    return c;
+  }
+
+  private confirmActionButton(text: string, x: number, y: number, fill: number, stroke: number, textColor: number) {
+    const btn = new Container();
+    btn.x = x;
+    btn.y = y;
+    const w = 176;
+    const h = 54;
+    const bg = new Graphics();
+    bg.roundRect(0, 0, w, h, 14);
+    bg.fill({ color: fill, alpha: 0.96 });
+    bg.stroke({ color: stroke, alpha: 0.84, width: 3 });
+    const title = label(text, 22, textColor, '900');
+    title.anchor.set(0.5);
+    title.x = w / 2;
+    title.y = h / 2;
+    btn.addChild(bg, title);
+    btn.hitArea = new Rectangle(0, 0, w, h);
+    btn.eventMode = 'static';
+    btn.cursor = 'pointer';
+    return btn;
   }
 
   private footerCircleButton(index: 0 | 1) {
@@ -1431,7 +1834,7 @@ export class FormationScene extends BaseScene {
     this.game.lineup = this.game.lineup.map((slot) => {
       const player = this.game
         .ownedPlayers()
-        .filter((item) => !usedIds.has(item.id))
+        .filter((item) => !usedIds.has(item.id) && this.canShowPlayerForSlot(item, slot.position))
         .sort((a, b) => b.rating - a.rating)[0];
       if (player) usedIds.add(player.id);
       return { ...slot, player };
