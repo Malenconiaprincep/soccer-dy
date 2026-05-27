@@ -500,14 +500,14 @@ export class FormationScene extends BaseScene {
     const face = this.portrait(player, faceSize, false);
     face.x = -faceSize / 2;
     face.y = -72 - faceSize / 2;
-    const rating = label(String(player.rating), Math.round(31 * scale), palette.white, '900');
+    const rating = label(String(player.rating), Math.round(28 * scale), palette.white, '900');
     rating.anchor.set(0, 0);
     rating.x = face.x - 5;
-    rating.y = face.y + 3;
-    const pos = this.cardMetaLabel(this.positionName(player.position), Math.round(26 * scale));
+    rating.y = face.y - 20;
+    const pos = this.cardMetaLabel(this.positionName(player.position), Math.round(23 * scale));
     pos.anchor.set(0, 0);
     pos.x = face.x - 5;
-    pos.y = face.y + Math.round(31 * scale);
+    pos.y = face.y + Math.round(5 * scale);
 
     const nameBg = new Graphics();
     nameBg.roundRect(-58, -4, 116, 34, 8);
