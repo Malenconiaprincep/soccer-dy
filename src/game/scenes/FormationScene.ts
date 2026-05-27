@@ -16,6 +16,9 @@ export class FormationScene extends BaseScene {
   private static readonly BLIND_REVEAL_DURATION = 600;
   private static readonly BLIND_BOX_LIFT = 50;
   private static readonly LINEUP_DRAG_DELAY = 320;
+  private static readonly SLOT_HEX_OUTER_R = 60;
+  private static readonly SLOT_HEX_INNER_R = 52;
+  private static readonly BENCH_HEX_SCALE = 0.68;
   private static readonly CARD_BG_FRAMES: Record<Rarity, Rectangle> = {
     bronze: new Rectangle(77, -10, 249, 357),
     silver: new Rectangle(413, -10, 251, 357),
@@ -462,7 +465,7 @@ export class FormationScene extends BaseScene {
   private emptyBenchSlot(index: number) {
     const c = new Container();
     const frame = this.emptyCardFrame();
-    frame.scale.set(0.68);
+    frame.scale.set(FormationScene.BENCH_HEX_SCALE);
     frame.y = -72;
     const nameBg = new Graphics();
     nameBg.roundRect(-54, -4, 108, 34, 8);
@@ -487,31 +490,32 @@ export class FormationScene extends BaseScene {
 
   private benchPlayer(player: PlayerCardData, index: number) {
     const c = new Container();
-    const card = new Container();
-    card.addChild(this.cardFrame(player.rarity, 132, 162));
-    const face = this.portrait(player, 80);
-    face.x = -40;
-    face.y = -44;
-    const rating = label(String(player.rating), 22, palette.white, '900');
-    rating.anchor.set(0.5);
-    rating.x = -31;
-    rating.y = -34;
-    const pos = this.cardMetaLabel(this.positionName(player.position), 18);
-    pos.anchor.set(0.5);
-    pos.x = -31;
-    pos.y = -13;
-    card.addChild(face, rating, pos);
-    card.x = 0;
-    card.y = -78;
+    const scale = FormationScene.BENCH_HEX_SCALE;
+    const innerR = FormationScene.SLOT_HEX_INNER_R * scale;
+    const faceSize = innerR * 2;
+    const frame = this.emptyCardFrame();
+    frame.scale.set(scale);
+    frame.y = -72;
+    const face = this.portrait(player, faceSize, false);
+    face.x = -faceSize / 2;
+    face.y = -72 - faceSize / 2;
+    const rating = label(String(player.rating), Math.round(22 * scale), palette.white, '900');
+    rating.anchor.set(0, 0);
+    rating.x = face.x + 2;
+    rating.y = face.y + 4;
+    const pos = this.cardMetaLabel(this.positionName(player.position), Math.round(18 * scale));
+    pos.anchor.set(0, 0);
+    pos.x = face.x + 2;
+    pos.y = face.y + Math.round(22 * scale);
 
     const nameBg = new Graphics();
-    nameBg.roundRect(-58, 9, 116, 34, 8);
+    nameBg.roundRect(-50, -4, 100, 28, 7);
     nameBg.fill({ color: 0x071e41, alpha: 0.92 });
     nameBg.stroke({ color: 0x56a8ff, alpha: 0.46, width: 2 });
-    const name = this.fitLabel(player.name, 19, 104, palette.white, '900', 0.78);
+    const name = this.fitLabel(player.name, 15, 92, palette.white, '900', 0.72);
     name.anchor.set(0.5);
-    name.y = 26;
-    c.addChild(card, nameBg, name);
+    name.y = 13;
+    c.addChild(frame, face, rating, pos, nameBg, name);
     if (this.selectedBenchIndex === index) c.addChild(this.slotSelectionRing(0.72));
     c.eventMode = 'static';
     c.cursor = 'pointer';
@@ -534,12 +538,8 @@ export class FormationScene extends BaseScene {
     c.y = 60 + visual.y * (fieldH - 150);
     c.scale.set(0.96);
     const role = this.roleForSlot(slot);
-    const bg = slot.player ? this.cardFrame(slot.player.rarity, 116, 132) : this.emptyCardFrame();
-    const text = label(slot.player ? slot.player.name : role, slot.player ? 20 : 20, slot.player ? palette.white : 0x6ce8ff, '900');
-    text.anchor.set(0.5);
-    text.y = 74;
     const nameBg = new Graphics();
-    nameBg.roundRect(-48, 57, 96, 32, 8);
+    nameBg.roundRect(-42, 58, 84, 26, 7);
     nameBg.fill({ color: 0x071e41, alpha: 0.9 });
     nameBg.stroke({ color: 0x56a8ff, alpha: 0.42, width: 2 });
     const tag = new Graphics();
@@ -550,24 +550,30 @@ export class FormationScene extends BaseScene {
     tagText.anchor.set(0.5);
     tagText.y = 64;
     if (slot.player) {
-      const rating = label(String(slot.player.rating), 20, palette.white, '900');
-      rating.anchor.set(0.5);
-      rating.x = -28;
-      rating.y = -28;
-      const position = this.cardMetaLabel(role, 15);
-      position.anchor.set(0.5);
-      position.x = -28;
-      position.y = -8;
-      const face = this.portrait(slot.player, 74);
-      face.x = -37;
-      face.y = -37;
-      c.addChild(bg, face, rating, nameBg, text, position);
+      const innerR = FormationScene.SLOT_HEX_INNER_R;
+      const faceSize = innerR * 2;
+      const frame = this.emptyCardFrame();
+      const face = this.portrait(slot.player, faceSize, false);
+      face.x = -faceSize / 2;
+      face.y = -faceSize / 2;
+      const rating = label(String(slot.player.rating), 22, palette.white, '900');
+      rating.anchor.set(0, 0);
+      rating.x = face.x + 4;
+      rating.y = face.y + 6;
+      const position = this.cardMetaLabel(role, 16);
+      position.anchor.set(0, 0);
+      position.x = face.x + 4;
+      position.y = face.y + 26;
+      const text = this.fitLabel(slot.player.name, 15, 78, palette.white, '900', 0.72);
+      text.anchor.set(0.5);
+      text.y = 71;
+      c.addChild(frame, face, rating, nameBg, text, position);
       this.bindDragHandlers(c, { type: 'lineup', slotId: slot.id }, slot.player);
     } else {
       const mark = label('+', 44, 0xffe27a, '900');
       mark.anchor.set(0.5);
       mark.alpha = 0.95;
-      c.addChild(bg, mark, tag, tagText);
+      c.addChild(this.emptyCardFrame(), mark, tag, tagText);
     }
     if (this.selectedSlotId === slot.id) c.addChild(this.slotSelectionRing());
     c.eventMode = 'static';
@@ -725,22 +731,24 @@ export class FormationScene extends BaseScene {
     const preview = new Container();
     preview.scale.set(1.08);
     preview.alpha = 0.92;
-    preview.addChild(this.cardFrame(player.rarity, 116, 132));
-    const face = this.portrait(player, 74);
-    face.x = -37;
-    face.y = -37;
-    const rating = label(String(player.rating), 20, palette.white, '900');
-    rating.anchor.set(0.5);
-    rating.x = -28;
-    rating.y = -28;
-    const pos = this.cardMetaLabel(this.positionName(player.position), 15);
-    pos.anchor.set(0.5);
-    pos.x = -28;
-    pos.y = -8;
+    const innerR = FormationScene.SLOT_HEX_INNER_R;
+    const faceSize = innerR * 2;
+    const frame = this.emptyCardFrame();
+    const face = this.portrait(player, faceSize, false);
+    face.x = -faceSize / 2;
+    face.y = -faceSize / 2;
+    const rating = label(String(player.rating), 22, palette.white, '900');
+    rating.anchor.set(0, 0);
+    rating.x = face.x + 4;
+    rating.y = face.y + 6;
+    const pos = this.cardMetaLabel(this.positionName(player.position), 16);
+    pos.anchor.set(0, 0);
+    pos.x = face.x + 4;
+    pos.y = face.y + 26;
     const lift = new Graphics();
-    lift.roundRect(-50, -52, 100, 132, 12);
+    this.drawHexPath(lift, 0, 0, FormationScene.SLOT_HEX_OUTER_R + 4);
     lift.stroke({ color: 0xffe56a, alpha: 0.9, width: 4 });
-    preview.addChild(face, rating, pos, lift);
+    preview.addChild(frame, face, rating, pos, lift);
     this.dragPreview = preview;
     this.container.addChild(preview);
     this.moveDragPreview(globalX, globalY);
@@ -1213,15 +1221,17 @@ export class FormationScene extends BaseScene {
 
   private emptyCardFrame() {
     const c = new Container();
+    const outerR = FormationScene.SLOT_HEX_OUTER_R;
+    const innerR = FormationScene.SLOT_HEX_INNER_R;
     const shadow = new Graphics();
-    this.drawHexPath(shadow, 0, 8, 58);
+    this.drawHexPath(shadow, 0, 8, outerR - 2);
     shadow.fill({ color: 0x000000, alpha: 0.42 });
     const outer = new Graphics();
-    this.drawHexPath(outer, 0, 0, 60);
+    this.drawHexPath(outer, 0, 0, outerR);
     outer.fill({ color: 0x02090b, alpha: 0.96 });
     outer.stroke({ color: 0xffffff, alpha: 0.72, width: 4 });
     const inner = new Graphics();
-    this.drawHexPath(inner, 0, 0, 52);
+    this.drawHexPath(inner, 0, 0, innerR);
     inner.fill({ color: 0x0b2024, alpha: 0.72 });
     inner.stroke({ color: 0x7fffee, alpha: 0.75, width: 3 });
     const shine = new Graphics();
@@ -1854,26 +1864,32 @@ export class FormationScene extends BaseScene {
     return '前锋';
   }
 
-  private portrait(player: PlayerCardData, size: number) {
+  private portrait(player: PlayerCardData, size: number, showFrame = true) {
     const c = new Container();
+    const cx = size / 2;
+    const cy = size / 2;
+    const r = size / 2;
+    const hexH = r * Math.sqrt(3);
     const sprite = new Sprite(Texture.from(player.portrait));
     const textureWidth = sprite.texture.width || 1024;
     const textureHeight = sprite.texture.height || 1024;
-    const scale = Math.max(size / textureWidth, size / textureHeight);
+    const scale = Math.max(size / textureWidth, hexH / textureHeight);
     sprite.scale.set(scale);
     sprite.x = (size - textureWidth * scale) / 2;
-    sprite.y = (size - textureHeight * scale) / 2;
+    sprite.y = cy - hexH / 2 + (hexH - textureHeight * scale) / 2;
 
     const mask = new Graphics();
-    mask.roundRect(0, 0, size, size, size * 0.18);
+    this.drawHexPath(mask, cx, cy, r);
     mask.fill(0xffffff);
     sprite.mask = mask;
 
-    const frame = new Graphics();
-    frame.roundRect(0, 0, size, size, size * 0.18);
-    frame.stroke({ color: player.color, alpha: 0.85, width: 3 });
-
-    c.addChild(sprite, mask, frame);
+    c.addChild(sprite, mask);
+    if (showFrame) {
+      const frame = new Graphics();
+      this.drawHexPath(frame, cx, cy, r);
+      frame.stroke({ color: player.color, alpha: 0.85, width: 3 });
+      c.addChild(frame);
+    }
     return c;
   }
 

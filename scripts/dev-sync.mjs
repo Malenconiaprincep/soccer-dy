@@ -1,10 +1,12 @@
 import { spawn } from 'node:child_process';
 
+const DEV_PORT = 5179;
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const children = [];
 
-function run(script, label) {
-  const child = spawn(npmCmd, ['run', script], {
+function run(script, label, extraArgs = []) {
+  const args = extraArgs.length ? ['run', script, '--', ...extraArgs] : ['run', script];
+  const child = spawn(npmCmd, args, {
     stdio: 'inherit',
     shell: true,
     env: process.env
@@ -34,8 +36,8 @@ function shutdown(code = 0) {
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
-console.log('[dev-sync] Web: http://localhost:5173');
+console.log(`[dev-sync] Web: http://localhost:${DEV_PORT}`);
 console.log('[dev-sync] Douyin output: ./douyin-game (refresh in Douyin DevTools after rebuild)');
 
-run('dev', 'web');
+run('dev', 'web', ['--port', String(DEV_PORT)]);
 // run('build:douyin:watch', 'douyin');
