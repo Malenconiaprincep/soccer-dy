@@ -25,6 +25,11 @@ export class LoadingScene extends BaseScene {
   }
 
   update(deltaMs: number) {
+    if (this.game.isLoadingHeldForDebug()) {
+      this.progress = 0.72;
+      this.drawBar();
+      return;
+    }
     this.progress = Math.min(1, this.progress + deltaMs / 1600);
     this.drawBar();
     if (this.progress >= 1) {

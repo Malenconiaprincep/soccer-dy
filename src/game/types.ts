@@ -1,4 +1,4 @@
-export type SceneName = 'loading' | 'home' | 'formation' | 'blindBox' | 'matchup' | 'battle' | 'result';
+export type SceneName = 'loading' | 'home' | 'formation' | 'blindBox' | 'matchmaking' | 'matchup' | 'battle' | 'result';
 
 export type Position = 'GK' | 'DF' | 'MF' | 'FW';
 

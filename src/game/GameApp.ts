@@ -11,11 +11,15 @@ import { WebPlatform, DouyinPlatform, type PlatformApi } from './platform/Platfo
 import { defaultCollectionIds, drawScoutCandidates, formations, players } from './data';
 import { defaultBattleSource } from './battle/BattleMode';
 import { SoundFx } from './audio/SoundFx';
-import type { BattleEvent, FormationData, LineupSlot, PlayerCardData, Position, Scene } from './types';
+import type { BattleEvent, FormationData, LineupSlot, PlayerCardData, Position, Scene, SceneName } from './types';
 import { PlayerStorage } from './storage/PlayerStorage';
 
 const DESIGN_WIDTH = 720;
 const DESIGN_HEIGHT = 1280;
+const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
+const SCENES: SceneName[] = ['loading', 'home', 'formation', 'blindBox', 'matchmaking', 'matchup', 'battle', 'result'];
+const DEV_SCENE_KEY = 'soccer.dev.defaultScene';
+const DEV_HOLD_LOADING_KEY = 'soccer.dev.holdLoading';
 
 interface GameMount {
   clientWidth: number;
@@ -64,6 +68,7 @@ export class GameApp {
   private safeAreaInsetTopPx = 0;
   private safeAreaInsetBottomPx = 0;
   private safeContentRightPx = 0;
+  private devPanel?: HTMLDivElement;
 
   constructor(private readonly mount: GameMount, private readonly runtime: GameRuntime = {}) {
     this.platform = runtime.miniGame ? new DouyinPlatform() : new WebPlatform();
@@ -149,10 +154,14 @@ export class GameApp {
     ]);
     this.app.ticker.add((ticker) => this.scene?.update(ticker.deltaMS));
     window.addEventListener?.('resize', () => this.resize());
-    this.changeScene('loading');
+    if (runtimeEnv.DEV && !this.runtime.miniGame) this.installDevPanel();
+    const initialScene = this.devInitialScene();
+    this.prepareDevScene(initialScene);
+    this.changeScene(initialScene);
   }
 
-  changeScene(name: 'loading' | 'home' | 'formation' | 'blindBox' | 'matchmaking' | 'matchup' | 'battle' | 'result') {
+  changeScene(name: SceneName) {
+    if (runtimeEnv.DEV) this.prepareDevScene(name);
     this.scene?.exit();
     this.root.removeChildren();
 
@@ -168,6 +177,156 @@ export class GameApp {
     this.updateViewport();
     this.scene?.enter();
     this.resize();
+  }
+
+  isLoadingHeldForDebug() {
+    if (!runtimeEnv.DEV || this.runtime.miniGame) return false;
+    const params = new URLSearchParams(globalThis.location?.search ?? '');
+    const queryValue = params.get('holdLoading');
+    if (queryValue !== null) return queryValue !== '0' && queryValue !== 'false';
+    return globalThis.localStorage?.getItem(DEV_HOLD_LOADING_KEY) === '1';
+  }
+
+  private devInitialScene(): SceneName {
+    if (!runtimeEnv.DEV || this.runtime.miniGame) return 'loading';
+    const params = new URLSearchParams(globalThis.location?.search ?? '');
+    const queryScene = params.get('scene') as SceneName | null;
+    if (queryScene && SCENES.includes(queryScene)) return queryScene;
+    const savedScene = globalThis.localStorage?.getItem(DEV_SCENE_KEY) as SceneName | null;
+    if (savedScene && SCENES.includes(savedScene)) return savedScene;
+    return 'loading';
+  }
+
+  private prepareDevScene(sceneName: SceneName) {
+    if (!runtimeEnv.DEV || this.runtime.miniGame) return;
+    if (sceneName === 'matchmaking' || sceneName === 'matchup' || sceneName === 'battle' || sceneName === 'result') {
+      this.fillDebugLineup();
+    }
+    if (sceneName === 'matchup' || sceneName === 'battle' || sceneName === 'result') {
+      this.prepareOpponent();
+    }
+    if (sceneName === 'result') {
+      this.battleResult = {
+        scoreA: 2,
+        scoreB: 1,
+        events: [
+          { time: 12, text: '开场后快速压迫，边路制造威胁。', scoreA: 0, scoreB: 0, mood: 'normal' },
+          { time: 34, text: '核心前锋禁区内抢点破门。', scoreA: 1, scoreB: 0, mood: 'good' },
+          { time: 57, text: '对手通过反击扳回一球。', scoreA: 1, scoreB: 1, mood: 'bad' },
+          { time: 82, text: '中场送出直塞，完成绝杀。', scoreA: 2, scoreB: 1, mood: 'good' }
+        ]
+      };
+    }
+  }
+
+  private fillDebugLineup() {
+    const usedIds = new Set<string>();
+    this.lineup.forEach((slot) => {
+      if (slot.player) usedIds.add(slot.player.id);
+    });
+    this.lineup = this.lineup.map((slot) => {
+      if (slot.player) return slot;
+      const pool = players
+        .filter((player) => player.position === slot.position && !usedIds.has(player.id))
+        .sort((a, b) => b.rating - a.rating);
+      const fallback = players
+        .filter((player) => !usedIds.has(player.id))
+        .sort((a, b) => b.rating - a.rating);
+      const player = pool[0] ?? fallback[0];
+      if (player) usedIds.add(player.id);
+      return { ...slot, player };
+    });
+  }
+
+  private installDevPanel() {
+    if (this.devPanel || !globalThis.document) return;
+    const panel = document.createElement('div');
+    panel.style.position = 'fixed';
+    panel.style.right = '10px';
+    panel.style.top = '10px';
+    panel.style.zIndex = '9999';
+    panel.style.display = 'grid';
+    panel.style.gap = '6px';
+    panel.style.width = '188px';
+    panel.style.padding = '10px';
+    panel.style.border = '1px solid rgba(103, 216, 255, 0.58)';
+    panel.style.borderRadius = '10px';
+    panel.style.background = 'rgba(3, 10, 28, 0.86)';
+    panel.style.color = '#eaf7ff';
+    panel.style.font = '12px Arial, "Microsoft YaHei", sans-serif';
+    panel.style.boxShadow = '0 10px 30px rgba(0,0,0,0.35)';
+
+    const title = document.createElement('strong');
+    title.textContent = 'DEV 场景调试';
+    title.style.fontSize = '13px';
+
+    const select = document.createElement('select');
+    select.style.height = '30px';
+    select.style.borderRadius = '6px';
+    select.style.background = '#071936';
+    select.style.color = '#fff';
+    select.style.border = '1px solid #2f83d6';
+    SCENES.forEach((scene) => {
+      const option = document.createElement('option');
+      option.value = scene;
+      option.textContent = scene;
+      select.appendChild(option);
+    });
+    select.value = this.devInitialScene();
+
+    const holdLabel = document.createElement('label');
+    holdLabel.style.display = 'flex';
+    holdLabel.style.alignItems = 'center';
+    holdLabel.style.gap = '6px';
+    const hold = document.createElement('input');
+    hold.type = 'checkbox';
+    hold.checked = this.isLoadingHeldForDebug();
+    holdLabel.append(hold, '暂停 loading 跳转');
+
+    const actions = document.createElement('div');
+    actions.style.display = 'grid';
+    actions.style.gridTemplateColumns = '1fr 1fr';
+    actions.style.gap = '6px';
+
+    const go = this.devPanelButton('跳转');
+    const save = this.devPanelButton('设默认');
+    actions.append(go, save);
+
+    const hint = document.createElement('div');
+    hint.textContent = '?scene=loading&holdLoading=1 可直开预览';
+    hint.style.color = '#9fdcff';
+    hint.style.lineHeight = '1.35';
+
+    go.onclick = () => this.changeScene(select.value as SceneName);
+    save.onclick = () => {
+      globalThis.localStorage?.setItem(DEV_SCENE_KEY, select.value);
+      globalThis.localStorage?.setItem(DEV_HOLD_LOADING_KEY, hold.checked ? '1' : '0');
+      save.textContent = '已保存';
+      window.setTimeout(() => {
+        save.textContent = '设默认';
+      }, 900);
+    };
+    hold.onchange = () => {
+      globalThis.localStorage?.setItem(DEV_HOLD_LOADING_KEY, hold.checked ? '1' : '0');
+      if (this.scene instanceof LoadingScene) this.changeScene('loading');
+    };
+
+    panel.append(title, select, holdLabel, actions, hint);
+    document.body.appendChild(panel);
+    this.devPanel = panel;
+  }
+
+  private devPanelButton(text: string) {
+    const button = document.createElement('button');
+    button.textContent = text;
+    button.style.height = '30px';
+    button.style.border = '1px solid #56a8ff';
+    button.style.borderRadius = '6px';
+    button.style.background = '#10234b';
+    button.style.color = '#fff';
+    button.style.fontWeight = '700';
+    button.style.cursor = 'pointer';
+    return button;
   }
 
   setFormation(formation: FormationData) {
