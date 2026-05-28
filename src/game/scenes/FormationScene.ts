@@ -12,6 +12,14 @@ export class FormationScene extends BaseScene {
   private static readonly BLIND_BOX_PICK_COUNT = 3;
   private static readonly BLIND_CARD_BACK = '/assets/ui/card-guess1.png';
   private static readonly BLIND_CARD_BACK_FRAME = new Rectangle(185, 298, 350, 488);
+  private static readonly READY_BUTTON = '/assets/ui/button-ready.png';
+  private static readonly READY_BUTTON_FRAME = new Rectangle(63, 203, 995, 275);
+  private static readonly MATCH_READY_BG = '/assets/ui/gamereadybg.png';
+  private static readonly CONFIRM_READY_BUTTON = '/assets/ui/readybutton.png';
+  private static readonly CONFIRM_ADJUST_BUTTON_FRAME = new Rectangle(31, 132, 489, 182);
+  private static readonly CONFIRM_READY_BUTTON_FRAME = new Rectangle(557, 132, 489, 180);
+  private static readonly PLAYER_SCORE_ICON = '/assets/ui/playerscore.png';
+  private static readonly PLAYER_SCORE_ICON_FRAME = new Rectangle(416, 172, 246, 288);
   private static readonly BLIND_FACE_SCALE = 0.86;
   private static readonly BLIND_BACK_BOOST = 1.14;
   private static readonly BLIND_REVEAL_DURATION = 600;
@@ -496,10 +504,10 @@ export class FormationScene extends BaseScene {
     const faceSize = innerR * 2;
     const frame = this.emptyCardFrame();
     frame.scale.set(scale);
-    frame.y = -72;
+    frame.y = -62;
     const face = this.portrait(player, faceSize, false);
     face.x = -faceSize / 2;
-    face.y = -72 - faceSize / 2;
+    face.y = -62 - faceSize / 2;
     const rating = label(String(player.rating), Math.round(28 * scale), palette.white, '900');
     rating.anchor.set(0, 0);
     rating.x = face.x - 5;
@@ -1674,29 +1682,39 @@ export class FormationScene extends BaseScene {
     const filled = this.game.lineup.filter((slot) => slot.player).length;
     const ready = filled >= this.game.lineup.length;
 
-    const buttonW = Math.min(214, panelW * 0.34);
-    const buttonH = 54;
+    const buttonW = ready ? Math.min(236, panelW * 0.36) : Math.min(214, panelW * 0.34);
+    const buttonH = ready ? Math.round(buttonW * (FormationScene.READY_BUTTON_FRAME.height / FormationScene.READY_BUTTON_FRAME.width)) : 54;
     const btn = new Container();
     btn.x = panelW - buttonW - 30;
     btn.y = 24;
-    const bg = new Graphics();
-    bg.roundRect(0, 0, buttonW, buttonH, 14);
-    bg.fill({ color: ready ? 0xffd640 : 0x10234b, alpha: ready ? 0.98 : 0.78 });
-    bg.stroke({ color: ready ? 0xfff4a8 : 0x56a8ff, alpha: ready ? 0.92 : 0.52, width: 3 });
-    btn.addChild(bg);
+    if (ready) {
+      const texture = Texture.from(FormationScene.READY_BUTTON);
+      const bg = new Sprite(new Texture({ source: texture.source, frame: FormationScene.READY_BUTTON_FRAME }));
+      bg.width = buttonW;
+      bg.height = buttonH;
+      btn.addChild(bg);
+    } else {
+      const bg = new Graphics();
+      bg.roundRect(0, 0, buttonW, buttonH, 14);
+      bg.fill({ color: 0x10234b, alpha: 0.78 });
+      bg.stroke({ color: 0x56a8ff, alpha: 0.52, width: 3 });
+      btn.addChild(bg);
+    }
     btn.hitArea = new Rectangle(0, 0, buttonW, buttonH);
     btn.eventMode = 'static';
     btn.cursor = ready ? 'pointer' : 'default';
 
-    const title = label(ready ? '开始匹配' : `还差${this.game.lineup.length - filled}人`, 22, ready ? 0x233064 : 0xbfd7ff, '900');
-    title.anchor.set(0.5);
-    title.x = buttonW / 2;
-    title.y = 18;
-    const subtitle = label(ready ? `${this.game.lineupPower()} 战力` : '补满首发', 15, ready ? 0x4a3b00 : 0x6ce8ff, '900');
-    subtitle.anchor.set(0.5);
-    subtitle.x = buttonW / 2;
-    subtitle.y = 38;
-    btn.addChild(title, subtitle);
+    if (!ready) {
+      const title = label(`还差${this.game.lineup.length - filled}人`, 22, 0xbfd7ff, '900');
+      title.anchor.set(0.5);
+      title.x = buttonW / 2;
+      title.y = 18;
+      const subtitle = label('补满首发', 15, 0x6ce8ff, '900');
+      subtitle.anchor.set(0.5);
+      subtitle.x = buttonW / 2;
+      subtitle.y = 38;
+      btn.addChild(title, subtitle);
+    }
     btn.alpha = ready ? 1 : 0.72;
     btn.on('pointertap', () => {
       if (!ready) {
@@ -1721,63 +1739,105 @@ export class FormationScene extends BaseScene {
     mask.on('pointertap', () => this.closeModal());
     modal.addChild(mask);
 
-    const panelW = Math.min(this.game.width - 72, 620);
-    const panelH = 520;
+    const bgRatio = 917 / 1080;
+    const maxPanelW = Math.min(this.game.width - 8, 820);
+    const maxPanelH = Math.min(this.game.height - 8, 780);
+    const panelH = Math.min(maxPanelH, maxPanelW / bgRatio);
+    const panelW = Math.round(panelH * bgRatio);
     const panelX = (this.game.width - panelW) / 2;
-    const panelY = Math.max(170, (this.game.height - panelH) / 2);
+    const panelY = Math.max(20, (this.game.height - panelH) / 2);
     const panel = new Container();
     panel.x = panelX;
     panel.y = panelY;
-    panel.addChild(glassPanel(panelW, panelH, 0x071936, 0x56d7ff));
+    const bg = new Sprite(Texture.from(FormationScene.MATCH_READY_BG));
+    bg.width = panelW;
+    bg.height = panelH;
+    panel.addChild(bg);
     modal.addChild(panel);
 
-    const title = label('赛前确认', 38, palette.white, '900');
+    const closeHotspot = new Container();
+    closeHotspot.x = panelW * 0.82;
+    closeHotspot.y = panelH * 0.02;
+    closeHotspot.hitArea = new Rectangle(0, 0, panelW * 0.16, panelH * 0.12);
+    closeHotspot.eventMode = 'static';
+    closeHotspot.cursor = 'pointer';
+    closeHotspot.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.closeModal();
+    });
+    panel.addChild(closeHotspot);
+
+    const title = label('赛前确认', 44, palette.white, '900');
     title.anchor.set(0.5);
     title.x = panelW / 2;
-    title.y = 50;
-    const formation = label(`${this.game.selectedFormation.name}  ${this.game.selectedFormation.style}`, 24, 0xffe56a, '900');
+    title.y = panelH * 0.11;
+    const formation = label(`${this.game.selectedFormation.name}  ${this.game.selectedFormation.style}`, 32, 0xffe56a, '900');
     formation.anchor.set(0.5);
     formation.x = panelW / 2;
-    formation.y = 92;
+    formation.y = title.y + 56;
     panel.addChild(title, formation);
 
-    const powerBox = new Graphics();
-    powerBox.roundRect(42, 118, panelW - 84, 76, 14);
-    powerBox.fill({ color: 0xffd640, alpha: 0.96 });
-    powerBox.stroke({ color: 0xfff4a8, alpha: 0.9, width: 3 });
-    const power = label(`${this.game.lineupPower()} 战力`, 34, 0x233064, '900');
-    power.anchor.set(0.5);
-    power.x = panelW / 2;
-    power.y = 147;
-    const starterCount = label(`首发 ${this.game.lineup.filter((slot) => slot.player).length}/${this.game.lineup.length}`, 18, 0x4a3b00, '900');
-    starterCount.anchor.set(0.5);
-    starterCount.x = panelW / 2;
-    starterCount.y = 174;
-    panel.addChild(powerBox, power, starterCount);
-
-    const coreTitle = label('核心球员', 24, 0xcfffee, '900');
-    coreTitle.x = 46;
-    coreTitle.y = 222;
-    panel.addChild(coreTitle);
+    const coreY = panelH * 0.255;
+    const coreTitle = label('核心球员', 34, 0x9ff5ff, '900');
+    coreTitle.anchor.set(0.5);
+    coreTitle.x = panelW / 2;
+    coreTitle.y = coreY;
+    const leftMark = this.confirmTitleMark();
+    leftMark.x = panelW / 2 - 170;
+    leftMark.y = coreY - 12;
+    const rightMark = this.confirmTitleMark();
+    rightMark.scale.x = -1;
+    rightMark.x = panelW / 2 + 170;
+    rightMark.y = coreY - 12;
+    panel.addChild(leftMark, rightMark, coreTitle);
 
     const cores = this.game.lineup
       .flatMap((slot) => (slot.player ? [slot.player] : []))
       .sort((a, b) => b.rating - a.rating)
       .slice(0, 3);
-    const cardGap = (panelW - 120) / 3;
+    const cardGap = panelW * 0.3;
     cores.forEach((player, index) => {
       const card = this.confirmCoreCard(player);
-      card.x = 72 + cardGap * index;
-      card.y = 320;
+      card.x = panelW / 2 + (index - 1) * cardGap;
+      card.y = panelH * 0.425;
       panel.addChild(card);
     });
 
-    const cancel = this.confirmActionButton('继续调整', 44, panelH - 82, 0x10234b, 0x56a8ff, palette.white);
+    const powerPanelY = panelH * 0.63;
+    const powerPanel = new Graphics();
+    powerPanel.roundRect(panelW * 0.12, powerPanelY, panelW * 0.76, 92, 18);
+    powerPanel.fill({ color: 0x061a38, alpha: 0.78 });
+    powerPanel.stroke({ color: 0x1f71ff, alpha: 0.48, width: 2 });
+    const scoreTexture = Texture.from(FormationScene.PLAYER_SCORE_ICON);
+    const badge = new Sprite(new Texture({ source: scoreTexture.source, frame: FormationScene.PLAYER_SCORE_ICON_FRAME }));
+    badge.anchor.set(0.5);
+    badge.width = 58;
+    badge.height = 68;
+    badge.x = panelW * 0.29;
+    badge.y = powerPanelY + 48;
+    const power = label(`当前战力 ${this.game.lineupPower()}`, 32, palette.white, '900');
+    power.anchor.set(0, 0.5);
+    power.x = panelW * 0.37;
+    power.y = powerPanelY + 38;
+    const powerValue = power.text.split(' ').pop() ?? '';
+    power.text = '当前战力 ';
+    const value = label(powerValue, 42, 0xffe56a, '900');
+    value.anchor.set(0, 0.5);
+    value.x = power.x + power.width + 4;
+    value.y = power.y;
+    const status = label('阵容已保存，状态良好', 23, 0x9fb4d8, '900');
+    status.anchor.set(0, 0.5);
+    status.x = panelW * 0.37;
+    status.y = powerPanelY + 68;
+    panel.addChild(powerPanel, badge, power, value, status);
+
+    const buttonY = panelH - 162;
+    const cancel = this.confirmImageButton(FormationScene.CONFIRM_ADJUST_BUTTON_FRAME, panelW * 0.12, buttonY + 12, panelW * 0.34);
     cancel.on('pointertap', () => {
       this.game.sound.play('tap');
       this.closeModal();
     });
-    const go = this.confirmActionButton('进入匹配', panelW - 220, panelH - 82, 0xffd640, 0xfff4a8, 0x233064);
+    const go = this.confirmImageButton(FormationScene.CONFIRM_READY_BUTTON_FRAME, panelW * 0.54, buttonY + 12, panelW * 0.34);
     go.on('pointertap', () => {
       this.game.sound.play('confirm');
       this.closeModal();
@@ -1791,44 +1851,74 @@ export class FormationScene extends BaseScene {
 
   private confirmCoreCard(player: PlayerCardData) {
     const c = new Container();
-    c.addChild(this.cardFrame(player.rarity, 92, 104));
-    const face = this.portrait(player, 58);
-    face.x = -29;
-    face.y = -30;
-    const rating = label(String(player.rating), 17, palette.white, '900');
+    c.addChild(this.cardFrame(player.rarity, 136, 154));
+    const face = this.portrait(player, 90);
+    face.x = -45;
+    face.y = -42;
+    const rating = label(String(player.rating), 28, palette.white, '900');
     rating.anchor.set(0.5);
-    rating.x = -22;
-    rating.y = -22;
-    const pos = this.cardMetaLabel(this.positionName(player.position), 13);
+    rating.x = -40;
+    rating.y = -58;
+    const pos = this.cardMetaLabel(this.positionName(player.position), 22);
     pos.anchor.set(0.5);
-    pos.x = -22;
-    pos.y = -5;
+    pos.x = -38;
+    pos.y = -31;
     const nameBg = new Graphics();
-    nameBg.roundRect(-48, 48, 96, 30, 8);
+    nameBg.roundRect(-66, 70, 132, 42, 9);
     nameBg.fill({ color: 0x071e41, alpha: 0.92 });
     nameBg.stroke({ color: 0x56a8ff, alpha: 0.46, width: 2 });
-    const name = this.fitLabel(player.name, 17, 86, palette.white, '900', 0.72);
+    const name = this.fitLabel(player.name, 25, 120, palette.white, '900', 0.72);
     name.anchor.set(0.5);
-    name.y = 63;
+    name.y = 91;
     c.addChild(face, rating, pos, nameBg, name);
     return c;
   }
 
-  private confirmActionButton(text: string, x: number, y: number, fill: number, stroke: number, textColor: number) {
+  private confirmTitleMark() {
+    const c = new Container();
+    const g = new Graphics();
+    g.poly([0, 8, 78, 8, 94, 0, 78, -8, 0, -8]);
+    g.fill({ color: 0x0b65ff, alpha: 0.72 });
+    g.rect(18, -8, 14, 16);
+    g.fill({ color: 0x66eaff, alpha: 0.85 });
+    c.addChild(g);
+    return c;
+  }
+
+  private confirmImageButton(frame: Rectangle, x: number, y: number, width: number) {
+    const btn = new Container();
+    const texture = Texture.from(FormationScene.CONFIRM_READY_BUTTON);
+    const sprite = new Sprite(new Texture({ source: texture.source, frame }));
+    const height = Math.round(width * (frame.height / frame.width));
+    sprite.width = width;
+    sprite.height = height;
+    btn.x = x;
+    btn.y = y;
+    btn.addChild(sprite);
+    btn.hitArea = new Rectangle(0, 0, width, height);
+    btn.eventMode = 'static';
+    btn.cursor = 'pointer';
+    return btn;
+  }
+
+  private confirmActionButton(text: string, x: number, y: number, fill: number, stroke: number, textColor: number, width = 176, height = 54) {
     const btn = new Container();
     btn.x = x;
     btn.y = y;
-    const w = 176;
-    const h = 54;
+    const w = width;
+    const h = height;
     const bg = new Graphics();
-    bg.roundRect(0, 0, w, h, 14);
+    bg.roundRect(0, 0, w, h, 18);
     bg.fill({ color: fill, alpha: 0.96 });
-    bg.stroke({ color: stroke, alpha: 0.84, width: 3 });
-    const title = label(text, 22, textColor, '900');
+    bg.stroke({ color: stroke, alpha: 0.9, width: 4 });
+    const shine = new Graphics();
+    shine.roundRect(10, 8, w - 20, h * 0.35, 14);
+    shine.fill({ color: 0xffffff, alpha: fill === 0xffd640 ? 0.24 : 0.08 });
+    const title = label(text, Math.round(h * 0.38), textColor, '900');
     title.anchor.set(0.5);
     title.x = w / 2;
     title.y = h / 2;
-    btn.addChild(bg, title);
+    btn.addChild(bg, shine, title);
     btn.hitArea = new Rectangle(0, 0, w, h);
     btn.eventMode = 'static';
     btn.cursor = 'pointer';
