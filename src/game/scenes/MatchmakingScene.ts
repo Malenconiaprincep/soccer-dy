@@ -1,11 +1,13 @@
-import { Container, Graphics, Rectangle } from 'pixi.js';
+import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { label, palette } from '../ui';
 
 export class MatchmakingScene extends BaseScene {
+  private static readonly MATCH_DURATION_MS = 60000;
   private elapsed = 0;
   private matched = false;
   private spinner?: Container;
+  private waitValue?: Text;
 
   protected build() {
     this.container.addChild(this.stadiumBackground());
@@ -17,7 +19,8 @@ export class MatchmakingScene extends BaseScene {
   update(deltaMs: number) {
     this.elapsed += deltaMs;
     if (this.spinner) this.spinner.rotation += deltaMs * 0.004;
-    if (!this.matched && this.elapsed >= 1800) {
+    this.updateWaitValue();
+    if (!this.matched && this.elapsed >= MatchmakingScene.MATCH_DURATION_MS) {
       this.matched = true;
       this.game.prepareOpponent();
       this.game.changeScene('matchup');
@@ -26,6 +29,7 @@ export class MatchmakingScene extends BaseScene {
 
   resize() {
     this.container.removeChildren();
+    this.waitValue = undefined;
     this.build();
   }
 
@@ -35,12 +39,7 @@ export class MatchmakingScene extends BaseScene {
     shade.fill({ color: 0x020613, alpha: 0.24 });
     shade.rect(0, 0, this.game.width, this.game.height * 0.44);
     shade.fill({ color: 0x020613, alpha: 0.34 });
-    const glow = new Graphics();
-    glow.ellipse(this.game.width / 2, this.game.height * 0.38, this.game.width * 0.62, 230);
-    glow.fill({ color: 0x1d8fff, alpha: 0.1 });
-    glow.ellipse(this.game.width / 2, this.game.height * 0.74, this.game.width * 0.76, 260);
-    glow.fill({ color: 0x38ffba, alpha: 0.07 });
-    this.container.addChild(shade, glow);
+    this.container.addChild(shade);
   }
 
   private drawHeader() {
@@ -81,7 +80,7 @@ export class MatchmakingScene extends BaseScene {
     status.anchor.set(0.5);
     status.x = centerX;
     status.y = this.game.height * 0.48;
-    const hint = label('根据战力与阵型匹配在线玩家', 25, 0x9fffc6, '900');
+    const hint = label('正在为你寻找在线玩家', 25, 0x9fffc6, '900');
     hint.anchor.set(0.5);
     hint.x = centerX;
     hint.y = status.y + 52;
@@ -99,16 +98,27 @@ export class MatchmakingScene extends BaseScene {
     wait.anchor.set(0.5);
     wait.x = centerX - 42;
     wait.y = cancel.y + 132;
-    const waitValue = label('00:10', 27, 0x5eff6f, '900');
+    const waitValue = label('01:00', 27, 0x5eff6f, '900');
     waitValue.anchor.set(0.5);
     waitValue.x = centerX + 122;
     waitValue.y = wait.y;
+    this.waitValue = waitValue;
+    this.updateWaitValue();
     const note = label('搜索时间过长可尝试更换阵型，可更快匹配', 21, 0xc6d2da, '900');
     note.anchor.set(0.5);
     note.x = centerX;
     note.y = wait.y + 48;
 
     this.container.addChild(spinner, status, hint, info, cancel, wait, waitValue, note);
+  }
+
+  private updateWaitValue() {
+    if (!this.waitValue) return;
+    const remainingMs = Math.max(0, MatchmakingScene.MATCH_DURATION_MS - this.elapsed);
+    const remainingSeconds = Math.ceil(remainingMs / 1000);
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+    this.waitValue.text = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
   private searchSpinner(radius: number) {

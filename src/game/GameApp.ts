@@ -20,6 +20,7 @@ const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?
 const SCENES: SceneName[] = ['loading', 'home', 'formation', 'blindBox', 'matchmaking', 'matchup', 'battle', 'result'];
 const DEV_SCENE_KEY = 'soccer.dev.defaultScene';
 const DEV_HOLD_LOADING_KEY = 'soccer.dev.holdLoading';
+const DEV_PANEL_COLLAPSED_KEY = 'soccer.dev.panelCollapsed';
 
 interface GameMount {
   clientWidth: number;
@@ -256,9 +257,21 @@ export class GameApp {
     panel.style.font = '12px Arial, "Microsoft YaHei", sans-serif';
     panel.style.boxShadow = '0 10px 30px rgba(0,0,0,0.35)';
 
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.justifyContent = 'space-between';
+    header.style.gap = '8px';
+
     const title = document.createElement('strong');
     title.textContent = 'DEV 场景调试';
     title.style.fontSize = '13px';
+
+    const toggle = this.devPanelButton('收起');
+    toggle.style.width = '54px';
+    toggle.style.height = '24px';
+    toggle.style.fontSize = '12px';
+    header.append(title, toggle);
 
     const select = document.createElement('select');
     select.style.height = '30px';
@@ -296,6 +309,19 @@ export class GameApp {
     hint.textContent = '?scene=loading&holdLoading=1 可直开预览';
     hint.style.color = '#9fdcff';
     hint.style.lineHeight = '1.35';
+    const bodyItems = [select, holdLabel, actions, hint];
+
+    const setCollapsed = (collapsed: boolean) => {
+      globalThis.localStorage?.setItem(DEV_PANEL_COLLAPSED_KEY, collapsed ? '1' : '0');
+      bodyItems.forEach((item) => {
+        item.style.display = collapsed ? 'none' : '';
+      });
+      panel.style.width = collapsed ? '92px' : '188px';
+      panel.style.padding = collapsed ? '8px' : '10px';
+      panel.style.gap = collapsed ? '0' : '6px';
+      title.textContent = collapsed ? 'DEV' : 'DEV 场景调试';
+      toggle.textContent = collapsed ? '展开' : '收起';
+    };
 
     go.onclick = () => this.changeScene(select.value as SceneName);
     save.onclick = () => {
@@ -310,9 +336,13 @@ export class GameApp {
       globalThis.localStorage?.setItem(DEV_HOLD_LOADING_KEY, hold.checked ? '1' : '0');
       if (this.scene instanceof LoadingScene) this.changeScene('loading');
     };
+    toggle.onclick = () => {
+      setCollapsed(globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) !== '1');
+    };
 
-    panel.append(title, select, holdLabel, actions, hint);
+    panel.append(header, select, holdLabel, actions, hint);
     document.body.appendChild(panel);
+    setCollapsed(globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) === '1');
     this.devPanel = panel;
   }
 
