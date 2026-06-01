@@ -221,9 +221,9 @@ export class MatchupScene extends BaseScene {
     form.y = 80;
 
     const pitchX = 22 + (side === 'left' ? 8 : -8);
-    const pitchY = 98;
+    const pitchY = 104;
     const pitchW = w - 44;
-    const pitchH = h - pitchY - 22;
+    const pitchH = h - pitchY - 28;
     const pitch = this.pitchSprite(pitchW, pitchH);
     pitch.x = pitchX;
     pitch.y = pitchY;
