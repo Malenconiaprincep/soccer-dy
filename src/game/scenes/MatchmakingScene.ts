@@ -1,12 +1,19 @@
-import { Container, Graphics, Rectangle, Text } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { label, palette } from '../ui';
 
 export class MatchmakingScene extends BaseScene {
   private static readonly MATCH_DURATION_MS = 60000;
+  private static readonly MATCH_TITLE = '/assets/ui/matchtitle.png';
+  private static readonly MATCH_TITLE_FRAME = new Rectangle(140, 280, 768, 111);
   private elapsed = 0;
   private matched = false;
-  private spinner?: Container;
+  private spinnerRoot?: Container;
+  private blueArc?: Container;
+  private greenArc?: Container;
+  private orbitDots?: Container;
+  private sparkleRing?: Container;
+  private centerPulse?: Container;
   private waitValue?: Text;
 
   protected build() {
@@ -18,7 +25,16 @@ export class MatchmakingScene extends BaseScene {
 
   update(deltaMs: number) {
     this.elapsed += deltaMs;
-    if (this.spinner) this.spinner.rotation += deltaMs * 0.004;
+    const t = this.elapsed * 0.001;
+    if (this.spinnerRoot) this.spinnerRoot.scale.set(1 + Math.sin(t * 2.2) * 0.012);
+    if (this.blueArc) this.blueArc.rotation += deltaMs * 0.0032;
+    if (this.greenArc) this.greenArc.rotation -= deltaMs * 0.00165;
+    if (this.orbitDots) this.orbitDots.rotation += deltaMs * 0.00105;
+    if (this.sparkleRing) {
+      this.sparkleRing.rotation -= deltaMs * 0.0008;
+      this.sparkleRing.alpha = 0.45 + Math.sin(t * 3.4) * 0.18;
+    }
+    if (this.centerPulse) this.centerPulse.scale.set(1 + Math.sin(t * 4.1) * 0.035);
     this.updateWaitValue();
     if (!this.matched && this.elapsed >= MatchmakingScene.MATCH_DURATION_MS) {
       this.matched = true;
@@ -29,6 +45,12 @@ export class MatchmakingScene extends BaseScene {
 
   resize() {
     this.container.removeChildren();
+    this.spinnerRoot = undefined;
+    this.blueArc = undefined;
+    this.greenArc = undefined;
+    this.orbitDots = undefined;
+    this.sparkleRing = undefined;
+    this.centerPulse = undefined;
     this.waitValue = undefined;
     this.build();
   }
@@ -36,9 +58,7 @@ export class MatchmakingScene extends BaseScene {
   private drawShade() {
     const shade = new Graphics();
     shade.rect(0, 0, this.game.width, this.game.height);
-    shade.fill({ color: 0x020613, alpha: 0.24 });
-    shade.rect(0, 0, this.game.width, this.game.height * 0.44);
-    shade.fill({ color: 0x020613, alpha: 0.34 });
+    shade.fill({ color: 0x020613, alpha: 0.2 });
     this.container.addChild(shade);
   }
 
@@ -55,19 +75,14 @@ export class MatchmakingScene extends BaseScene {
       this.game.changeScene('formation');
     });
 
-    const titleY = 116 + shift;
-    const title = label('匹配对手', 48, palette.white, '900');
+    const titleTexture = Texture.from(MatchmakingScene.MATCH_TITLE);
+    const title = new Sprite(new Texture({ source: titleTexture.source, frame: MatchmakingScene.MATCH_TITLE_FRAME }));
     title.anchor.set(0.5);
+    title.width = Math.min(this.game.width * 0.62, 420);
+    title.height = title.width * (MatchmakingScene.MATCH_TITLE_FRAME.height / MatchmakingScene.MATCH_TITLE_FRAME.width);
     title.x = this.game.width / 2;
-    title.y = titleY;
-    const leftMark = this.titleMark();
-    leftMark.x = title.x - 190;
-    leftMark.y = titleY + 2;
-    const rightMark = this.titleMark(0x21e86d);
-    rightMark.scale.x = -1;
-    rightMark.x = title.x + 190;
-    rightMark.y = titleY + 2;
-    this.container.addChild(back, leftMark, rightMark, title);
+    title.y = 124 + shift;
+    this.container.addChild(back, title);
   }
 
   private drawSearchPanel() {
@@ -123,44 +138,88 @@ export class MatchmakingScene extends BaseScene {
 
   private searchSpinner(radius: number) {
     const c = new Container();
-    const outer = new Graphics();
-    outer.circle(0, 0, radius + 28);
-    outer.stroke({ color: 0x106dff, alpha: 0.55, width: 4 });
-    outer.arc(0, 0, radius + 28, -Math.PI * 0.52, Math.PI * 0.1);
-    outer.stroke({ color: 0x14a7ff, alpha: 0.95, width: 10 });
-    outer.arc(0, 0, radius + 28, Math.PI * 0.22, Math.PI * 0.42);
-    outer.stroke({ color: 0x96ff3e, alpha: 0.95, width: 10 });
-    const inner = new Graphics();
-    inner.circle(0, 0, radius - 4);
-    inner.stroke({ color: 0x22bbff, alpha: 0.44, width: 2 });
+    this.spinnerRoot = c;
+
+    const blueLong = new Container();
+    this.arcGlow(blueLong, radius + 34, -Math.PI * 0.05, Math.PI * 0.58, 0x19aaff, 10, 0.96, 13);
+    this.arcGlow(blueLong, radius + 34, -Math.PI * 0.08, Math.PI * 0.02, 0x78dfff, 11, 0.78, 16);
+    this.blueArc = blueLong;
+
+    const green = new Container();
+    this.arcGlow(green, radius + 34, Math.PI * 0.32, Math.PI * 0.53, 0x95ff31, 9, 0.96, 12);
+    this.greenArc = green;
+
+    const innerTrack = new Container();
+    this.arcGlow(innerTrack, radius - 8, 0, Math.PI * 2, 0x22b9ff, 2, 0.5, 0);
+    this.arcGlow(innerTrack, radius - 8, -Math.PI * 0.48, -Math.PI * 0.3, 0x52d8ff, 3, 0.72, 5);
+
     const orbit = new Container();
-    for (let i = 0; i < 10; i += 1) {
-      const angle = (Math.PI * 2 * i) / 10 - Math.PI / 2;
+    const dotCount = 10;
+    for (let i = 0; i < dotCount; i += 1) {
+      const angle = (Math.PI * 2 * i) / dotCount - Math.PI / 2;
+      const isYellow = i === 2 || i === 7;
       const dot = new Graphics();
-      dot.circle(Math.cos(angle) * radius, Math.sin(angle) * radius, 10);
-      dot.fill({ color: i % 4 === 2 ? 0xffe12c : 0x26bfff, alpha: 0.78 });
+      const dotRadius = isYellow ? 10.5 : 10;
+      dot.circle(Math.cos(angle) * radius, Math.sin(angle) * radius, dotRadius);
+      dot.fill({ color: isYellow ? 0xffdd25 : 0x21b7f4, alpha: 0.92 });
+      this.useAdditive(dot);
       orbit.addChild(dot);
     }
+    this.orbitDots = orbit;
+
+    const sparkles = new Container();
+    for (let i = 0; i < 16; i += 1) {
+      const angle = (Math.PI * 2 * i) / 16 + (i % 3) * 0.09;
+      const distance = radius + 64 + (i % 4) * 9;
+      const spark = new Graphics();
+      const color = [0x1bbcff, 0xffe22d, 0x79ff38, 0xff377e][i % 4];
+      spark.poly([-2, -7, 4, -2, 2, 7, -4, 2]);
+      spark.fill({ color, alpha: i % 5 === 0 ? 0.5 : 0.34 });
+      spark.x = Math.cos(angle) * distance;
+      spark.y = Math.sin(angle) * distance;
+      spark.rotation = angle + Math.PI * 0.5;
+      this.useAdditive(spark);
+      sparkles.addChild(spark);
+    }
+    this.sparkleRing = sparkles;
+
+    const centerLayer = new Container();
     const center = new Graphics();
     center.circle(0, 0, 58);
-    center.fill({ color: 0x06162e, alpha: 0.72 });
-    center.stroke({ color: 0x1fa8ff, alpha: 0.82, width: 4 });
-    const ball = label('VS', 38, 0xffe56a, '900');
-    ball.anchor.set(0.5);
-    c.addChild(outer, inner, orbit, center, ball);
-    this.spinner = orbit;
+    center.fill({ color: 0x061936, alpha: 0.9 });
+    center.circle(0, 0, 58);
+    center.stroke({ color: 0x28bfff, alpha: 0.94, width: 4 });
+    const vs = label('VS', 39, 0xffe45a, '900');
+    vs.anchor.set(0.5);
+    vs.style.dropShadow = { color: 0x0b0a02, blur: 3, distance: 2, alpha: 0.7, angle: Math.PI / 4 };
+    this.centerPulse = centerLayer;
+    centerLayer.addChild(center, vs);
+
+    c.addChild(sparkles, innerTrack, orbit, green, blueLong, centerLayer);
     return c;
   }
 
-  private titleMark(color = 0x1b72ff) {
-    const c = new Container();
-    for (let i = 0; i < 3; i += 1) {
-      const g = new Graphics();
-      g.poly([i * 34, 0, i * 34 + 26, 0, i * 34 + 12, 22, i * 34 - 14, 22]);
-      g.fill({ color: i === 2 ? color : 0x1d7dff, alpha: 0.95 });
-      c.addChild(g);
+  private arcGlow(target: Container, radius: number, start: number, end: number, color: number, width: number, alpha: number, glow = 0) {
+    if (glow > 0) {
+      const halo = new Graphics();
+      halo.arc(0, 0, radius, start, end);
+      halo.stroke({ color, alpha: alpha * 0.18, width: width + glow * 1.8 });
+      this.useAdditive(halo);
+      target.addChild(halo);
     }
-    return c;
+    const soft = new Graphics();
+    soft.arc(0, 0, radius, start, end);
+    soft.stroke({ color, alpha: alpha * 0.34, width: width + Math.max(4, glow * 0.45) });
+    const core = new Graphics();
+    core.arc(0, 0, radius, start, end);
+    core.stroke({ color, alpha, width });
+    this.useAdditive(soft);
+    this.useAdditive(core);
+    target.addChild(soft, core);
+  }
+
+  private useAdditive(display: Container | Graphics) {
+    (display as { blendMode?: string }).blendMode = 'add';
   }
 
   private matchInfoPanel(w: number, h: number) {

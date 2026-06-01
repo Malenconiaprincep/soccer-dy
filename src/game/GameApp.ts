@@ -147,8 +147,10 @@ export class GameApp {
       '/assets/ui/gamereadybg.png',
       '/assets/ui/readybutton.png',
       '/assets/ui/playerscore.png',
+      '/assets/ui/matchtitle.png',
       '/assets/ui/draft-button.png',
       '/assets/ui/play.png',
+      '/assets/ui/playbutton.png',
       '/assets/ui/squard-qc.png',
       '/assets/ui/vs-squard.png',
       ...new Set(players.map((player) => player.portrait))
