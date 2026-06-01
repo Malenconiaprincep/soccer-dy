@@ -189,7 +189,7 @@ export class MatchupScene extends BaseScene {
 
   private lineupLayout() {
     const x = 2;
-    const y = 352 + this.game.contentTopOffset * 0.42;
+    const y = 390 + this.game.contentTopOffset * 0.42;
     const gap = 6;
     const w = (this.game.width - x * 2 - gap) / 2;
     const h = Math.round(w * 1.58);
@@ -234,7 +234,8 @@ export class MatchupScene extends BaseScene {
     lineup.forEach((slot) => {
       const node = this.miniPlayerCard(slot.player, accent);
       const visualY = this.previewSlotY(slot.y);
-      node.x = pitchX + playerInsetX + playerOffsetX + slot.x * (pitchW - playerInsetX * 2);
+      const spreadX = 0.5 + (slot.x - 0.5) * 1.08;
+      node.x = pitchX + playerInsetX + playerOffsetX + spreadX * (pitchW - playerInsetX * 2);
       node.y = pitchY + 36 + visualY * (pitchH - 72);
       c.addChild(node);
     });
@@ -299,18 +300,18 @@ export class MatchupScene extends BaseScene {
   private miniPlayerCard(player: PlayerCardData | undefined, fallbackColor: number) {
     if (!player) return this.ratingDot(undefined, fallbackColor);
     const c = new Container();
-    const w = 54;
-    const h = 68;
+    const w = 58;
+    const h = 72;
     const frame = new Graphics();
     this.hexPath(frame, 0, 0, w / 2, h / 2);
     frame.fill({ color: 0x071126, alpha: 0.96 });
     frame.stroke({ color: player.color, alpha: 0.9, width: 2 });
-    const face = this.squarePortrait(player, 42);
-    face.x = -21;
-    face.y = -30;
-    const rating = label(String(player.rating), 16, palette.white, '900');
+    const face = this.squarePortrait(player, 48);
+    face.x = -24;
+    face.y = -33;
+    const rating = label(String(player.rating), 17, palette.white, '900');
     rating.anchor.set(0.5);
-    rating.y = 22;
+    rating.y = 24;
     c.addChild(frame, face, rating);
     return c;
   }
@@ -334,7 +335,7 @@ export class MatchupScene extends BaseScene {
 
   private drawCoreDuel() {
     const lineup = this.lineupLayout();
-    const y = lineup.y + lineup.h + 24;
+    const y = lineup.y + lineup.h + 0;
     const w = this.game.width - 16;
     const h = Math.round(w * 0.48);
     const myCore = this.bestPlayers(this.game.lineup)[0];
