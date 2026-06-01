@@ -221,7 +221,7 @@ export class MatchupScene extends BaseScene {
     form.y = 80;
 
     const pitchX = 22 + (side === 'left' ? 8 : -8);
-    const pitchY = 104;
+    const pitchY = 98;
     const pitchW = w - 44;
     const pitchH = h - pitchY - 22;
     const pitch = this.pitchSprite(pitchW, pitchH);
@@ -343,19 +343,20 @@ export class MatchupScene extends BaseScene {
     panel.x = 8;
     panel.y = y;
     panel.addChild(this.playerCoreFrame(w, h));
-    const title = label('‹ 核心对位 ›', 18, 0xfff0b3, '900');
+    const title = label('‹ 核心对位 ›', 21, 0xfff0b3, '900');
     title.x = w * 0.055;
-    title.y = h * 0.07;
-    const left = this.coreCard(myCore, w * 0.07, h * 0.17, 0x318dff, false, w * 0.35, h * 0.31);
-    const right = this.coreCard(oppCore, w * 0.93, h * 0.17, 0xff4d67, true, w * 0.35, h * 0.31);
+    title.y = h * 0.12;
+    const coreY = h * 0.205 + 8;
+    const left = this.coreCard(myCore, w * 0.07, coreY, 0x318dff, false, w * 0.3, h * 0.26);
+    const right = this.coreCard(oppCore, w * 0.93, coreY, 0xff4d67, true, w * 0.3, h * 0.26);
     const vs = label('VS', 44, palette.white, '900');
     vs.anchor.set(0.5);
     vs.x = w / 2;
-    vs.y = h * 0.29;
+    vs.y = h * 0.325 + 8;
     panel.addChild(title, left, right, vs);
-    this.drawStatRow(panel, '进攻', myCore?.attack ?? 0, oppCore?.attack ?? 0, w * 0.07, h * 0.55, w * 0.86);
+    this.drawStatRow(panel, '进攻', myCore?.attack ?? 0, oppCore?.attack ?? 0, w * 0.07, h * 0.58, w * 0.86);
     this.drawStatRow(panel, '中场', myCore?.speed ?? 0, oppCore?.speed ?? 0, w * 0.07, h * 0.71, w * 0.86);
-    this.drawStatRow(panel, '防守', myCore?.defense ?? 0, oppCore?.defense ?? 0, w * 0.07, h * 0.87, w * 0.86);
+    this.drawStatRow(panel, '防守', myCore?.defense ?? 0, oppCore?.defense ?? 0, w * 0.07, h * 0.84, w * 0.86);
     this.container.addChild(panel);
   }
 
@@ -386,17 +387,17 @@ export class MatchupScene extends BaseScene {
     bg.roundRect(right ? -boxW : 0, 0, boxW, boxH, 14);
     bg.fill({ color: 0x071126, alpha: 0.9 });
     bg.stroke({ color: accent, alpha: 0.72, width: 2 });
-    const avatarSize = boxH - 14;
+    const avatarSize = boxH - 20;
     const avatar = this.squarePortrait(player, avatarSize);
-    avatar.x = right ? -boxW + 7 : 7;
-    avatar.y = 7;
-    const rating = label(player ? String(player.rating) : '--', 21, palette.white, '900');
+    avatar.x = right ? -boxW + 10 : 10;
+    avatar.y = 10;
+    const rating = label(player ? String(player.rating) : '--', 24, palette.white, '900');
     rating.x = right ? -boxW + avatarSize + 16 : avatarSize + 16;
     rating.y = 9;
-    const name = label(player?.name ?? '待定', 15, palette.white, '900');
+    const name = label(player?.name ?? '待定', 18, palette.white, '900');
     name.x = right ? -boxW + avatarSize + 58 : avatarSize + 58;
     name.y = 12;
-    const role = label(player ? `${this.positionName(player.position)} · ${player.role}` : '核心球员', 12, 0xcfe0ff, '700');
+    const role = label(player ? `${this.positionName(player.position)} · ${player.role}` : '核心球员', 14, 0xcfe0ff, '700');
     role.x = right ? -boxW + avatarSize + 16 : avatarSize + 16;
     role.y = 41;
     c.addChild(bg, avatar, rating, name, role);
@@ -450,14 +451,16 @@ export class MatchupScene extends BaseScene {
   private drawActions() {
     const buttonW = Math.min(420, this.game.width - 160);
     const buttonH = buttonW * (410 / 1080);
-    const btn = new Sprite(Texture.from('/assets/ui/playbutton.png'));
-    btn.width = buttonW;
-    btn.height = buttonH;
+    const btn = new Container();
     btn.x = (this.game.width - buttonW) / 2;
     btn.y = this.game.height - buttonH - 28;
     btn.eventMode = 'static';
     btn.cursor = 'pointer';
     btn.hitArea = new Rectangle(0, 0, buttonW, buttonH);
+    const art = new Sprite(Texture.from('/assets/ui/playbutton.png'));
+    art.width = buttonW;
+    art.height = buttonH;
+    btn.addChild(art);
     btn.on('pointertap', () => {
       this.game.sound.play('kickoff');
       this.game.changeScene('battle');
