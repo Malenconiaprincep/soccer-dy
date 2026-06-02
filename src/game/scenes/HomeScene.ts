@@ -284,19 +284,29 @@ export class HomeScene extends BaseScene {
     const sign = this.sideShortcutButton(0, '七日签到');
     sign.x = leftX;
     sign.y = startY;
+    sign.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.openSignModal();
+    });
     this.floaters.push({ node: sign, baseY: sign.y, amplitude: 1.4, phase: 0 });
     const shop = this.sideShortcutButton(1, '商城');
     shop.x = leftX;
     shop.y = startY + this.sideShortcutBlockHeight() + itemGap;
+    shop.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.openShopModal();
+    });
     this.floaters.push({ node: shop, baseY: shop.y, amplitude: 1.4, phase: 1.6 });
 
     const follow = this.sideShortcutButton(2, '关注领奖');
     follow.x = rightX;
     follow.y = startY;
+    follow.on('pointertap', () => this.openInfoModal('关注领奖', '关注抖音账号后领取奖励', '功能接入抖音关注能力后开放。'));
     this.floaters.push({ node: follow, baseY: follow.y, amplitude: 1.2, phase: 0.3 });
     const rank = this.sideShortcutButton(3, '排行榜');
     rank.x = rightX;
     rank.y = startY + this.sideShortcutBlockHeight() + itemGap;
+    rank.on('pointertap', () => this.openInfoModal('排行榜', '赛季排行榜准备中', '后续会按胜场、胜率和战力展示好友排名。'));
     this.floaters.push({ node: rank, baseY: rank.y, amplitude: 1.2, phase: 1.2 });
     this.container.addChild(sign, shop, follow, rank);
   }
@@ -758,47 +768,144 @@ export class HomeScene extends BaseScene {
     return c;
   }
 
-  private openTaskModal() {
+  private openSignModal() {
     this.closeTaskModal();
+    const modal = this.createModalBase();
+    const w = Math.min(640, this.game.width - 48);
+    const h = 640;
+    const panel = this.modalPanel(w, h);
+    panel.addChild(this.modalTitle('七日签到', '连续登录领取球队成长资源', w));
+
+    const rewards = [
+      { day: 1, title: '金币', value: '+500', reward: { coins: 500 } },
+      { day: 2, title: '球探券', value: '+1', reward: { scoutTickets: 1 } },
+      { day: 3, title: '金币', value: '+800', reward: { coins: 800 } },
+      { day: 4, title: '钻石', value: '+20', reward: { gems: 20 } },
+      { day: 5, title: '球探券', value: '+1', reward: { scoutTickets: 1 } },
+      { day: 6, title: '金币', value: '+1200', reward: { coins: 1200 } },
+      { day: 7, title: '高级券', value: '+2', reward: { scoutTickets: 2 } }
+    ];
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const claimId = `signin-${todayKey}`;
+    const claimedToday = this.game.claimedTasks.has(claimId);
+
+    rewards.forEach((item, index) => {
+      const card = this.signRewardCard(item.day, item.title, item.value, index === 0, claimedToday);
+      const col = index % 2;
+      const row = Math.floor(index / 2);
+      card.x = 28 + col * ((w - 68) / 2 + 12);
+      card.y = 126 + row * 92;
+      panel.addChild(card);
+    });
+
+    const button = this.modalButton(claimedToday ? '今日已领取' : '领取今日奖励', !claimedToday);
+    button.x = (w - 240) / 2;
+    button.y = h - 92;
+    button.on('pointertap', () => {
+      if (claimedToday) {
+        this.game.sound.play('tap');
+        return;
+      }
+      if (this.game.claimTask(claimId, rewards[0].reward)) this.game.sound.play('reward');
+      this.closeTaskModal();
+      this.resize();
+      this.openSignModal();
+    });
+    panel.addChild(button);
+
+    this.addModalClose(panel, w, h);
+    modal.addChild(panel);
+    this.taskModal = modal;
+    this.container.addChild(modal);
+  }
+
+  private openShopModal() {
+    this.closeTaskModal();
+    const modal = this.createModalBase();
+    const w = Math.min(640, this.game.width - 48);
+    const h = 620;
+    const panel = this.modalPanel(w, h);
+    panel.addChild(this.modalTitle('商城', '消耗钻石购买补给道具', w));
+
+    const goods = [
+      { id: 'ticket1', title: '球探券 x1', sub: '用于抽取临时对战球员', cost: 30, reward: { scoutTickets: 1 } },
+      { id: 'ticket5', title: '球探券 x5', sub: '适合赛前快速补强', cost: 120, reward: { scoutTickets: 5 } },
+      { id: 'energy', title: '体力补给', sub: '恢复 30 点体力', cost: 20, reward: { energy: 30 } },
+      { id: 'coins', title: '金币包', sub: '获得 3000 金币', cost: 50, reward: { coins: 3000 } }
+    ];
+
+    goods.forEach((item, index) => {
+      const row = this.shopGoodsRow(item, w - 48);
+      row.x = 24;
+      row.y = 126 + index * 106;
+      panel.addChild(row);
+    });
+
+    this.addModalClose(panel, w, h);
+    modal.addChild(panel);
+    this.taskModal = modal;
+    this.container.addChild(modal);
+  }
+
+  private openInfoModal(titleText: string, subText: string, bodyText: string) {
+    this.closeTaskModal();
+    const modal = this.createModalBase();
+    const w = Math.min(600, this.game.width - 56);
+    const h = 360;
+    const panel = this.modalPanel(w, h);
+    panel.addChild(this.modalTitle(titleText, subText, w));
+    const body = label(bodyText, 24, 0xd7e6ff, '900');
+    body.anchor.set(0.5);
+    body.x = w / 2;
+    body.y = 170;
+    body.style.wordWrap = true;
+    body.style.wordWrapWidth = w - 86;
+    body.style.align = 'center';
+    panel.addChild(body);
+    this.addModalClose(panel, w, h);
+    modal.addChild(panel);
+    this.taskModal = modal;
+    this.container.addChild(modal);
+  }
+
+  private createModalBase() {
     const modal = new Container();
     modal.eventMode = 'static';
-
     const mask = new Graphics();
     mask.rect(0, 0, this.game.width, this.game.height);
     mask.fill({ color: 0x020613, alpha: 0.72 });
     mask.eventMode = 'static';
     mask.on('pointertap', () => this.closeTaskModal());
     modal.addChild(mask);
+    return modal;
+  }
 
-    const w = Math.min(640, this.game.width - 48);
-    const h = 548;
-    const x = (this.game.width - w) / 2;
-    const y = Math.max(118, (this.game.height - h) / 2);
+  private modalPanel(width: number, height: number) {
     const panel = new Container();
-    panel.x = x;
-    panel.y = y;
-    panel.addChild(glassPanel(w, h, 0x061126, 0xffd632));
+    panel.x = (this.game.width - width) / 2;
+    panel.y = Math.max(92, (this.game.height - height) / 2);
+    panel.addChild(glassPanel(width, height, 0x061126, 0xffd632));
+    return panel;
+  }
 
-    const title = label('每日任务', 40, 0xfff3b0, '900');
+  private modalTitle(titleText: string, subText: string, width: number) {
+    const c = new Container();
+    const title = label(titleText, 40, 0xfff3b0, '900');
     title.anchor.set(0.5);
-    title.x = w / 2;
+    title.x = width / 2;
     title.y = 48;
-    const sub = label('完成比赛、赢球和抽卡，领取球队成长资源', 20, 0xcfe0ff, '900');
+    const sub = label(subText, 20, 0xcfe0ff, '900');
     sub.anchor.set(0.5);
-    sub.x = w / 2;
+    sub.x = width / 2;
     sub.y = 88;
-    panel.addChild(title, sub);
+    c.addChild(title, sub);
+    return c;
+  }
 
-    this.taskItems().forEach((task, index) => {
-      const row = this.taskRow(task, w - 48);
-      row.x = 24;
-      row.y = 126 + index * 116;
-      panel.addChild(row);
-    });
-
+  private addModalClose(panel: Container, width: number, height: number) {
     const closeHit = new Container();
-    closeHit.x = w - 136;
-    closeHit.y = h - 68;
+    closeHit.x = width - 136;
+    closeHit.y = height - 68;
     closeHit.addChild(this.flatPanel(112, 48, 0x182443, 0x68dfff));
     const closeText = label('关闭', 21, palette.white, '900');
     closeText.anchor.set(0.5);
@@ -812,6 +919,99 @@ export class HomeScene extends BaseScene {
       this.closeTaskModal();
     });
     panel.addChild(closeHit);
+  }
+
+  private signRewardCard(day: number, titleText: string, valueText: string, today: boolean, claimed: boolean) {
+    const w = 282;
+    const c = new Container();
+    const active = today && !claimed;
+    c.addChild(this.flatPanel(w, 78, active ? 0x14240d : 0x071126, active ? 0xffd632 : today ? 0x44d982 : 0x5d80c8));
+    const dayText = label(`第${day}天`, 19, active ? 0xfff3b0 : 0xcfe0ff, '900');
+    dayText.x = 18;
+    dayText.y = 12;
+    const reward = label(`${titleText} ${valueText}`, 24, palette.white, '900');
+    reward.x = 18;
+    reward.y = 40;
+    const status = label(day === 1 ? (claimed ? '已领' : '今日') : '待开', 18, active ? 0x061126 : 0xcfe0ff, '900');
+    status.anchor.set(0.5);
+    status.x = w - 42;
+    status.y = 39;
+    if (active) {
+      const statusBg = new Graphics();
+      statusBg.roundRect(w - 72, 22, 58, 32, 8);
+      statusBg.fill({ color: 0xffd632, alpha: 0.96 });
+      c.addChild(dayText, reward, statusBg, status);
+    } else {
+      c.addChild(dayText, reward, status);
+    }
+    return c;
+  }
+
+  private shopGoodsRow(item: { id: string; title: string; sub: string; cost: number; reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number } }, width: number) {
+    const c = new Container();
+    c.addChild(this.flatPanel(width, 88, 0x071826, 0x68dfff));
+    const title = label(item.title, 25, palette.white, '900');
+    title.x = 22;
+    title.y = 14;
+    const sub = label(item.sub, 18, 0xcfe0ff, '900');
+    sub.x = 22;
+    sub.y = 48;
+    const cost = label(`${item.cost} 钻`, 22, 0xfff3b0, '900');
+    cost.anchor.set(1, 0);
+    cost.x = width - 146;
+    cost.y = 18;
+    const buy = this.modalButton('购买', true, 104, 44);
+    buy.x = width - 122;
+    buy.y = 22;
+    buy.on('pointertap', async () => {
+      this.game.sound.play('tap');
+      const result = await this.game.purchaseShopItem(item);
+      if (!result.ok) {
+        this.closeTaskModal();
+        this.resize();
+        this.openInfoModal('购买失败', '未能完成本次购买', result.message ?? '请稍后再试。');
+        return;
+      }
+      this.game.sound.play('reward');
+      this.closeTaskModal();
+      this.resize();
+      this.openInfoModal('购买成功', item.title, '道具已发放到当前账号。');
+    });
+    c.addChild(title, sub, cost, buy);
+    return c;
+  }
+
+  private modalButton(text: string, enabled: boolean, width = 240, height = 56) {
+    const c = new Container();
+    c.addChild(this.flatPanel(width, height, enabled ? palette.gold : 0x25304a, enabled ? 0xfff6b6 : 0x6d7898));
+    const title = label(text, 22, enabled ? 0xfff8d2 : 0xcfe0ff, '900');
+    title.anchor.set(0.5);
+    title.x = width / 2;
+    title.y = height / 2;
+    c.addChild(title);
+    c.eventMode = 'static';
+    c.cursor = enabled ? 'pointer' : 'default';
+    return c;
+  }
+
+  private openTaskModal() {
+    this.closeTaskModal();
+    const modal = this.createModalBase();
+
+    const w = Math.min(640, this.game.width - 48);
+    const h = 548;
+    const panel = this.modalPanel(w, h);
+
+    panel.addChild(this.modalTitle('每日任务', '完成比赛、赢球和抽卡，领取球队成长资源', w));
+
+    this.taskItems().forEach((task, index) => {
+      const row = this.taskRow(task, w - 48);
+      row.x = 24;
+      row.y = 126 + index * 116;
+      panel.addChild(row);
+    });
+
+    this.addModalClose(panel, w, h);
 
     modal.addChild(panel);
     this.taskModal = modal;

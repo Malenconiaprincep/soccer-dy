@@ -13,14 +13,16 @@ import { defaultBattleSource } from './battle/BattleMode';
 import { SoundFx } from './audio/SoundFx';
 import type { BattleEvent, FormationData, LineupSlot, PlayerCardData, Position, Scene, SceneName } from './types';
 import { PlayerStorage } from './storage/PlayerStorage';
+import { GameServerClient, type MatchOpponent } from './services/GameServerClient';
 
 const DESIGN_WIDTH = 720;
 const DESIGN_HEIGHT = 1280;
-const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
+const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean; VITE_WEB_TEST_AS_DOUYIN?: string } }).env ?? {};
 const SCENES: SceneName[] = ['loading', 'home', 'formation', 'blindBox', 'matchmaking', 'matchup', 'battle', 'result'];
 const DEV_SCENE_KEY = 'soccer.dev.defaultScene';
 const DEV_HOLD_LOADING_KEY = 'soccer.dev.holdLoading';
 const DEV_PANEL_COLLAPSED_KEY = 'soccer.dev.panelCollapsed';
+const DEV_PANEL_POSITION_KEY = 'soccer.dev.panelPosition';
 
 interface GameMount {
   clientWidth: number;
@@ -46,13 +48,19 @@ export class GameApp {
   readonly platform: PlatformApi;
   readonly sound = new SoundFx();
   readonly storage = new PlayerStorage();
+  readonly server = new GameServerClient();
   scene?: Scene;
-  user = { userId: 'local-user', nickname: '本地经理', avatarUrl: undefined as string | undefined };
+  user = {
+    userId: 'local-user',
+    nickname: '本地经理',
+    avatarUrl: undefined as string | undefined,
+    loginCode: undefined as string | undefined
+  };
   selectedFormation: FormationData = formations[1];
   lineup: LineupSlot[] = formations[1].slots.map((slot) => ({ ...slot }));
   substitutes: Array<PlayerCardData | undefined> = Array.from({ length: 5 }, () => undefined);
   coins = 1286000;
-  gems = 5688;
+  gems = 0;
   energy = 120;
   scoutTickets = 2;
   matchesPlayed = 0;
@@ -108,7 +116,7 @@ export class GameApp {
     if (!this.runtime.miniGame) this.sound.installUnlock(this.mount as HTMLElement);
     this.app.stage.addChild(this.root);
     const save = await this.storage.load();
-    this.user = { userId: save.userId, nickname: save.nickname, avatarUrl: undefined };
+    this.user = { userId: save.userId, nickname: save.nickname, avatarUrl: undefined, loginCode: undefined };
     this.coins = save.coins;
     this.gems = save.gems;
     this.energy = save.energy;
@@ -126,8 +134,10 @@ export class GameApp {
     this.user = {
       userId: auth.userId || this.user.userId,
       nickname: auth.nickname || this.user.nickname,
-      avatarUrl: auth.avatarUrl
+      avatarUrl: auth.avatarUrl,
+      loginCode: auth.loginCode
     };
+    await this.syncServerSession();
     await Assets.load([
       '/assets/loading-bg.png',
       '/assets/page-bg.jpg',
@@ -244,30 +254,34 @@ export class GameApp {
   private installDevPanel() {
     if (this.devPanel || !globalThis.document) return;
     const panel = document.createElement('div');
+    const savedPosition = this.readDevPanelPosition();
     panel.style.position = 'fixed';
-    panel.style.right = '10px';
-    panel.style.top = '10px';
+    panel.style.left = `${savedPosition.x}px`;
+    panel.style.top = `${savedPosition.y}px`;
     panel.style.zIndex = '9999';
     panel.style.display = 'grid';
     panel.style.gap = '6px';
     panel.style.width = '188px';
     panel.style.padding = '10px';
-    panel.style.border = '1px solid rgba(103, 216, 255, 0.58)';
-    panel.style.borderRadius = '10px';
-    panel.style.background = 'rgba(3, 10, 28, 0.86)';
+    panel.style.border = '1px solid rgba(103, 216, 255, 0.78)';
+    panel.style.borderRadius = '8px';
+    panel.style.background = 'rgba(3, 10, 28, 0.9)';
     panel.style.color = '#eaf7ff';
     panel.style.font = '12px Arial, "Microsoft YaHei", sans-serif';
-    panel.style.boxShadow = '0 10px 30px rgba(0,0,0,0.35)';
+    panel.style.boxShadow = '0 0 0 1px rgba(47,140,255,0.28), 0 8px 24px rgba(0,0,0,0.34)';
+    panel.style.userSelect = 'none';
 
     const header = document.createElement('div');
     header.style.display = 'flex';
     header.style.alignItems = 'center';
     header.style.justifyContent = 'space-between';
     header.style.gap = '8px';
+    header.style.cursor = 'move';
 
     const title = document.createElement('strong');
     title.textContent = 'DEV 场景调试';
     title.style.fontSize = '13px';
+    title.style.lineHeight = '24px';
 
     const toggle = this.devPanelButton('收起');
     toggle.style.width = '54px';
@@ -312,17 +326,29 @@ export class GameApp {
     hint.style.color = '#9fdcff';
     hint.style.lineHeight = '1.35';
     const bodyItems = [select, holdLabel, actions, hint];
+    let collapsedState = globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) === '1';
+    let dragMoved = false;
 
     const setCollapsed = (collapsed: boolean) => {
+      collapsedState = collapsed;
       globalThis.localStorage?.setItem(DEV_PANEL_COLLAPSED_KEY, collapsed ? '1' : '0');
       bodyItems.forEach((item) => {
         item.style.display = collapsed ? 'none' : '';
       });
-      panel.style.width = collapsed ? '92px' : '188px';
-      panel.style.padding = collapsed ? '8px' : '10px';
+      panel.style.width = collapsed ? '88px' : '188px';
+      panel.style.minHeight = collapsed ? '30px' : '';
+      panel.style.padding = collapsed ? '3px 5px' : '10px';
       panel.style.gap = collapsed ? '0' : '6px';
+      panel.style.cursor = collapsed ? 'move' : 'default';
+      panel.style.borderRadius = collapsed ? '8px' : '8px';
+      header.style.gap = collapsed ? '5px' : '8px';
       title.textContent = collapsed ? 'DEV' : 'DEV 场景调试';
+      title.style.fontSize = collapsed ? '12px' : '13px';
+      title.style.flex = collapsed ? '0 0 auto' : '';
       toggle.textContent = collapsed ? '展开' : '收起';
+      toggle.style.width = collapsed ? '42px' : '54px';
+      toggle.style.height = collapsed ? '24px' : '24px';
+      this.clampDevPanel(panel);
     };
 
     go.onclick = () => this.changeScene(select.value as SceneName);
@@ -339,13 +365,81 @@ export class GameApp {
       if (this.scene instanceof LoadingScene) this.changeScene('loading');
     };
     toggle.onclick = () => {
-      setCollapsed(globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) !== '1');
+      if (dragMoved) return;
+      setCollapsed(!collapsedState);
     };
+
+    panel.addEventListener('pointerdown', (event) => {
+      const target = event.target as HTMLElement | null;
+      const interactive = target?.closest('button, select, input, label');
+      if (!collapsedState && interactive && target !== toggle) return;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const rect = panel.getBoundingClientRect();
+      const offsetX = startX - rect.left;
+      const offsetY = startY - rect.top;
+      dragMoved = false;
+      panel.setPointerCapture?.(event.pointerId);
+      const onMove = (moveEvent: PointerEvent) => {
+        const x = moveEvent.clientX - offsetX;
+        const y = moveEvent.clientY - offsetY;
+        if (Math.abs(moveEvent.clientX - startX) > 3 || Math.abs(moveEvent.clientY - startY) > 3) dragMoved = true;
+        this.placeDevPanel(panel, x, y);
+      };
+      const onUp = () => {
+        panel.removeEventListener('pointermove', onMove);
+        panel.removeEventListener('pointerup', onUp);
+        panel.removeEventListener('pointercancel', onUp);
+        this.storeDevPanelPosition(panel);
+        window.setTimeout(() => {
+          dragMoved = false;
+        }, 0);
+      };
+      panel.addEventListener('pointermove', onMove);
+      panel.addEventListener('pointerup', onUp);
+      panel.addEventListener('pointercancel', onUp);
+    });
 
     panel.append(header, select, holdLabel, actions, hint);
     document.body.appendChild(panel);
-    setCollapsed(globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) === '1');
+    setCollapsed(collapsedState);
     this.devPanel = panel;
+  }
+
+  private readDevPanelPosition() {
+    const fallback = { x: Math.max(8, window.innerWidth - 106), y: 10 };
+    try {
+      const raw = globalThis.localStorage?.getItem(DEV_PANEL_POSITION_KEY);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw) as { x?: number; y?: number };
+      return {
+        x: Number.isFinite(parsed.x) ? Number(parsed.x) : fallback.x,
+        y: Number.isFinite(parsed.y) ? Number(parsed.y) : fallback.y
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  private placeDevPanel(panel: HTMLDivElement, x: number, y: number) {
+    const maxX = Math.max(0, window.innerWidth - panel.offsetWidth);
+    const maxY = Math.max(0, window.innerHeight - panel.offsetHeight);
+    panel.style.left = `${Math.min(Math.max(0, x), maxX)}px`;
+    panel.style.top = `${Math.min(Math.max(0, y), maxY)}px`;
+  }
+
+  private clampDevPanel(panel: HTMLDivElement) {
+    const rect = panel.getBoundingClientRect();
+    this.placeDevPanel(panel, rect.left, rect.top);
+    this.storeDevPanelPosition(panel);
+  }
+
+  private storeDevPanelPosition(panel: HTMLDivElement) {
+    const rect = panel.getBoundingClientRect();
+    globalThis.localStorage?.setItem(
+      DEV_PANEL_POSITION_KEY,
+      JSON.stringify({ x: Math.round(rect.left), y: Math.round(rect.top) })
+    );
   }
 
   private devPanelButton(text: string) {
@@ -520,6 +614,49 @@ export class GameApp {
     return true;
   }
 
+  spendGems(cost: number, reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number }) {
+    if (this.gems < cost) return false;
+    this.gems -= cost;
+    this.coins += reward.coins ?? 0;
+    this.scoutTickets += reward.scoutTickets ?? 0;
+    this.gems += reward.gems ?? 0;
+    this.energy = Math.min(120, this.energy + (reward.energy ?? 0));
+    void this.persist();
+    return true;
+  }
+
+  async purchaseShopItem(item: {
+    id: string;
+    title: string;
+    cost: number;
+    reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number };
+  }) {
+    const result = await this.platform.purchaseGameItem({
+      id: item.id,
+      title: item.title,
+      diamondAmount: item.cost,
+      quantity: item.reward.scoutTickets ?? item.reward.gems ?? item.reward.coins ?? item.reward.energy ?? 1,
+      extra: { reward: item.reward }
+    });
+    if (!result.ok) return result;
+    this.coins += item.reward.coins ?? 0;
+    this.scoutTickets += item.reward.scoutTickets ?? 0;
+    this.gems += item.reward.gems ?? 0;
+    this.energy = Math.min(120, this.energy + (item.reward.energy ?? 0));
+    void this.persist();
+    void this.server.grantShopReward({
+      userId: this.user.userId,
+      itemId: item.id,
+      coins: item.reward.coins,
+      scoutTickets: item.reward.scoutTickets,
+      gems: item.reward.gems,
+      energy: item.reward.energy
+    }).catch((error) => {
+      console.warn('[shop] reward sync failed', error);
+    });
+    return result;
+  }
+
   ownedPlayers(position?: PlayerCardData['position']) {
     return players
       .filter((player) => this.collectionIds.has(player.id) && (!position || player.position === position))
@@ -546,10 +683,127 @@ export class GameApp {
     });
     this.battleSource = {
       mode: 'ai',
+      opponentIsBot: true,
       opponentName: names[Math.floor(Math.random() * names.length)],
       opponentFormation: formation,
       opponentLineup
     };
+  }
+
+  async findOpponent() {
+    if (!this.server.enabled) {
+      this.prepareOpponent();
+      return true;
+    }
+
+    const ticket = await this.server.joinMatch({
+      userId: this.user.userId,
+      nickname: this.user.nickname,
+      avatarUrl: this.user.avatarUrl,
+      power: this.lineupPower(),
+      formationId: this.selectedFormation.id,
+      lineup: this.lineup.map((slot) => ({
+        slotId: slot.id,
+        playerId: slot.player?.id,
+        rating: slot.player?.rating
+      }))
+    });
+    if (!ticket) {
+      this.prepareOpponent();
+      return true;
+    }
+    if (ticket.status === 'matched' && ticket.opponent) {
+      this.applyMatchedOpponent(ticket.opponent);
+      return true;
+    }
+
+    const ticketId = ticket.ticketId;
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      await this.wait(1000);
+      const result = await this.server.pollMatch(ticketId);
+      if (result?.status === 'matched' && result.opponent) {
+        this.applyMatchedOpponent(result.opponent);
+        return true;
+      }
+      if (result?.status === 'expired') break;
+    }
+
+    this.prepareOpponent();
+    return true;
+  }
+
+  async cancelMatchmaking(ticketId?: string) {
+    if (!ticketId) return;
+    await this.server.cancelMatch(ticketId).catch((error) => {
+      console.warn('[matchmaking] cancel failed', error);
+    });
+  }
+
+  async recordBattleResult() {
+    if (!this.server.enabled) return;
+    const { scoreA, scoreB, events } = this.battleResult;
+    await this.server.recordMatch({
+      playerId: this.user.userId,
+      opponentId: this.battleSource.opponentId,
+      opponentIsBot: this.battleSource.opponentIsBot !== false,
+      opponentName: this.battleSource.opponentName,
+      mode: this.battleSource.mode,
+      playerScore: scoreA,
+      opponentScore: scoreB,
+      formationId: this.selectedFormation.id,
+      lineup: this.lineup,
+      opponentFormationId: this.battleSource.opponentFormation?.id,
+      opponentLineup: this.battleSource.opponentLineup,
+      events
+    }).catch((error) => {
+      console.warn('[match] record failed', error);
+    });
+  }
+
+  private async syncServerSession() {
+    if (!this.server.enabled) return;
+    try {
+      const session = await this.server.syncSession({
+        platform: this.sessionPlatformName(),
+        platformUserId: this.user.userId,
+        nickname: this.user.nickname,
+        avatarUrl: this.user.avatarUrl,
+        loginCode: this.user.loginCode
+      });
+      if (!session) return;
+      this.user = { ...session.user, avatarUrl: session.user.avatarUrl, loginCode: undefined };
+      this.coins = Number(session.state.coins ?? this.coins);
+      this.gems = Number(session.state.gems ?? this.gems);
+      this.energy = Number(session.state.energy ?? this.energy);
+      this.scoutTickets = Number(session.state.scout_tickets ?? this.scoutTickets);
+      this.matchesPlayed = Number(session.state.matches_played ?? this.matchesPlayed);
+      this.wins = Number(session.state.wins ?? this.wins);
+      this.claimedTasks = new Set(Array.isArray(session.state.claimed_tasks) ? session.state.claimed_tasks : []);
+      this.dailyTaskDate = String(session.state.daily_task_date ?? this.dailyTaskDate);
+      void this.persist();
+    } catch (error) {
+      console.warn('[server] session sync failed, using local state', error);
+    }
+  }
+
+  private applyMatchedOpponent(opponent: MatchOpponent) {
+    this.prepareOpponent();
+    this.battleSource = {
+      ...this.battleSource,
+      mode: opponent.mode,
+      opponentId: opponent.userId,
+      opponentIsBot: opponent.isBot,
+      opponentName: opponent.nickname || this.battleSource.opponentName
+    };
+  }
+
+  private sessionPlatformName() {
+    if (this.platform.name === 'web' && runtimeEnv.VITE_WEB_TEST_AS_DOUYIN !== '0') return 'douyin';
+    return this.platform.name;
+  }
+
+  private wait(ms: number) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
 
   private async persist() {

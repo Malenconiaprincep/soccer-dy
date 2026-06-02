@@ -8,6 +8,7 @@ export class MatchmakingScene extends BaseScene {
   private static readonly MATCH_TITLE_FRAME = new Rectangle(140, 280, 768, 111);
   private elapsed = 0;
   private matched = false;
+  private cancelled = false;
   private spinnerRoot?: Container;
   private blueArc?: Container;
   private greenArc?: Container;
@@ -23,6 +24,16 @@ export class MatchmakingScene extends BaseScene {
     this.drawSearchPanel();
   }
 
+  enter() {
+    super.enter();
+    this.startMatchmaking();
+  }
+
+  exit() {
+    this.cancelled = true;
+    super.exit();
+  }
+
   update(deltaMs: number) {
     this.elapsed += deltaMs;
     const t = this.elapsed * 0.001;
@@ -36,11 +47,7 @@ export class MatchmakingScene extends BaseScene {
     }
     if (this.centerPulse) this.centerPulse.scale.set(1 + Math.sin(t * 4.1) * 0.035);
     this.updateWaitValue();
-    if (!this.matched && this.elapsed >= MatchmakingScene.MATCH_DURATION_MS) {
-      this.matched = true;
-      this.game.prepareOpponent();
-      this.game.changeScene('matchup');
-    }
+    if (!this.matched && this.elapsed >= MatchmakingScene.MATCH_DURATION_MS) this.finishWithFallback();
   }
 
   resize() {
@@ -134,6 +141,24 @@ export class MatchmakingScene extends BaseScene {
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
     this.waitValue.text = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  private async startMatchmaking() {
+    try {
+      await this.game.findOpponent();
+    } catch (error) {
+      console.warn('[matchmaking] remote match failed, using local AI', error);
+      this.game.prepareOpponent();
+    }
+    if (this.cancelled || this.matched) return;
+    this.matched = true;
+    this.game.changeScene('matchup');
+  }
+
+  private finishWithFallback() {
+    this.matched = true;
+    this.game.prepareOpponent();
+    this.game.changeScene('matchup');
   }
 
   private searchSpinner(radius: number) {

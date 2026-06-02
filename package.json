@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "dev:server": "node server/dev-server.mjs",
     "dev:sync": "node scripts/dev-sync.mjs",
     "build": "tsc && vite build",
     "build:douyin": "tsc && vite build --mode douyin",

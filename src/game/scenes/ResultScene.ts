@@ -22,6 +22,7 @@ export class ResultScene extends BaseScene {
     const win = scoreA > scoreB;
     if (!this.rewardsGranted) {
       this.game.awardMatchRewards(win);
+      void this.game.recordBattleResult();
       this.rewardsGranted = true;
     }
     this.game.sound.play(win ? 'win' : 'lose');

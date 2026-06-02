@@ -25,50 +25,14 @@ const localStore: StorageLike = {
   }
 };
 
-const runtimeEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
-
 export class PlayerStorage {
-  private readonly supabaseUrl = runtimeEnv.VITE_SUPABASE_URL;
-  private readonly supabaseAnonKey = runtimeEnv.VITE_SUPABASE_ANON_KEY;
-
   async load() {
-    const local = this.loadLocal();
-    if (!this.supabaseUrl || !this.supabaseAnonKey) return local;
-
-    try {
-      const remote = await this.loadRemote(local.userId);
-      if (remote) {
-        const normalized = this.normalizeSave(remote);
-        localStore.setItem(SAVE_KEY, JSON.stringify(normalized));
-        return normalized;
-      }
-      await this.save(local);
-      return local;
-    } catch (error) {
-      console.warn('[storage] Supabase load failed, using local save', error);
-      return local;
-    }
+    return this.loadLocal();
   }
 
   async save(data: PlayerSaveData) {
     const next = { ...data, updatedAt: new Date().toISOString() };
     localStore.setItem(SAVE_KEY, JSON.stringify(next));
-    if (!this.supabaseUrl || !this.supabaseAnonKey) return;
-
-    try {
-      await fetch(`${this.supabaseUrl}/rest/v1/player_saves`, {
-        method: 'POST',
-        headers: {
-          apikey: this.supabaseAnonKey,
-          Authorization: `Bearer ${this.supabaseAnonKey}`,
-          'Content-Type': 'application/json',
-          Prefer: 'resolution=merge-duplicates'
-        },
-        body: JSON.stringify(this.toRow(next))
-      });
-    } catch (error) {
-      console.warn('[storage] Supabase save failed, local save kept', error);
-    }
   }
 
   toSaveData(
@@ -81,7 +45,7 @@ export class PlayerStorage {
       userId,
       nickname,
       coins: 1286000,
-      gems: 5688,
+      gems: 0,
       energy: 120,
       scoutTickets: 2,
       matchesPlayed: 0,
@@ -143,7 +107,7 @@ export class PlayerStorage {
       userId: this.createGuestId(),
       nickname: '本地经理',
       coins: 1286000,
-      gems: 5688,
+      gems: 0,
       energy: 120,
       scoutTickets: 2,
       matchesPlayed: 0,
@@ -154,60 +118,6 @@ export class PlayerStorage {
       selectedFormationId: formations[1].id,
       lineup: this.createStarterLineup(formations[1]),
       updatedAt: new Date().toISOString()
-    };
-  }
-
-  private async loadRemote(userId: string) {
-    const url = new URL(`${this.supabaseUrl}/rest/v1/player_saves`);
-    url.searchParams.set('user_id', `eq.${userId}`);
-    url.searchParams.set('select', '*');
-    url.searchParams.set('limit', '1');
-    const response = await fetch(url, {
-      headers: {
-        apikey: this.supabaseAnonKey ?? '',
-        Authorization: `Bearer ${this.supabaseAnonKey ?? ''}`
-      }
-    });
-    if (!response.ok) return undefined;
-    const rows = (await response.json()) as Array<Record<string, unknown>>;
-    return rows[0] ? this.fromRow(rows[0]) : undefined;
-  }
-
-  private toRow(save: PlayerSaveData) {
-    return {
-      user_id: save.userId,
-      nickname: save.nickname,
-      coins: save.coins,
-      gems: save.gems,
-      energy: save.energy,
-      scout_tickets: save.scoutTickets,
-      matches_played: save.matchesPlayed,
-      wins: save.wins,
-      collection: save.collection,
-      claimed_tasks: save.claimedTasks,
-      daily_task_date: save.dailyTaskDate,
-      selected_formation_id: save.selectedFormationId,
-      lineup: save.lineup,
-      updated_at: save.updatedAt
-    };
-  }
-
-  private fromRow(row: Record<string, unknown>): PlayerSaveData {
-    return {
-      userId: String(row.user_id),
-      nickname: String(row.nickname ?? '本地经理'),
-      coins: Number(row.coins ?? 1286000),
-      gems: Number(row.gems ?? 5688),
-      energy: Number(row.energy ?? 120),
-      scoutTickets: Number(row.scout_tickets ?? 2),
-      matchesPlayed: Number(row.matches_played ?? 0),
-      wins: Number(row.wins ?? 0),
-      collection: Array.isArray(row.collection) ? (row.collection as string[]) : defaultCollectionIds,
-      claimedTasks: Array.isArray(row.claimed_tasks) ? (row.claimed_tasks as string[]) : [],
-      dailyTaskDate: String(row.daily_task_date ?? this.todayKey()),
-      selectedFormationId: String(row.selected_formation_id ?? formations[1].id),
-      lineup: Array.isArray(row.lineup) ? (row.lineup as PlayerSaveData['lineup']) : [],
-      updatedAt: String(row.updated_at ?? new Date().toISOString())
     };
   }
 
