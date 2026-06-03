@@ -45,6 +45,7 @@ const SIGN_MODAL_RATIO = 1080 / 952;
 const SIGN_CARD_SIZE_SCALE = 0.96;
 const SIGN_CARD_TOP = 168;
 const SIGN_ROW_GAP = 8;
+const SIGN_BOTTOM_CARD_HEIGHT_SCALE = 0.9;
 const SIDE_BUTTON_CELL = { width: 256, height: 512, cropY: 96, cropSize: 280 };
 const SHORTCUT_BTN_W = 88;
 const SHORTCUT_ICON = 84;
@@ -1019,7 +1020,7 @@ export class HomeScene extends BaseScene {
   private signRewardCard(day: number, reward: SignReward, today: boolean, claimed: boolean, scale = 1) {
     const w = (day >= 5 ? 148 : 132) * scale;
     const aspect = SIGN_GIFT_CARD_FRAMES[0].height / SIGN_GIFT_CARD_FRAMES[0].width;
-    const h = w * aspect;
+    const h = w * aspect * (day >= 5 ? SIGN_BOTTOM_CARD_HEIGHT_SCALE : 1);
     const stateIndex = claimed ? 2 : today ? 0 : 1;
     return this.signGiftCard(day, reward, stateIndex, w, h);
   }
@@ -1059,7 +1060,7 @@ export class HomeScene extends BaseScene {
     const rewardText = label(this.signRewardText(reward), Math.round(cardW * 0.12), stateIndex === 2 ? 0xd5d8df : palette.white, '900');
     rewardText.anchor.set(0.5);
     rewardText.x = cardW / 2;
-    rewardText.y = cardH * 0.63 + contentOffsetY;
+    rewardText.y = cardH * (day >= 5 ? 0.54 : 0.63) + contentOffsetY;
     rewardText.roundPixels = true;
     c.addChild(rewardText);
     return c;
