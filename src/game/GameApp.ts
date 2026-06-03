@@ -21,6 +21,7 @@ const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean; VITE_WEB_
 const SCENES: SceneName[] = ['loading', 'home', 'formation', 'blindBox', 'matchmaking', 'matchup', 'battle', 'result'];
 const DEV_SCENE_KEY = 'soccer.dev.defaultScene';
 const DEV_HOLD_LOADING_KEY = 'soccer.dev.holdLoading';
+const DEV_SIGN_DAY_KEY = 'soccer.dev.signDay';
 const DEV_PANEL_COLLAPSED_KEY = 'soccer.dev.panelCollapsed';
 const DEV_PANEL_POSITION_KEY = 'soccer.dev.panelPosition';
 
@@ -146,10 +147,10 @@ export class GameApp {
       '/assets/ui/avatar-bg.png',
       '/assets/ui/buttons.png',
       '/assets/ui/qiandao.png',
-      '/assets/ui/sevenday/one.png',
-      '/assets/ui/sevenday/two.png',
-      '/assets/ui/sevenday/three.png',
-      '/assets/ui/sevenday/four.png',
+      '/assets/ui/sevenday/giftbg.png',
+      '/assets/ui/sevenday/flash.png',
+      '/assets/ui/sevenday/diamond.png',
+      '/assets/ui/sevenday/ticket.png',
       '/assets/ui/sevenday/five.png',
       '/assets/ui/sevenday/six.png',
       '/assets/ui/sevenday/seven.png',
@@ -206,6 +207,14 @@ export class GameApp {
     const queryValue = params.get('holdLoading');
     if (queryValue !== null) return queryValue !== '0' && queryValue !== 'false';
     return globalThis.localStorage?.getItem(DEV_HOLD_LOADING_KEY) === '1';
+  }
+
+  signInDayForDebug() {
+    if (!runtimeEnv.DEV || this.runtime.miniGame) return 1;
+    const params = new URLSearchParams(globalThis.location?.search ?? '');
+    const raw = params.get('signDay') ?? globalThis.localStorage?.getItem(DEV_SIGN_DAY_KEY);
+    const day = Number(raw);
+    return Number.isInteger(day) ? Math.min(7, Math.max(1, day)) : 1;
   }
 
   private devInitialScene(): SceneName {
@@ -320,6 +329,27 @@ export class GameApp {
     hold.checked = this.isLoadingHeldForDebug();
     holdLabel.append(hold, '暂停 loading 跳转');
 
+    const signDayLabel = document.createElement('label');
+    signDayLabel.style.display = 'grid';
+    signDayLabel.style.gridTemplateColumns = '72px 1fr';
+    signDayLabel.style.alignItems = 'center';
+    signDayLabel.style.gap = '6px';
+    signDayLabel.textContent = '签到天数';
+    const signDay = document.createElement('select');
+    signDay.style.height = '30px';
+    signDay.style.borderRadius = '6px';
+    signDay.style.background = '#071936';
+    signDay.style.color = '#fff';
+    signDay.style.border = '1px solid #2f83d6';
+    Array.from({ length: 7 }, (_, index) => index + 1).forEach((day) => {
+      const option = document.createElement('option');
+      option.value = String(day);
+      option.textContent = `第 ${day} 天`;
+      signDay.appendChild(option);
+    });
+    signDay.value = String(this.signInDayForDebug());
+    signDayLabel.appendChild(signDay);
+
     const actions = document.createElement('div');
     actions.style.display = 'grid';
     actions.style.gridTemplateColumns = '1fr 1fr';
@@ -330,10 +360,10 @@ export class GameApp {
     actions.append(go, save);
 
     const hint = document.createElement('div');
-    hint.textContent = '?scene=loading&holdLoading=1 可直开预览';
+    hint.textContent = '?scene=home&signDay=4 可直开签到天数预览';
     hint.style.color = '#9fdcff';
     hint.style.lineHeight = '1.35';
-    const bodyItems = [select, holdLabel, actions, hint];
+    const bodyItems = [select, holdLabel, signDayLabel, actions, hint];
     let collapsedState = globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) === '1';
     let dragMoved = false;
 
@@ -363,6 +393,7 @@ export class GameApp {
     save.onclick = () => {
       globalThis.localStorage?.setItem(DEV_SCENE_KEY, select.value);
       globalThis.localStorage?.setItem(DEV_HOLD_LOADING_KEY, hold.checked ? '1' : '0');
+      globalThis.localStorage?.setItem(DEV_SIGN_DAY_KEY, signDay.value);
       save.textContent = '已保存';
       window.setTimeout(() => {
         save.textContent = '设默认';
@@ -371,6 +402,10 @@ export class GameApp {
     hold.onchange = () => {
       globalThis.localStorage?.setItem(DEV_HOLD_LOADING_KEY, hold.checked ? '1' : '0');
       if (this.scene instanceof LoadingScene) this.changeScene('loading');
+    };
+    signDay.onchange = () => {
+      globalThis.localStorage?.setItem(DEV_SIGN_DAY_KEY, signDay.value);
+      if (this.scene instanceof HomeScene) this.changeScene('home');
     };
     toggle.onclick = () => {
       if (dragMoved) return;
@@ -408,7 +443,7 @@ export class GameApp {
       panel.addEventListener('pointercancel', onUp);
     });
 
-    panel.append(header, select, holdLabel, actions, hint);
+    panel.append(header, select, holdLabel, signDayLabel, actions, hint);
     document.body.appendChild(panel);
     setCollapsed(collapsedState);
     this.devPanel = panel;
@@ -612,12 +647,13 @@ export class GameApp {
     void this.persist();
   }
 
-  claimTask(taskId: string, reward: { coins?: number; scoutTickets?: number; gems?: number }) {
+  claimTask(taskId: string, reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number }) {
     if (this.claimedTasks.has(taskId)) return false;
     this.claimedTasks.add(taskId);
     this.coins += reward.coins ?? 0;
     this.scoutTickets += reward.scoutTickets ?? 0;
     this.gems += reward.gems ?? 0;
+    this.energy = Math.min(120, this.energy + (reward.energy ?? 0));
     void this.persist();
     return true;
   }

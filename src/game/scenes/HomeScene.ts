@@ -12,15 +12,36 @@ const TOP_ENERGY_FRAME = new Rectangle(TOP_BAR_FRAME.width, 0, TOP_BAR_FRAME.wid
 const WEB_AVATAR = '/assets/players/generated/saka.png';
 const SIDE_BUTTONS = '/assets/ui/buttons.png';
 const SIGN_MODAL_BG = '/assets/ui/qiandao.png';
+const SIGN_GIFT_BG = '/assets/ui/sevenday/giftbg.png';
+const SIGN_FLASH_ICON = '/assets/ui/sevenday/flash.png';
+const SIGN_DIAMOND_ICON = '/assets/ui/sevenday/diamond.png';
+const SIGN_TICKET_ICON = '/assets/ui/sevenday/ticket.png';
+const SIGN_GIFT_CARD_FRAMES = [
+  new Rectangle(62, 16, 290, 470),
+  new Rectangle(394, 16, 290, 470),
+  new Rectangle(726, 16, 290, 470)
+] as const;
+const SIGN_FLASH_FRAMES = [
+  new Rectangle(79, 144, 232, 329),
+  new Rectangle(433, 144, 231, 329),
+  new Rectangle(771, 144, 231, 328)
+] as const;
+const SIGN_DIAMOND_FRAMES = [
+  new Rectangle(97, 92, 224, 190),
+  new Rectangle(423, 90, 229, 193),
+  new Rectangle(759, 93, 221, 188)
+] as const;
+const SIGN_TICKET_FRAMES = [
+  new Rectangle(78, 77, 268, 209),
+  new Rectangle(418, 79, 266, 207),
+  new Rectangle(750, 78, 264, 208)
+] as const;
 const SIGN_DAY_CARD_CONFIG: Record<number, { path: string; width: number; height: number; stateOrder: [number, number, number]; fit?: number; y?: number; heightRatio?: number }> = {
-  1: { path: '/assets/ui/sevenday/one.png', width: 1080, height: 670, stateOrder: [0, 1, 2], fit: 1.2 },
-  2: { path: '/assets/ui/sevenday/two.png', width: 1080, height: 707, stateOrder: [0, 1, 2] },
-  3: { path: '/assets/ui/sevenday/three.png', width: 1578, height: 997, stateOrder: [1, 0, 2], fit: 0.94 },
-  4: { path: '/assets/ui/sevenday/four.png', width: 1080, height: 704, stateOrder: [0, 1, 2] },
   5: { path: '/assets/ui/sevenday/five.png', width: 1080, height: 493, stateOrder: [1, 0, 2] },
   6: { path: '/assets/ui/sevenday/six.png', width: 1080, height: 493, stateOrder: [0, 1, 2] },
   7: { path: '/assets/ui/sevenday/seven.png', width: 1080, height: 505, stateOrder: [1, 0, 2] }
 };
+type SignReward = { energy?: number; gems?: number; scoutTickets?: number };
 const SIGN_MODAL_RATIO = 1080 / 952;
 const SIDE_BUTTON_CELL = { width: 256, height: 512, cropY: 96, cropSize: 280 };
 const SHORTCUT_BTN_W = 88;
@@ -797,11 +818,15 @@ export class HomeScene extends BaseScene {
       { day: 7, reward: { energy: 50 } }
     ];
     const todayKey = new Date().toISOString().slice(0, 10);
-    const claimId = `signin-${todayKey}`;
+    const signDay = this.game.signInDayForDebug();
+    const todayReward = rewards.find((item) => item.day === signDay) ?? rewards[0];
+    const claimId = `signin-${todayKey}-day${signDay}`;
     const claimedToday = this.game.claimedTasks.has(claimId);
 
     rewards.forEach((item, index) => {
-      const card = this.signRewardCard(item.day, index === 0, claimedToday && index === 0, scale);
+      const isToday = item.day === signDay;
+      const isClaimed = item.day < signDay || (isToday && claimedToday);
+      const card = this.signRewardCard(item.day, item.reward, isToday, isClaimed, scale);
       const layout = this.signCardLayout(index, scale);
       card.x = layout.x;
       card.y = layout.y;
@@ -816,7 +841,7 @@ export class HomeScene extends BaseScene {
         this.game.sound.play('tap');
         return;
       }
-      if (this.game.claimTask(claimId, rewards[0].reward)) this.game.sound.play('reward');
+      if (this.game.claimTask(claimId, todayReward.reward)) this.game.sound.play('reward');
       this.closeTaskModal();
       this.resize();
       this.openSignModal();
@@ -973,12 +998,102 @@ export class HomeScene extends BaseScene {
     return { x: (panelWidth - rowWidth) / 2 + (index - 4) * (w + gap), y: 356 * scale + yOffset };
   }
 
-  private signRewardCard(day: number, today: boolean, claimed: boolean, scale = 1) {
+  private signRewardCard(day: number, reward: SignReward, today: boolean, claimed: boolean, scale = 1) {
     const wide = day >= 5;
     const w = (wide ? 148 : 132) * scale;
-    const h = 238 * scale;
+    const h = (day <= 4 ? 132 * (SIGN_GIFT_CARD_FRAMES[0].height / SIGN_GIFT_CARD_FRAMES[0].width) : 238) * scale;
     const stateIndex = claimed ? 2 : today ? 0 : 1;
+    if (day <= 4) return this.signGiftCard(day, reward, stateIndex, w, h);
     return this.signSpriteCard(day, stateIndex, w, h);
+  }
+
+  private signGiftCard(day: number, reward: SignReward, stateIndex: number, width: number, height: number) {
+    const c = new Container();
+    const base = Texture.from(SIGN_GIFT_BG);
+    const frame = SIGN_GIFT_CARD_FRAMES[stateIndex] ?? SIGN_GIFT_CARD_FRAMES[1];
+    const sprite = new Sprite(new Texture({
+      source: base.source,
+      frame
+    }));
+    sprite.width = width;
+    sprite.height = height;
+    c.addChild(sprite);
+
+    const contentOffsetY = height * 0.06;
+    const tone = stateIndex === 0 ? 0xfff3a3 : stateIndex === 1 ? 0x57b9ff : 0xd7dbe5;
+    const dayText = label(`第${day}天`, Math.round(width * 0.16), tone, '900');
+    dayText.anchor.set(0.5);
+    dayText.x = width / 2;
+    dayText.y = height * 0.11 + contentOffsetY;
+    c.addChild(dayText);
+
+    const icon = this.signRewardIcon(reward, width * 0.5, stateIndex);
+    icon.x = width / 2;
+    icon.y = height * 0.39 + contentOffsetY;
+    icon.alpha = stateIndex === 2 ? 0.62 : 1;
+    c.addChild(icon);
+
+    const rewardText = label(this.signRewardText(reward), Math.round(width * 0.13), stateIndex === 2 ? 0xd5d8df : palette.white, '900');
+    rewardText.anchor.set(0.5);
+    rewardText.x = width / 2;
+    rewardText.y = height * 0.63 + contentOffsetY;
+    c.addChild(rewardText);
+    return c;
+  }
+
+  private signRewardText(reward: SignReward) {
+    if (reward.energy) return `体力值 +${reward.energy}`;
+    if (reward.gems) return `钻石 +${reward.gems}`;
+    if (reward.scoutTickets) return `抽卡券 +${reward.scoutTickets}`;
+    return '';
+  }
+
+  private signRewardIcon(reward: SignReward, size: number, stateIndex: number) {
+    if (reward.energy) return this.signEnergyIcon(size, stateIndex);
+    if (reward.gems) return this.signGemIcon(size, stateIndex);
+    return this.signTicketIcon(size, stateIndex);
+  }
+
+  private signEnergyIcon(size: number, stateIndex: number) {
+    const base = Texture.from(SIGN_FLASH_ICON);
+    const frame = SIGN_FLASH_FRAMES[stateIndex] ?? SIGN_FLASH_FRAMES[1];
+    const sprite = new Sprite(new Texture({
+      source: base.source,
+      frame
+    }));
+    const scale = size / Math.max(frame.width, frame.height);
+    sprite.width = frame.width * scale;
+    sprite.height = frame.height * scale;
+    sprite.anchor.set(0.5);
+    return sprite;
+  }
+
+  private signGemIcon(size: number, stateIndex: number) {
+    const base = Texture.from(SIGN_DIAMOND_ICON);
+    const frame = SIGN_DIAMOND_FRAMES[stateIndex] ?? SIGN_DIAMOND_FRAMES[1];
+    const sprite = new Sprite(new Texture({
+      source: base.source,
+      frame
+    }));
+    const scale = size / Math.max(frame.width, frame.height);
+    sprite.width = frame.width * scale;
+    sprite.height = frame.height * scale;
+    sprite.anchor.set(0.5);
+    return sprite;
+  }
+
+  private signTicketIcon(size: number, stateIndex: number) {
+    const base = Texture.from(SIGN_TICKET_ICON);
+    const frame = SIGN_TICKET_FRAMES[stateIndex] ?? SIGN_TICKET_FRAMES[1];
+    const sprite = new Sprite(new Texture({
+      source: base.source,
+      frame
+    }));
+    const scale = size / Math.max(frame.width, frame.height);
+    sprite.width = frame.width * scale;
+    sprite.height = frame.height * scale;
+    sprite.anchor.set(0.5);
+    return sprite;
   }
 
   private signSpriteCard(day: number, stateIndex: number, width: number, height: number) {
