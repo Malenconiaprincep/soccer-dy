@@ -11,6 +11,17 @@ const TOP_GEM_FRAME = new Rectangle(0, 0, TOP_BAR_FRAME.width, TOP_BAR_FRAME.hei
 const TOP_ENERGY_FRAME = new Rectangle(TOP_BAR_FRAME.width, 0, TOP_BAR_FRAME.width, TOP_BAR_FRAME.height);
 const WEB_AVATAR = '/assets/players/generated/saka.png';
 const SIDE_BUTTONS = '/assets/ui/buttons.png';
+const SIGN_MODAL_BG = '/assets/ui/qiandao.png';
+const SIGN_DAY_CARD_CONFIG: Record<number, { path: string; width: number; height: number; stateOrder: [number, number, number]; fit?: number; y?: number; heightRatio?: number }> = {
+  1: { path: '/assets/ui/sevenday/one.png', width: 1080, height: 670, stateOrder: [0, 1, 2], fit: 1.12 },
+  2: { path: '/assets/ui/sevenday/two.png', width: 1080, height: 707, stateOrder: [0, 1, 2] },
+  3: { path: '/assets/ui/sevenday/three.png', width: 1578, height: 997, stateOrder: [1, 0, 2], fit: 0.94 },
+  4: { path: '/assets/ui/sevenday/four.png', width: 1080, height: 704, stateOrder: [0, 1, 2] },
+  5: { path: '/assets/ui/sevenday/five.png', width: 1080, height: 493, stateOrder: [1, 0, 2] },
+  6: { path: '/assets/ui/sevenday/six.png', width: 1080, height: 493, stateOrder: [0, 1, 2] },
+  7: { path: '/assets/ui/sevenday/seven.png', width: 1080, height: 505, stateOrder: [1, 0, 2] }
+};
+const SIGN_MODAL_RATIO = 1080 / 952;
 const SIDE_BUTTON_CELL = { width: 256, height: 512, cropY: 96, cropSize: 280 };
 const SHORTCUT_BTN_W = 88;
 const SHORTCUT_ICON = 84;
@@ -771,36 +782,35 @@ export class HomeScene extends BaseScene {
   private openSignModal() {
     this.closeTaskModal();
     const modal = this.createModalBase();
-    const w = Math.min(640, this.game.width - 48);
-    const h = 640;
-    const panel = this.modalPanel(w, h);
-    panel.addChild(this.modalTitle('七日签到', '连续登录领取球队成长资源', w));
+    const w = Math.min(636, this.game.width - 28);
+    const h = Math.min(this.game.height - 76, w * SIGN_MODAL_RATIO);
+    const panel = this.signModalPanel(w, h);
+    const scale = Math.min(w / 636, h / 722);
 
     const rewards = [
-      { day: 1, title: '金币', value: '+500', reward: { coins: 500 } },
-      { day: 2, title: '球探券', value: '+1', reward: { scoutTickets: 1 } },
-      { day: 3, title: '金币', value: '+800', reward: { coins: 800 } },
-      { day: 4, title: '钻石', value: '+20', reward: { gems: 20 } },
-      { day: 5, title: '球探券', value: '+1', reward: { scoutTickets: 1 } },
-      { day: 6, title: '金币', value: '+1200', reward: { coins: 1200 } },
-      { day: 7, title: '高级券', value: '+2', reward: { scoutTickets: 2 } }
+      { day: 1, reward: { energy: 30 } },
+      { day: 2, reward: { gems: 20 } },
+      { day: 3, reward: { scoutTickets: 1 } },
+      { day: 4, reward: { energy: 30 } },
+      { day: 5, reward: { gems: 20 } },
+      { day: 6, reward: { scoutTickets: 1 } },
+      { day: 7, reward: { energy: 50 } }
     ];
     const todayKey = new Date().toISOString().slice(0, 10);
     const claimId = `signin-${todayKey}`;
     const claimedToday = this.game.claimedTasks.has(claimId);
 
     rewards.forEach((item, index) => {
-      const card = this.signRewardCard(item.day, item.title, item.value, index === 0, claimedToday);
-      const col = index % 2;
-      const row = Math.floor(index / 2);
-      card.x = 28 + col * ((w - 68) / 2 + 12);
-      card.y = 126 + row * 92;
+      const card = this.signRewardCard(item.day, index === 0, claimedToday && index === 0, scale);
+      const layout = this.signCardLayout(index, scale);
+      card.x = layout.x;
+      card.y = layout.y;
       panel.addChild(card);
     });
 
-    const button = this.modalButton(claimedToday ? '今日已领取' : '领取今日奖励', !claimedToday);
-    button.x = (w - 240) / 2;
-    button.y = h - 92;
+    const button = this.modalButton(claimedToday ? '今日已领取' : '领取今日奖励', !claimedToday, 232 * scale, 56 * scale);
+    button.x = (w - 232 * scale) / 2;
+    button.y = h - 94 * scale;
     button.on('pointertap', () => {
       if (claimedToday) {
         this.game.sound.play('tap');
@@ -812,8 +822,8 @@ export class HomeScene extends BaseScene {
       this.openSignModal();
     });
     panel.addChild(button);
+    this.addSignModalCloseHotspot(panel, w, h);
 
-    this.addModalClose(panel, w, h);
     modal.addChild(panel);
     this.taskModal = modal;
     this.container.addChild(modal);
@@ -888,6 +898,34 @@ export class HomeScene extends BaseScene {
     return panel;
   }
 
+  private signModalPanel(width: number, height: number) {
+    const panel = new Container();
+    panel.x = (this.game.width - width) / 2;
+    panel.y = Math.max(28, (this.game.height - height) / 2);
+    const fallback = new Graphics();
+    fallback.roundRect(0, 0, width, height, 18);
+    fallback.fill({ color: 0x061126, alpha: 0.92 });
+    const bg = new Sprite(Texture.from(SIGN_MODAL_BG));
+    bg.width = width;
+    bg.height = height;
+    panel.addChild(fallback, bg);
+    return panel;
+  }
+
+  private addSignModalCloseHotspot(panel: Container, width: number, height: number) {
+    const closeHit = new Container();
+    closeHit.x = width * 0.84;
+    closeHit.y = height * 0.018;
+    closeHit.hitArea = new Rectangle(0, 0, width * 0.14, height * 0.11);
+    closeHit.eventMode = 'static';
+    closeHit.cursor = 'pointer';
+    closeHit.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.closeTaskModal();
+    });
+    panel.addChild(closeHit);
+  }
+
   private modalTitle(titleText: string, subText: string, width: number) {
     const c = new Container();
     const title = label(titleText, 40, 0xfff3b0, '900');
@@ -902,15 +940,15 @@ export class HomeScene extends BaseScene {
     return c;
   }
 
-  private addModalClose(panel: Container, width: number, height: number) {
+  private addModalClose(panel: Container, width: number, height: number, buttonWidth = 112, buttonHeight = 48) {
     const closeHit = new Container();
-    closeHit.x = width - 136;
-    closeHit.y = height - 68;
-    closeHit.addChild(this.flatPanel(112, 48, 0x182443, 0x68dfff));
-    const closeText = label('关闭', 21, palette.white, '900');
+    closeHit.x = width - buttonWidth - 24;
+    closeHit.y = height - buttonHeight - 20;
+    closeHit.addChild(this.flatPanel(buttonWidth, buttonHeight, 0x182443, 0x68dfff));
+    const closeText = label('关闭', Math.round(buttonHeight * 0.44), palette.white, '900');
     closeText.anchor.set(0.5);
-    closeText.x = 56;
-    closeText.y = 24;
+    closeText.x = buttonWidth / 2;
+    closeText.y = buttonHeight / 2;
     closeHit.addChild(closeText);
     closeHit.eventMode = 'static';
     closeHit.cursor = 'pointer';
@@ -921,29 +959,55 @@ export class HomeScene extends BaseScene {
     panel.addChild(closeHit);
   }
 
-  private signRewardCard(day: number, titleText: string, valueText: string, today: boolean, claimed: boolean) {
-    const w = 282;
-    const c = new Container();
-    const active = today && !claimed;
-    c.addChild(this.flatPanel(w, 78, active ? 0x14240d : 0x071126, active ? 0xffd632 : today ? 0x44d982 : 0x5d80c8));
-    const dayText = label(`第${day}天`, 19, active ? 0xfff3b0 : 0xcfe0ff, '900');
-    dayText.x = 18;
-    dayText.y = 12;
-    const reward = label(`${titleText} ${valueText}`, 24, palette.white, '900');
-    reward.x = 18;
-    reward.y = 40;
-    const status = label(day === 1 ? (claimed ? '已领' : '今日') : '待开', 18, active ? 0x061126 : 0xcfe0ff, '900');
-    status.anchor.set(0.5);
-    status.x = w - 42;
-    status.y = 39;
-    if (active) {
-      const statusBg = new Graphics();
-      statusBg.roundRect(w - 72, 22, 58, 32, 8);
-      statusBg.fill({ color: 0xffd632, alpha: 0.96 });
-      c.addChild(dayText, reward, statusBg, status);
-    } else {
-      c.addChild(dayText, reward, status);
+  private signCardLayout(index: number, scale: number) {
+    const yOffset = 36 * scale;
+    if (index < 4) {
+      const w = 132 * scale;
+      const gap = 14 * scale;
+      return { x: 36 * scale + index * (w + gap), y: 106 * scale + yOffset };
     }
+    const w = 148 * scale;
+    const gap = 16 * scale;
+    const rowWidth = w * 3 + gap * 2;
+    const panelWidth = 636 * scale;
+    return { x: (panelWidth - rowWidth) / 2 + (index - 4) * (w + gap), y: 356 * scale + yOffset };
+  }
+
+  private signRewardCard(day: number, today: boolean, claimed: boolean, scale = 1) {
+    const wide = day >= 5;
+    const w = (wide ? 148 : 132) * scale;
+    const h = 238 * scale;
+    const stateIndex = claimed ? 2 : today ? 0 : 1;
+    return this.signSpriteCard(day, stateIndex, w, h);
+  }
+
+  private signSpriteCard(day: number, stateIndex: number, width: number, height: number) {
+    const c = new Container();
+    const config = SIGN_DAY_CARD_CONFIG[day];
+    const base = Texture.from(config.path);
+    const frameWidth = Math.floor(config.width / 3);
+    const frameHeight = config.height;
+    const sourceStateIndex = config.stateOrder[stateIndex] ?? stateIndex;
+    const targetRatio = width / height;
+    let cropWidth = frameWidth;
+    let cropHeight = frameHeight;
+    if (frameWidth / frameHeight > targetRatio) {
+      cropWidth = Math.round(frameHeight * targetRatio);
+    } else {
+      cropHeight = Math.round(frameWidth / targetRatio);
+    }
+    const cropX = sourceStateIndex * frameWidth + Math.max(0, Math.round((frameWidth - cropWidth) / 2));
+    const cropY = Math.max(0, Math.round((frameHeight - cropHeight) / 2));
+    const sprite = new Sprite(new Texture({
+      source: base.source,
+      frame: new Rectangle(cropX, cropY, cropWidth, cropHeight)
+    }));
+    const fit = config.fit ?? 1;
+    sprite.width = width * fit;
+    sprite.height = height * fit;
+    sprite.x = (width - sprite.width) / 2;
+    sprite.y = (height - sprite.height) / 2;
+    c.addChild(sprite);
     return c;
   }
 
