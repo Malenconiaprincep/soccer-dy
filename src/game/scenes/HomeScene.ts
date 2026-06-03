@@ -864,26 +864,7 @@ export class HomeScene extends BaseScene {
   private openShopModal() {
     this.closeTaskModal();
     const modal = this.createModalBase();
-    const w = Math.min(640, this.game.width - 48);
-    const h = 620;
-    const panel = this.modalPanel(w, h);
-    panel.addChild(this.modalTitle('商城', '消耗钻石购买补给道具', w));
-
-    const goods = [
-      { id: 'ticket1', title: '球探券 x1', sub: '用于抽取临时对战球员', cost: 30, reward: { scoutTickets: 1 } },
-      { id: 'ticket5', title: '球探券 x5', sub: '适合赛前快速补强', cost: 120, reward: { scoutTickets: 5 } },
-      { id: 'energy', title: '体力补给', sub: '恢复 30 点体力', cost: 20, reward: { energy: 30 } },
-      { id: 'coins', title: '金币包', sub: '获得 3000 金币', cost: 50, reward: { coins: 3000 } }
-    ];
-
-    goods.forEach((item, index) => {
-      const row = this.shopGoodsRow(item, w - 48);
-      row.x = 24;
-      row.y = 126 + index * 106;
-      panel.addChild(row);
-    });
-
-    this.addModalClose(panel, w, h);
+    const panel = this.shopPage();
     modal.addChild(panel);
     this.taskModal = modal;
     this.container.addChild(modal);
@@ -912,14 +893,24 @@ export class HomeScene extends BaseScene {
 
   private createModalBase() {
     const modal = new Container();
-    modal.eventMode = 'static';
+    modal.eventMode = 'passive';
     const mask = new Graphics();
     mask.rect(0, 0, this.game.width, this.game.height);
     mask.fill({ color: 0x020613, alpha: 0.72 });
     mask.eventMode = 'static';
-    mask.on('pointertap', () => this.closeTaskModal());
+    mask.cursor = 'default';
+    mask.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.closeTaskModal();
+    });
     modal.addChild(mask);
     return modal;
+  }
+
+  private bindModalPanel(panel: Container, width: number, height: number) {
+    panel.eventMode = 'static';
+    panel.hitArea = new Rectangle(0, 0, width, height);
+    return panel;
   }
 
   private modalPanel(width: number, height: number) {
@@ -927,7 +918,7 @@ export class HomeScene extends BaseScene {
     panel.x = (this.game.width - width) / 2;
     panel.y = Math.max(92, (this.game.height - height) / 2);
     panel.addChild(glassPanel(width, height, 0x061126, 0xffd632));
-    return panel;
+    return this.bindModalPanel(panel, width, height);
   }
 
   private signModalPanel(width: number, height: number) {
@@ -937,11 +928,13 @@ export class HomeScene extends BaseScene {
     const fallback = new Graphics();
     fallback.roundRect(0, 0, width, height, 18);
     fallback.fill({ color: 0x061126, alpha: 0.92 });
+    fallback.eventMode = 'none';
     const bg = new Sprite(Texture.from(SIGN_MODAL_BG));
     bg.width = width;
     bg.height = height;
+    bg.eventMode = 'none';
     panel.addChild(fallback, bg);
-    return panel;
+    return this.bindModalPanel(panel, width, height);
   }
 
   private addSignModalCloseHotspot(panel: Container, width: number, height: number) {
@@ -1119,6 +1112,336 @@ export class HomeScene extends BaseScene {
     sprite.height = frame.height * scale;
     sprite.anchor.set(0.5);
     return sprite;
+  }
+
+  private shopPage() {
+    const c = new Container();
+    c.eventMode = 'static';
+    c.hitArea = new Rectangle(0, 0, this.game.width, this.game.height);
+
+    const bg = new Graphics();
+    bg.rect(0, 0, this.game.width, this.game.height);
+    bg.fill({ color: 0x020a1d, alpha: 0.96 });
+    c.addChild(bg);
+
+    const bgImage = coverSprite(HOME_BG, this.game.width, this.game.height);
+    bgImage.alpha = 0.42;
+    bgImage.eventMode = 'none';
+    c.addChild(bgImage);
+
+    const blueWash = new Graphics();
+    blueWash.rect(0, 0, this.game.width, this.game.height);
+    blueWash.fill({ color: 0x001747, alpha: 0.46 });
+    c.addChild(blueWash);
+
+    const scale = Math.min(this.game.width / 720, this.game.height / 1180, 1);
+    const contentW = Math.min(660 * scale, this.game.width - 40 * scale);
+    const left = (this.game.width - contentW) / 2;
+    let y = Math.max(22 * scale, this.game.safeAreaTop + 18 * scale);
+
+    c.addChild(this.shopHeader(left, y, contentW, scale));
+    y += 136 * scale;
+
+    const feature = this.shopFeatureCard(contentW, 260 * scale, scale);
+    feature.x = left;
+    feature.y = y;
+    c.addChild(feature);
+    y += 296 * scale;
+
+    const section = this.shopSectionTitle('常用道具', scale);
+    section.x = left;
+    section.y = y;
+    c.addChild(section);
+    y += 58 * scale;
+
+    const rows = [
+      { id: 'energy', title: '体力补给', sub: '恢复 30 点体力', cost: 20, limit: '今日限购 5/5', icon: 'energy' as const, reward: { energy: 30 } },
+      { id: 'ticket1', title: '球探券 ×1', sub: '用于招募随机球员', cost: 30, limit: '今日限购 10/10', icon: 'ticket' as const, reward: { scoutTickets: 1 } },
+      { id: 'gems100', title: '钻石 ×100', sub: '游戏通用货币', priceText: '¥6', limit: '今日限购 1/1', icon: 'gems' as const, reward: { gems: 100 } }
+    ];
+
+    rows.forEach((item) => {
+      const row = this.shopItemRow(item, contentW, 150 * scale, scale);
+      row.x = left;
+      row.y = y;
+      c.addChild(row);
+      y += 170 * scale;
+    });
+
+    const footer = label('ⓘ 适度娱乐，理性消费', Math.round(22 * scale), 0x8ea6c9, '900');
+    footer.anchor.set(0.5);
+    footer.x = this.game.width / 2;
+    footer.y = Math.min(this.game.height - 30 * scale, y + 8 * scale);
+    c.addChild(footer);
+
+    return c;
+  }
+
+  private shopHeader(x: number, y: number, width: number, scale: number) {
+    const c = new Container();
+    const back = new Container();
+    const backBg = new Graphics();
+    const backSize = 70 * scale;
+    backBg.poly([12 * scale, 0, backSize - 12 * scale, 0, backSize, 12 * scale, backSize, backSize - 12 * scale, backSize - 12 * scale, backSize, 12 * scale, backSize, 0, backSize - 12 * scale, 0, 12 * scale]);
+    backBg.fill({ color: 0x08245c, alpha: 0.9 });
+    backBg.stroke({ color: 0x29b7ff, alpha: 0.95, width: 2 * scale });
+    const arrow = label('←', Math.round(46 * scale), palette.white, '900');
+    arrow.anchor.set(0.5);
+    arrow.x = backSize / 2;
+    arrow.y = backSize / 2 - 2 * scale;
+    back.addChild(backBg, arrow);
+    back.eventMode = 'static';
+    back.cursor = 'pointer';
+    back.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.closeTaskModal();
+    });
+    c.addChild(back);
+
+    const title = label('商城', Math.round(62 * scale), palette.white, '900');
+    title.x = 104 * scale;
+    title.y = 2 * scale;
+    title.style.dropShadow = { color: 0x1a6dff, blur: 6 * scale, distance: 3 * scale, alpha: 0.9, angle: Math.PI / 2 };
+    const store = label('STORE', Math.round(24 * scale), 0x6ca7ff, '900');
+    store.x = 304 * scale;
+    store.y = 44 * scale;
+    c.addChild(title, store);
+
+    const resource = this.shopResourcePill(200 * scale, 58 * scale, scale);
+    resource.x = Math.max(0, width - 210 * scale);
+    resource.y = 8 * scale;
+    c.addChild(resource);
+
+    c.x = x;
+    c.y = y;
+    return c;
+  }
+
+  private shopResourcePill(width: number, height: number, scale: number) {
+    const c = new Container();
+    const bg = new Graphics();
+    bg.roundRect(0, 0, width, height, height / 2);
+    bg.fill({ color: 0x06152f, alpha: 0.92 });
+    bg.stroke({ color: 0x2c73ff, alpha: 0.9, width: 2 * scale });
+    c.addChild(bg);
+    const gem = this.signGemIcon(44 * scale, 1);
+    gem.x = 38 * scale;
+    gem.y = height / 2;
+    const count = label(String(this.game.gems), Math.round(26 * scale), palette.white, '900');
+    count.anchor.set(0.5);
+    count.x = width * 0.58;
+    count.y = height / 2;
+    const plus = label('+', Math.round(38 * scale), palette.white, '900');
+    plus.anchor.set(0.5);
+    plus.x = width - 28 * scale;
+    plus.y = height / 2 - 1 * scale;
+    c.addChild(gem, count, plus);
+    return c;
+  }
+
+  private shopFeatureCard(width: number, height: number, scale: number) {
+    const item = { id: 'ticket5', title: '球探券 ×5', sub: '用于招募随机球员', cost: 120, reward: { scoutTickets: 5 } };
+    const c = new Container();
+    const bg = new Graphics();
+    bg.poly([16 * scale, 0, width - 16 * scale, 0, width, 18 * scale, width, height - 18 * scale, width - 16 * scale, height, 16 * scale, height, 0, height - 18 * scale, 0, 18 * scale]);
+    bg.fill({ color: 0x160d09, alpha: 0.86 });
+    bg.stroke({ color: 0xffc627, alpha: 0.95, width: 2.5 * scale });
+    c.addChild(bg);
+
+    const title = label('每日特惠', Math.round(46 * scale), 0xfff6cf, '900');
+    title.x = 54 * scale;
+    title.y = 44 * scale;
+    const name = label(item.title, Math.round(34 * scale), palette.white, '900');
+    name.x = 64 * scale;
+    name.y = 110 * scale;
+    const sub = label(item.sub, Math.round(22 * scale), 0xf5f0e4, '900');
+    sub.x = 64 * scale;
+    sub.y = 154 * scale;
+    c.addChild(title, name, sub);
+
+    const ticket = this.signTicketIcon(180 * scale, 1);
+    ticket.x = width * 0.68;
+    ticket.y = height * 0.42;
+    ticket.rotation = -0.04;
+    c.addChild(ticket);
+
+    const badge = new Graphics();
+    badge.circle(width - 72 * scale, 60 * scale, 38 * scale);
+    badge.fill({ color: 0xffd632, alpha: 0.96 });
+    badge.stroke({ color: 0xfff5aa, alpha: 0.95, width: 2 * scale });
+    const badgeText = label('8折', Math.round(30 * scale), 0x2a1600, '900');
+    badgeText.anchor.set(0.5);
+    badgeText.x = width - 72 * scale;
+    badgeText.y = 60 * scale;
+    c.addChild(badge, badgeText);
+
+    const cost = this.shopCostPlate(item.cost, '原价 150', 220 * scale, 54 * scale, scale);
+    cost.x = 54 * scale;
+    cost.y = height - 82 * scale;
+    c.addChild(cost);
+
+    const buy = this.shopBuyButton(172 * scale, 58 * scale, '立即购买', scale);
+    buy.x = width - 224 * scale;
+    buy.y = height - 84 * scale;
+    buy.on('pointertap', () => void this.handleShopPurchase(item));
+    c.addChild(buy);
+
+    const timer = label('◷ 刷新倒计时：23:59:59', Math.round(18 * scale), 0xffd66a, '900');
+    timer.x = 64 * scale;
+    timer.y = height - 34 * scale;
+    c.addChild(timer);
+    return c;
+  }
+
+  private shopSectionTitle(text: string, scale: number) {
+    const c = new Container();
+    const bars = new Graphics();
+    bars.rect(0, 12 * scale, 42 * scale, 8 * scale);
+    bars.rect(52 * scale, 12 * scale, 18 * scale, 8 * scale);
+    bars.rect(244 * scale, 12 * scale, 18 * scale, 8 * scale);
+    bars.rect(272 * scale, 12 * scale, 42 * scale, 8 * scale);
+    bars.fill({ color: 0x268dff, alpha: 0.78 });
+    const title = label(text, Math.round(30 * scale), palette.white, '900');
+    title.x = 84 * scale;
+    title.y = -2 * scale;
+    c.addChild(bars, title);
+    return c;
+  }
+
+  private shopItemRow(item: {
+    id: string;
+    title: string;
+    sub: string;
+    cost?: number;
+    priceText?: string;
+    limit: string;
+    icon: 'energy' | 'ticket' | 'gems';
+    reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number };
+  }, width: number, height: number, scale: number) {
+    const c = new Container();
+    const bg = new Graphics();
+    bg.poly([14 * scale, 0, width - 14 * scale, 0, width, 18 * scale, width, height - 18 * scale, width - 14 * scale, height, 14 * scale, height, 0, height - 18 * scale, 0, 18 * scale]);
+    bg.fill({ color: 0x06172d, alpha: 0.88 });
+    bg.stroke({ color: 0x17c5ff, alpha: 0.96, width: 2.5 * scale });
+    c.addChild(bg);
+
+    const icon = item.icon === 'energy' ? this.signEnergyIcon(100 * scale, 1) : item.icon === 'ticket' ? this.signTicketIcon(112 * scale, 1) : this.shopGemStack(118 * scale);
+    icon.x = 116 * scale;
+    icon.y = height / 2 + 2 * scale;
+    c.addChild(icon);
+
+    const title = label(item.title, Math.round(30 * scale), palette.white, '900');
+    title.x = 230 * scale;
+    title.y = 28 * scale;
+    const sub = label(item.sub, Math.round(21 * scale), 0xb8dcff, '900');
+    sub.x = 230 * scale;
+    sub.y = 72 * scale;
+    c.addChild(title, sub);
+
+    const price = item.priceText ? label(item.priceText, Math.round(30 * scale), palette.white, '900') : this.shopDiamondPrice(item.cost ?? 0, scale);
+    price.x = 230 * scale;
+    price.y = 108 * scale;
+    c.addChild(price);
+
+    const buy = this.shopBuyButton(150 * scale, 56 * scale, '购买', scale);
+    buy.x = width - 196 * scale;
+    buy.y = 34 * scale;
+    buy.on('pointertap', () => {
+      if (item.priceText) {
+        this.game.sound.play('tap');
+        this.closeTaskModal();
+        this.resize();
+        this.openInfoModal('暂未开放', item.title, '付费购买接入后开放。');
+        return;
+      }
+      void this.handleShopPurchase({ id: item.id, title: item.title, cost: item.cost ?? 0, reward: item.reward });
+    });
+    const limit = label(item.limit, Math.round(18 * scale), 0x9ec9ff, '900');
+    limit.anchor.set(0.5);
+    limit.x = buy.x + 75 * scale;
+    limit.y = 110 * scale;
+    c.addChild(buy, limit);
+    return c;
+  }
+
+  private shopCostPlate(cost: number, oldText: string, width: number, height: number, scale: number) {
+    const c = new Container();
+    const bg = new Graphics();
+    bg.poly([18 * scale, 0, width, 0, width - 18 * scale, height, 0, height]);
+    bg.fill({ color: 0x071326, alpha: 0.72 });
+    bg.stroke({ color: 0x5c7ea8, alpha: 0.28, width: 1 * scale });
+    c.addChild(bg);
+    c.addChild(this.shopDiamondPrice(cost, scale));
+    const old = label(oldText, Math.round(20 * scale), 0xb0a7a0, '900');
+    old.x = 126 * scale;
+    old.y = 14 * scale;
+    const slash = new Graphics();
+    slash.moveTo(126 * scale, 32 * scale);
+    slash.lineTo(208 * scale, 22 * scale);
+    slash.stroke({ color: 0xe84035, alpha: 0.85, width: 2 * scale });
+    c.addChild(old, slash);
+    return c;
+  }
+
+  private shopDiamondPrice(cost: number, scale: number) {
+    const c = new Container();
+    const gem = this.signGemIcon(34 * scale, 1);
+    gem.x = 20 * scale;
+    gem.y = 26 * scale;
+    const text = label(String(cost), Math.round(30 * scale), 0xffd632, '900');
+    text.x = 52 * scale;
+    text.y = 8 * scale;
+    c.addChild(gem, text);
+    return c;
+  }
+
+  private shopBuyButton(width: number, height: number, text: string, scale: number) {
+    const c = new Container();
+    const bg = new Graphics();
+    bg.roundRect(0, 0, width, height, 10 * scale);
+    bg.fill({ color: 0xf4b322, alpha: 1 });
+    bg.stroke({ color: 0xfff2a8, alpha: 0.95, width: 2 * scale });
+    const shine = new Graphics();
+    shine.roundRect(8 * scale, 6 * scale, width - 16 * scale, 15 * scale, 8 * scale);
+    shine.fill({ color: 0xffffff, alpha: 0.22 });
+    const labelText = label(text, Math.round(26 * scale), 0x3a2100, '900');
+    labelText.anchor.set(0.5);
+    labelText.x = width / 2;
+    labelText.y = height / 2;
+    c.addChild(bg, shine, labelText);
+    c.eventMode = 'static';
+    c.cursor = 'pointer';
+    return c;
+  }
+
+  private shopGemStack(size: number) {
+    const c = new Container();
+    const backLeft = this.signGemIcon(size * 0.72, 1);
+    backLeft.x = -size * 0.24;
+    backLeft.y = size * 0.12;
+    const backRight = this.signGemIcon(size * 0.72, 1);
+    backRight.x = size * 0.24;
+    backRight.y = size * 0.12;
+    const front = this.signGemIcon(size * 0.82, 1);
+    front.x = 0;
+    front.y = -size * 0.08;
+    c.addChild(backLeft, backRight, front);
+    return c;
+  }
+
+  private async handleShopPurchase(item: { id: string; title: string; cost: number; reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number } }) {
+    this.game.sound.play('tap');
+    const result = await this.game.purchaseShopItem(item);
+    if (!result.ok) {
+      this.closeTaskModal();
+      this.resize();
+      this.openInfoModal('购买失败', '未能完成本次购买', result.message ?? '请稍后再试。');
+      return;
+    }
+    this.game.sound.play('reward');
+    this.closeTaskModal();
+    this.resize();
+    this.openInfoModal('购买成功', item.title, '道具已发放到当前账号。');
   }
 
   private shopGoodsRow(item: { id: string; title: string; sub: string; cost: number; reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number } }, width: number) {
