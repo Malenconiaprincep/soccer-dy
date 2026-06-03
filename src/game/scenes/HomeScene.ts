@@ -13,7 +13,7 @@ const WEB_AVATAR = '/assets/players/generated/saka.png';
 const SIDE_BUTTONS = '/assets/ui/buttons.png';
 const SIGN_MODAL_BG = '/assets/ui/qiandao.png';
 const SIGN_DAY_CARD_CONFIG: Record<number, { path: string; width: number; height: number; stateOrder: [number, number, number]; fit?: number; y?: number; heightRatio?: number }> = {
-  1: { path: '/assets/ui/sevenday/one.png', width: 1080, height: 670, stateOrder: [0, 1, 2], fit: 1.12 },
+  1: { path: '/assets/ui/sevenday/one.png', width: 1080, height: 670, stateOrder: [0, 1, 2], fit: 1.2 },
   2: { path: '/assets/ui/sevenday/two.png', width: 1080, height: 707, stateOrder: [0, 1, 2] },
   3: { path: '/assets/ui/sevenday/three.png', width: 1578, height: 997, stateOrder: [1, 0, 2], fit: 0.94 },
   4: { path: '/assets/ui/sevenday/four.png', width: 1080, height: 704, stateOrder: [0, 1, 2] },
@@ -960,7 +960,7 @@ export class HomeScene extends BaseScene {
   }
 
   private signCardLayout(index: number, scale: number) {
-    const yOffset = 36 * scale;
+    const yOffset = 48 * scale;
     if (index < 4) {
       const w = 132 * scale;
       const gap = 14 * scale;
