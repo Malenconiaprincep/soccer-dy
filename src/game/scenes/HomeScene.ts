@@ -16,6 +16,10 @@ const SIGN_GIFT_BG = '/assets/ui/sevenday/giftbg.png';
 const SIGN_FLASH_ICON = '/assets/ui/sevenday/flash.png';
 const SIGN_DIAMOND_ICON = '/assets/ui/sevenday/diamond.png';
 const SIGN_TICKET_ICON = '/assets/ui/sevenday/ticket.png';
+const SIGN_ACCEPT = '/assets/ui/sevenday/accpet.png';
+const SIGN_ACCEPT_FRAME = new Rectangle(56, 218, 959, 218);
+const SIGN_ACCEPT_END = '/assets/ui/sevenday/accpet-end.png';
+const SIGN_ACCEPT_END_FRAME = new Rectangle(46, 221, 985, 233);
 const SIGN_GIFT_CARD_FRAMES = [
   new Rectangle(62, 16, 290, 470),
   new Rectangle(394, 16, 290, 470),
@@ -36,13 +40,12 @@ const SIGN_TICKET_FRAMES = [
   new Rectangle(418, 79, 266, 207),
   new Rectangle(750, 78, 264, 208)
 ] as const;
-const SIGN_DAY_CARD_CONFIG: Record<number, { path: string; width: number; height: number; stateOrder: [number, number, number]; fit?: number; y?: number; heightRatio?: number }> = {
-  5: { path: '/assets/ui/sevenday/five.png', width: 1080, height: 493, stateOrder: [1, 0, 2] },
-  6: { path: '/assets/ui/sevenday/six.png', width: 1080, height: 493, stateOrder: [0, 1, 2] },
-  7: { path: '/assets/ui/sevenday/seven.png', width: 1080, height: 505, stateOrder: [1, 0, 2] }
-};
 type SignReward = { energy?: number; gems?: number; scoutTickets?: number };
 const SIGN_MODAL_RATIO = 1080 / 952;
+const SIGN_CARD_SIZE_SCALE = 0.96;
+const SIGN_CARD_TOP = 168;
+const SIGN_ROW_GAP = 8;
+const SIGN_BOTTOM_CARD_HEIGHT_SCALE = 0.9;
 const SIDE_BUTTON_CELL = { width: 256, height: 512, cropY: 96, cropSize: 280 };
 const SHORTCUT_BTN_W = 88;
 const SHORTCUT_ICON = 84;
@@ -807,6 +810,7 @@ export class HomeScene extends BaseScene {
     const h = Math.min(this.game.height - 76, w * SIGN_MODAL_RATIO);
     const panel = this.signModalPanel(w, h);
     const scale = Math.min(w / 636, h / 722);
+    const cardScale = scale * SIGN_CARD_SIZE_SCALE;
 
     const rewards = [
       { day: 1, reward: { energy: 30 } },
@@ -826,16 +830,19 @@ export class HomeScene extends BaseScene {
     rewards.forEach((item, index) => {
       const isToday = item.day === signDay;
       const isClaimed = item.day < signDay || (isToday && claimedToday);
-      const card = this.signRewardCard(item.day, item.reward, isToday, isClaimed, scale);
-      const layout = this.signCardLayout(index, scale);
+      const card = this.signRewardCard(item.day, item.reward, isToday, isClaimed, cardScale);
+      const layout = this.signCardLayout(index, scale, cardScale);
       card.x = layout.x;
       card.y = layout.y;
       panel.addChild(card);
     });
 
-    const button = this.modalButton(claimedToday ? '今日已领取' : '领取今日奖励', !claimedToday, 232 * scale, 56 * scale);
-    button.x = (w - 232 * scale) / 2;
-    button.y = h - 94 * scale;
+    const buttonWidth = 360 * scale;
+    const acceptFrame = claimedToday ? SIGN_ACCEPT_END_FRAME : SIGN_ACCEPT_FRAME;
+    const buttonHeight = buttonWidth * (acceptFrame.height / acceptFrame.width);
+    const button = this.signAcceptButton(buttonWidth, !claimedToday);
+    button.x = (w - buttonWidth) / 2;
+    button.y = h - buttonHeight - 32 * scale;
     button.on('pointertap', () => {
       if (claimedToday) {
         this.game.sound.play('tap');
@@ -984,59 +991,75 @@ export class HomeScene extends BaseScene {
     panel.addChild(closeHit);
   }
 
-  private signCardLayout(index: number, scale: number) {
-    const yOffset = 48 * scale;
+  private signCardLayout(index: number, panelScale: number, cardScale = panelScale) {
+    const topStart = SIGN_CARD_TOP * panelScale;
+    const rowGap = SIGN_ROW_GAP * panelScale;
+    const topW = 132 * cardScale;
+    const topGap = 14 * cardScale;
+    const topH = topW * (SIGN_GIFT_CARD_FRAMES[0].height / SIGN_GIFT_CARD_FRAMES[0].width);
+    const bottomW = 148 * cardScale;
+    const bottomGap = 16 * cardScale;
+    const bottomStart = topStart + topH + rowGap;
+
+    const panelWidth = 636 * panelScale;
+
     if (index < 4) {
-      const w = 132 * scale;
-      const gap = 14 * scale;
-      return { x: 36 * scale + index * (w + gap), y: 106 * scale + yOffset };
+      const topRowWidth = topW * 4 + topGap * 3;
+      return {
+        x: Math.round((panelWidth - topRowWidth) / 2 + index * (topW + topGap)),
+        y: Math.round(topStart)
+      };
     }
-    const w = 148 * scale;
-    const gap = 16 * scale;
-    const rowWidth = w * 3 + gap * 2;
-    const panelWidth = 636 * scale;
-    return { x: (panelWidth - rowWidth) / 2 + (index - 4) * (w + gap), y: 356 * scale + yOffset };
+    const rowWidth = bottomW * 3 + bottomGap * 2;
+    return {
+      x: Math.round((panelWidth - rowWidth) / 2 + (index - 4) * (bottomW + bottomGap)),
+      y: Math.round(bottomStart)
+    };
   }
 
   private signRewardCard(day: number, reward: SignReward, today: boolean, claimed: boolean, scale = 1) {
-    const wide = day >= 5;
-    const w = (wide ? 148 : 132) * scale;
-    const h = (day <= 4 ? 132 * (SIGN_GIFT_CARD_FRAMES[0].height / SIGN_GIFT_CARD_FRAMES[0].width) : 238) * scale;
+    const w = (day >= 5 ? 148 : 132) * scale;
+    const aspect = SIGN_GIFT_CARD_FRAMES[0].height / SIGN_GIFT_CARD_FRAMES[0].width;
+    const h = w * aspect * (day >= 5 ? SIGN_BOTTOM_CARD_HEIGHT_SCALE : 1);
     const stateIndex = claimed ? 2 : today ? 0 : 1;
-    if (day <= 4) return this.signGiftCard(day, reward, stateIndex, w, h);
-    return this.signSpriteCard(day, stateIndex, w, h);
+    return this.signGiftCard(day, reward, stateIndex, w, h);
   }
 
   private signGiftCard(day: number, reward: SignReward, stateIndex: number, width: number, height: number) {
     const c = new Container();
+    const cardW = Math.round(width);
+    const cardH = Math.round(height);
     const base = Texture.from(SIGN_GIFT_BG);
     const frame = SIGN_GIFT_CARD_FRAMES[stateIndex] ?? SIGN_GIFT_CARD_FRAMES[1];
     const sprite = new Sprite(new Texture({
       source: base.source,
       frame
     }));
-    sprite.width = width;
-    sprite.height = height;
+    sprite.width = cardW;
+    sprite.height = cardH;
+    sprite.roundPixels = true;
     c.addChild(sprite);
 
-    const contentOffsetY = height * 0.06;
+    const contentOffsetY = cardH * 0.03;
     const tone = stateIndex === 0 ? 0xfff3a3 : stateIndex === 1 ? 0x57b9ff : 0xd7dbe5;
-    const dayText = label(`第${day}天`, Math.round(width * 0.16), tone, '900');
+    const dayText = label(`第${day}天`, Math.round(cardW * 0.15), tone, '900');
     dayText.anchor.set(0.5);
-    dayText.x = width / 2;
-    dayText.y = height * 0.11 + contentOffsetY;
+    dayText.x = cardW / 2;
+    dayText.y = cardH * 0.10 + contentOffsetY;
+    dayText.roundPixels = true;
     c.addChild(dayText);
 
-    const icon = this.signRewardIcon(reward, width * 0.5, stateIndex);
-    icon.x = width / 2;
-    icon.y = height * 0.39 + contentOffsetY;
+    const icon = this.signRewardIcon(reward, cardW * 0.44, stateIndex);
+    icon.x = cardW / 2;
+    icon.y = cardH * 0.37 + contentOffsetY;
     icon.alpha = stateIndex === 2 ? 0.62 : 1;
     c.addChild(icon);
 
-    const rewardText = label(this.signRewardText(reward), Math.round(width * 0.13), stateIndex === 2 ? 0xd5d8df : palette.white, '900');
+    const rewardText = label(this.signRewardText(reward), Math.round(cardW * 0.12), stateIndex === 2 ? 0xd5d8df : palette.white, '900');
     rewardText.anchor.set(0.5);
-    rewardText.x = width / 2;
-    rewardText.y = height * 0.63 + contentOffsetY;
+    rewardText.x = cardW / 2;
+    rewardText.y = cardH * 0.54 + contentOffsetY;
+    rewardText.roundPixels = true;
     c.addChild(rewardText);
     return c;
   }
@@ -1089,41 +1112,11 @@ export class HomeScene extends BaseScene {
       source: base.source,
       frame
     }));
-    const scale = size / Math.max(frame.width, frame.height);
+    const scale = (size * 1.15) / Math.max(frame.width, frame.height);
     sprite.width = frame.width * scale;
     sprite.height = frame.height * scale;
     sprite.anchor.set(0.5);
     return sprite;
-  }
-
-  private signSpriteCard(day: number, stateIndex: number, width: number, height: number) {
-    const c = new Container();
-    const config = SIGN_DAY_CARD_CONFIG[day];
-    const base = Texture.from(config.path);
-    const frameWidth = Math.floor(config.width / 3);
-    const frameHeight = config.height;
-    const sourceStateIndex = config.stateOrder[stateIndex] ?? stateIndex;
-    const targetRatio = width / height;
-    let cropWidth = frameWidth;
-    let cropHeight = frameHeight;
-    if (frameWidth / frameHeight > targetRatio) {
-      cropWidth = Math.round(frameHeight * targetRatio);
-    } else {
-      cropHeight = Math.round(frameWidth / targetRatio);
-    }
-    const cropX = sourceStateIndex * frameWidth + Math.max(0, Math.round((frameWidth - cropWidth) / 2));
-    const cropY = Math.max(0, Math.round((frameHeight - cropHeight) / 2));
-    const sprite = new Sprite(new Texture({
-      source: base.source,
-      frame: new Rectangle(cropX, cropY, cropWidth, cropHeight)
-    }));
-    const fit = config.fit ?? 1;
-    sprite.width = width * fit;
-    sprite.height = height * fit;
-    sprite.x = (width - sprite.width) / 2;
-    sprite.y = (height - sprite.height) / 2;
-    c.addChild(sprite);
-    return c;
   }
 
   private shopGoodsRow(item: { id: string; title: string; sub: string; cost: number; reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number } }, width: number) {
@@ -1157,6 +1150,25 @@ export class HomeScene extends BaseScene {
       this.openInfoModal('购买成功', item.title, '道具已发放到当前账号。');
     });
     c.addChild(title, sub, cost, buy);
+    return c;
+  }
+
+  private signAcceptButton(width: number, enabled: boolean) {
+    const c = new Container();
+    const frame = enabled ? SIGN_ACCEPT_FRAME : SIGN_ACCEPT_END_FRAME;
+    const path = enabled ? SIGN_ACCEPT : SIGN_ACCEPT_END;
+    const height = width * (frame.height / frame.width);
+    const base = Assets.get<Texture>(path);
+    const sprite = new Sprite(new Texture({
+      source: base.source,
+      frame
+    }));
+    sprite.width = width;
+    sprite.height = height;
+    c.addChild(sprite);
+    c.hitArea = new Rectangle(0, 0, width, height);
+    c.eventMode = 'static';
+    c.cursor = enabled ? 'pointer' : 'default';
     return c;
   }
 
