@@ -14,6 +14,7 @@ import { SoundFx } from './audio/SoundFx';
 import type { BattleEvent, FormationData, LineupSlot, PlayerCardData, Position, Scene, SceneName } from './types';
 import { PlayerStorage } from './storage/PlayerStorage';
 import { GameServerClient, type MatchOpponent } from './services/GameServerClient';
+import { defaultShopConfig, type ShopConfig } from '../shopConfig';
 
 const DESIGN_WIDTH = 720;
 const DESIGN_HEIGHT = 1280;
@@ -73,6 +74,7 @@ export class GameApp {
   pendingScoutChoices: PlayerCardData[] = [];
   battleResult: { scoreA: number; scoreB: number; events: BattleEvent[] } = { scoreA: 0, scoreB: 0, events: [] };
   battleSource = defaultBattleSource;
+  shopConfig: ShopConfig = defaultShopConfig;
   private viewportWidth = DESIGN_WIDTH;
   private viewportHeight = DESIGN_HEIGHT;
   private safeAreaInsetTopPx = 0;
@@ -139,6 +141,7 @@ export class GameApp {
       loginCode: auth.loginCode
     };
     await this.syncServerSession();
+    await this.loadShopConfig();
     await Assets.load([
       '/assets/loading-bg.png',
       '/assets/page-bg.jpg',
@@ -146,6 +149,11 @@ export class GameApp {
       '/assets/ui/top-button.png',
       '/assets/ui/avatar-bg.png',
       '/assets/ui/buttons.png',
+      '/assets/ui/back.png',
+      '/assets/ui/shoptitle.png',
+      '/assets/ui/toolstitle.png',
+      '/assets/ui/everyday-active.png',
+      '/assets/ui/gift.png',
       '/assets/ui/qiandao.png',
       '/assets/ui/sevenday/giftbg.png',
       '/assets/ui/sevenday/flash.png',
@@ -826,6 +834,15 @@ export class GameApp {
       void this.persist();
     } catch (error) {
       console.warn('[server] session sync failed, using local state', error);
+    }
+  }
+
+  private async loadShopConfig() {
+    try {
+      this.shopConfig = await this.server.getShopConfig();
+    } catch (error) {
+      console.warn('[shop] config load failed, using defaults', error);
+      this.shopConfig = defaultShopConfig;
     }
   }
 

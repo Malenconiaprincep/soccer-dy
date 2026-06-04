@@ -1,4 +1,5 @@
 import type { BattleEvent, LineupSlot } from '../types';
+import { normalizeShopConfig, type ShopConfig } from '../../shopConfig';
 
 const runtimeEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
 
@@ -31,6 +32,7 @@ export interface MatchOpponent {
 
 export class GameServerClient {
   private readonly baseUrl = runtimeEnv.VITE_GAME_SERVER_URL;
+  private readonly publicBaseUrl = runtimeEnv.VITE_GAME_SERVER_URL ?? '';
 
   get enabled() {
     return !!this.baseUrl;
@@ -106,6 +108,11 @@ export class GameServerClient {
   }) {
     if (!this.baseUrl) return undefined;
     return this.post<{ ok: true }>('/api/shop/grant', payload);
+  }
+
+  async getShopConfig() {
+    const response = await fetch(`${this.publicBaseUrl}/api/shop-config`);
+    return normalizeShopConfig(await this.read<ShopConfig>(response));
   }
 
   private async get<T>(path: string) {

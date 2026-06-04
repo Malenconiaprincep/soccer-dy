@@ -1,6 +1,7 @@
 import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
-import { BaseScene } from './BaseScene';
+import { BaseScene, PAGE_BG } from './BaseScene';
 import { avatar, coverSprite, glassPanel, label, palette } from '../ui';
+import type { ShopCommonItemConfig, ShopDailyOfferConfig, ShopReward } from '../../shopConfig';
 
 const HOME_BG = '/assets/home-bg.jpg';
 const TOP_BUTTON = '/assets/ui/top-button.png';
@@ -11,6 +12,21 @@ const TOP_GEM_FRAME = new Rectangle(0, 0, TOP_BAR_FRAME.width, TOP_BAR_FRAME.hei
 const TOP_ENERGY_FRAME = new Rectangle(TOP_BAR_FRAME.width, 0, TOP_BAR_FRAME.width, TOP_BAR_FRAME.height);
 const WEB_AVATAR = '/assets/players/generated/saka.png';
 const SIDE_BUTTONS = '/assets/ui/buttons.png';
+const SHOP_BACK_BUTTON = '/assets/ui/back.png';
+const SHOP_BACK_BUTTON_FRAME = new Rectangle(155, 148, 713, 711);
+const SHOP_TITLE = '/assets/ui/shoptitle.png';
+const SHOP_TITLE_FRAME = new Rectangle(320, 330, 875, 255);
+const SHOP_TOOLS_TITLE = '/assets/ui/toolstitle.png';
+const SHOP_TOOLS_TITLE_FRAME = new Rectangle(82, 172, 923, 114);
+const SHOP_DAILY_BG = '/assets/ui/everyday-active.png';
+const SHOP_DAILY_BG_FRAME = new Rectangle(30, 60, 1479, 816);
+const SHOP_DAILY_BG_SIZE = { width: 1479, height: 816 };
+const SHOP_GIFT_BG = '/assets/ui/gift.png';
+const SHOP_GIFT_FRAMES = {
+  energy: new Rectangle(0, 0, 1080, 330),
+  ticket: new Rectangle(0, 330, 1080, 330),
+  gems: new Rectangle(0, 660, 1080, 310)
+} as const;
 const SIGN_MODAL_BG = '/assets/ui/qiandao.png';
 const SIGN_GIFT_BG = '/assets/ui/sevenday/giftbg.png';
 const SIGN_FLASH_ICON = '/assets/ui/sevenday/flash.png';
@@ -1124,7 +1140,7 @@ export class HomeScene extends BaseScene {
     bg.fill({ color: 0x020a1d, alpha: 0.96 });
     c.addChild(bg);
 
-    const bgImage = coverSprite(HOME_BG, this.game.width, this.game.height);
+    const bgImage = coverSprite(PAGE_BG, this.game.width, this.game.height);
     bgImage.alpha = 0.42;
     bgImage.eventMode = 'none';
     c.addChild(bgImage);
@@ -1142,11 +1158,12 @@ export class HomeScene extends BaseScene {
     c.addChild(this.shopHeader(left, y, contentW, scale));
     y += 136 * scale;
 
-    const feature = this.shopFeatureCard(contentW, 260 * scale, scale);
+    const featureH = contentW * (SHOP_DAILY_BG_SIZE.height / SHOP_DAILY_BG_SIZE.width);
+    const feature = this.shopFeatureCard(this.game.shopConfig.dailyOffer, contentW, featureH, scale);
     feature.x = left;
     feature.y = y;
     c.addChild(feature);
-    y += 296 * scale;
+    y += featureH + 36 * scale;
 
     const section = this.shopSectionTitle('常用道具', scale);
     section.x = left;
@@ -1154,18 +1171,14 @@ export class HomeScene extends BaseScene {
     c.addChild(section);
     y += 58 * scale;
 
-    const rows = [
-      { id: 'energy', title: '体力补给', sub: '恢复 30 点体力', cost: 20, limit: '今日限购 5/5', icon: 'energy' as const, reward: { energy: 30 } },
-      { id: 'ticket1', title: '球探券 ×1', sub: '用于招募随机球员', cost: 30, limit: '今日限购 10/10', icon: 'ticket' as const, reward: { scoutTickets: 1 } },
-      { id: 'gems100', title: '钻石 ×100', sub: '游戏通用货币', priceText: '¥6', limit: '今日限购 1/1', icon: 'gems' as const, reward: { gems: 100 } }
-    ];
-
-    rows.forEach((item) => {
-      const row = this.shopItemRow(item, contentW, 150 * scale, scale);
+    this.game.shopConfig.commonItems.forEach((item) => {
+      const rowFrame = this.shopGiftFrame(item.icon);
+      const rowH = contentW * (rowFrame.height / rowFrame.width);
+      const row = this.shopItemRow(item, contentW, rowH, scale);
       row.x = left;
       row.y = y;
       c.addChild(row);
-      y += 170 * scale;
+      y += rowH + 18 * scale;
     });
 
     const footer = label('ⓘ 适度娱乐，理性消费', Math.round(22 * scale), 0x8ea6c9, '900');
@@ -1180,16 +1193,16 @@ export class HomeScene extends BaseScene {
   private shopHeader(x: number, y: number, width: number, scale: number) {
     const c = new Container();
     const back = new Container();
-    const backBg = new Graphics();
-    const backSize = 70 * scale;
-    backBg.poly([12 * scale, 0, backSize - 12 * scale, 0, backSize, 12 * scale, backSize, backSize - 12 * scale, backSize - 12 * scale, backSize, 12 * scale, backSize, 0, backSize - 12 * scale, 0, 12 * scale]);
-    backBg.fill({ color: 0x08245c, alpha: 0.9 });
-    backBg.stroke({ color: 0x29b7ff, alpha: 0.95, width: 2 * scale });
-    const arrow = label('←', Math.round(46 * scale), palette.white, '900');
-    arrow.anchor.set(0.5);
-    arrow.x = backSize / 2;
-    arrow.y = backSize / 2 - 2 * scale;
-    back.addChild(backBg, arrow);
+    const backSize = 84 * scale;
+    const backBase = Texture.from(SHOP_BACK_BUTTON);
+    const backSprite = new Sprite(new Texture({
+      source: backBase.source,
+      frame: SHOP_BACK_BUTTON_FRAME
+    }));
+    backSprite.width = backSize;
+    backSprite.height = backSize;
+    back.addChild(backSprite);
+    back.hitArea = new Rectangle(0, 0, backSize, backSize);
     back.eventMode = 'static';
     back.cursor = 'pointer';
     back.on('pointertap', () => {
@@ -1198,14 +1211,16 @@ export class HomeScene extends BaseScene {
     });
     c.addChild(back);
 
-    const title = label('商城', Math.round(62 * scale), palette.white, '900');
+    const titleBase = Texture.from(SHOP_TITLE);
+    const title = new Sprite(new Texture({
+      source: titleBase.source,
+      frame: SHOP_TITLE_FRAME
+    }));
+    title.width = 210 * scale;
+    title.height = title.width * (SHOP_TITLE_FRAME.height / SHOP_TITLE_FRAME.width);
     title.x = 104 * scale;
-    title.y = 2 * scale;
-    title.style.dropShadow = { color: 0x1a6dff, blur: 6 * scale, distance: 3 * scale, alpha: 0.9, angle: Math.PI / 2 };
-    const store = label('STORE', Math.round(24 * scale), 0x6ca7ff, '900');
-    store.x = 304 * scale;
-    store.y = 44 * scale;
-    c.addChild(title, store);
+    title.y = 11 * scale;
+    c.addChild(title);
 
     const resource = this.shopResourcePill(200 * scale, 58 * scale, scale);
     resource.x = Math.max(0, width - 210 * scale);
@@ -1239,113 +1254,123 @@ export class HomeScene extends BaseScene {
     return c;
   }
 
-  private shopFeatureCard(width: number, height: number, scale: number) {
-    const item = { id: 'ticket5', title: '球探券 ×5', sub: '用于招募随机球员', cost: 120, reward: { scoutTickets: 5 } };
+  private shopFeatureCard(item: ShopDailyOfferConfig, width: number, height: number, scale: number) {
     const c = new Container();
-    const bg = new Graphics();
-    bg.poly([16 * scale, 0, width - 16 * scale, 0, width, 18 * scale, width, height - 18 * scale, width - 16 * scale, height, 16 * scale, height, 0, height - 18 * scale, 0, 18 * scale]);
-    bg.fill({ color: 0x160d09, alpha: 0.86 });
-    bg.stroke({ color: 0xffc627, alpha: 0.95, width: 2.5 * scale });
+    const bgBase = Texture.from(SHOP_DAILY_BG);
+    const bg = new Sprite(new Texture({
+      source: bgBase.source,
+      frame: SHOP_DAILY_BG_FRAME
+    }));
+    bg.width = width;
+    bg.height = height;
     c.addChild(bg);
 
-    const title = label('每日特惠', Math.round(46 * scale), 0xfff6cf, '900');
-    title.x = 54 * scale;
-    title.y = 44 * scale;
-    const name = label(item.title, Math.round(34 * scale), palette.white, '900');
-    name.x = 64 * scale;
-    name.y = 110 * scale;
-    const sub = label(item.sub, Math.round(22 * scale), 0xf5f0e4, '900');
-    sub.x = 64 * scale;
-    sub.y = 154 * scale;
-    c.addChild(title, name, sub);
+    const name = label(item.title, Math.round(29 * scale), palette.white, '900');
+    name.x = width * 0.08;
+    name.y = height * 0.305;
+    const count = label(item.countText, Math.round(32 * scale), 0xffd632, '900');
+    count.x = width * 0.27;
+    count.y = height * 0.299;
+    const sub = label(item.sub, Math.round(18 * scale), 0xf5f0e4, '900');
+    sub.x = width * 0.08;
+    sub.y = height * 0.405;
+    c.addChild(name, count, sub);
 
-    const ticket = this.signTicketIcon(180 * scale, 1);
-    ticket.x = width * 0.68;
-    ticket.y = height * 0.42;
-    ticket.rotation = -0.04;
+    const ticket = this.signTicketIcon(176 * scale, 1);
+    ticket.x = width * 0.63;
+    ticket.y = height * 0.38;
+    ticket.rotation = -0.06;
     c.addChild(ticket);
 
-    const badge = new Graphics();
-    badge.circle(width - 72 * scale, 60 * scale, 38 * scale);
-    badge.fill({ color: 0xffd632, alpha: 0.96 });
-    badge.stroke({ color: 0xfff5aa, alpha: 0.95, width: 2 * scale });
-    const badgeText = label('8折', Math.round(30 * scale), 0x2a1600, '900');
+    const badgeText = label(item.badgeText, Math.round(32 * scale), 0x2a1600, '900');
     badgeText.anchor.set(0.5);
-    badgeText.x = width - 72 * scale;
-    badgeText.y = 60 * scale;
-    c.addChild(badge, badgeText);
+    badgeText.x = width * 0.905;
+    badgeText.y = height * 0.155;
+    c.addChild(badgeText);
 
-    const cost = this.shopCostPlate(item.cost, '原价 150', 220 * scale, 54 * scale, scale);
-    cost.x = 54 * scale;
-    cost.y = height - 82 * scale;
-    c.addChild(cost);
+    const price = this.shopFeaturePrice(item.cost, item.oldPriceText, scale);
+    price.x = width * 0.085;
+    price.y = height * 0.565;
+    c.addChild(price);
 
-    const buy = this.shopBuyButton(172 * scale, 58 * scale, '立即购买', scale);
-    buy.x = width - 224 * scale;
-    buy.y = height - 84 * scale;
+    const buy = new Container();
+    buy.hitArea = new Rectangle(0, 0, width * 0.29, height * 0.15);
+    buy.x = width * 0.635;
+    buy.y = height * 0.675;
     buy.on('pointertap', () => void this.handleShopPurchase(item));
+    buy.eventMode = 'static';
+    buy.cursor = 'pointer';
     c.addChild(buy);
 
-    const timer = label('◷ 刷新倒计时：23:59:59', Math.round(18 * scale), 0xffd66a, '900');
-    timer.x = 64 * scale;
-    timer.y = height - 34 * scale;
+    const timer = label(item.countdownText, Math.round(16 * scale), 0xffd66a, '900');
+    timer.x = width * 0.235;
+    timer.y = height * 0.807;
     c.addChild(timer);
+    return c;
+  }
+
+  private shopFeaturePrice(cost: number, oldText: string, scale: number) {
+    const c = new Container();
+    const gem = this.signGemIcon(34 * scale, 1);
+    gem.x = 20 * scale;
+    gem.y = 24 * scale;
+    const current = label(String(cost), Math.round(30 * scale), 0xffd632, '900');
+    current.x = 52 * scale;
+    current.y = 7 * scale;
+    const old = label(oldText, Math.round(17 * scale), 0xb0a7a0, '900');
+    old.x = 126 * scale;
+    old.y = 16 * scale;
+    const slash = new Graphics();
+    slash.moveTo(126 * scale, 32 * scale);
+    slash.lineTo(188 * scale, 24 * scale);
+    slash.stroke({ color: 0xe84035, alpha: 0.85, width: 2 * scale });
+    c.addChild(gem, current, old, slash);
     return c;
   }
 
   private shopSectionTitle(text: string, scale: number) {
     const c = new Container();
-    const bars = new Graphics();
-    bars.rect(0, 12 * scale, 42 * scale, 8 * scale);
-    bars.rect(52 * scale, 12 * scale, 18 * scale, 8 * scale);
-    bars.rect(244 * scale, 12 * scale, 18 * scale, 8 * scale);
-    bars.rect(272 * scale, 12 * scale, 42 * scale, 8 * scale);
-    bars.fill({ color: 0x268dff, alpha: 0.78 });
-    const title = label(text, Math.round(30 * scale), palette.white, '900');
-    title.x = 84 * scale;
-    title.y = -2 * scale;
-    c.addChild(bars, title);
+    void text;
+    const base = Texture.from(SHOP_TOOLS_TITLE);
+    const title = new Sprite(new Texture({
+      source: base.source,
+      frame: SHOP_TOOLS_TITLE_FRAME
+    }));
+    title.width = 300 * scale;
+    title.height = title.width * (SHOP_TOOLS_TITLE_FRAME.height / SHOP_TOOLS_TITLE_FRAME.width);
+    c.addChild(title);
     return c;
   }
 
-  private shopItemRow(item: {
-    id: string;
-    title: string;
-    sub: string;
-    cost?: number;
-    priceText?: string;
-    limit: string;
-    icon: 'energy' | 'ticket' | 'gems';
-    reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number };
-  }, width: number, height: number, scale: number) {
+  private shopItemRow(item: ShopCommonItemConfig, width: number, height: number, scale: number) {
     const c = new Container();
-    const bg = new Graphics();
-    bg.poly([14 * scale, 0, width - 14 * scale, 0, width, 18 * scale, width, height - 18 * scale, width - 14 * scale, height, 14 * scale, height, 0, height - 18 * scale, 0, 18 * scale]);
-    bg.fill({ color: 0x06172d, alpha: 0.88 });
-    bg.stroke({ color: 0x17c5ff, alpha: 0.96, width: 2.5 * scale });
+    const bgBase = Texture.from(SHOP_GIFT_BG);
+    const bg = new Sprite(new Texture({
+      source: bgBase.source,
+      frame: this.shopGiftFrame(item.icon)
+    }));
+    bg.width = width;
+    bg.height = height;
     c.addChild(bg);
 
-    const icon = item.icon === 'energy' ? this.signEnergyIcon(100 * scale, 1) : item.icon === 'ticket' ? this.signTicketIcon(112 * scale, 1) : this.shopGemStack(118 * scale);
-    icon.x = 116 * scale;
-    icon.y = height / 2 + 2 * scale;
-    c.addChild(icon);
-
-    const title = label(item.title, Math.round(30 * scale), palette.white, '900');
-    title.x = 230 * scale;
-    title.y = 28 * scale;
-    const sub = label(item.sub, Math.round(21 * scale), 0xb8dcff, '900');
-    sub.x = 230 * scale;
-    sub.y = 72 * scale;
+    const textX = width * 0.355;
+    const title = label(item.title, Math.round(32 * scale), palette.white, '900');
+    title.x = textX;
+    title.y = height * 0.18;
+    const sub = label(item.sub, Math.round(22 * scale), 0x9dc8f8, '900');
+    sub.x = textX;
+    sub.y = height * 0.41;
     c.addChild(title, sub);
 
-    const price = item.priceText ? label(item.priceText, Math.round(30 * scale), palette.white, '900') : this.shopDiamondPrice(item.cost ?? 0, scale);
-    price.x = 230 * scale;
-    price.y = 108 * scale;
+    const price = item.priceText ? label(item.priceText, Math.round(32 * scale), palette.white, '900') : this.shopDiamondPrice(item.cost ?? 0, scale);
+    price.x = textX;
+    price.y = height * 0.61;
     c.addChild(price);
 
-    const buy = this.shopBuyButton(150 * scale, 56 * scale, '购买', scale);
-    buy.x = width - 196 * scale;
-    buy.y = 34 * scale;
+    const buy = new Container();
+    buy.hitArea = new Rectangle(0, 0, width * 0.28, height * 0.38);
+    buy.x = width * 0.675;
+    buy.y = height * 0.28;
     buy.on('pointertap', () => {
       if (item.priceText) {
         this.game.sound.play('tap');
@@ -1358,10 +1383,14 @@ export class HomeScene extends BaseScene {
     });
     const limit = label(item.limit, Math.round(18 * scale), 0x9ec9ff, '900');
     limit.anchor.set(0.5);
-    limit.x = buy.x + 75 * scale;
-    limit.y = 110 * scale;
+    limit.x = width * 0.795;
+    limit.y = height * 0.76;
     c.addChild(buy, limit);
     return c;
+  }
+
+  private shopGiftFrame(icon: ShopCommonItemConfig['icon']) {
+    return SHOP_GIFT_FRAMES[icon] ?? SHOP_GIFT_FRAMES.ticket;
   }
 
   private shopCostPlate(cost: number, oldText: string, width: number, height: number, scale: number) {
@@ -1372,12 +1401,12 @@ export class HomeScene extends BaseScene {
     bg.stroke({ color: 0x5c7ea8, alpha: 0.28, width: 1 * scale });
     c.addChild(bg);
     c.addChild(this.shopDiamondPrice(cost, scale));
-    const old = label(oldText, Math.round(20 * scale), 0xb0a7a0, '900');
-    old.x = 126 * scale;
+    const old = label(oldText, Math.round(17 * scale), 0xb0a7a0, '900');
+    old.x = 112 * scale;
     old.y = 14 * scale;
     const slash = new Graphics();
-    slash.moveTo(126 * scale, 32 * scale);
-    slash.lineTo(208 * scale, 22 * scale);
+    slash.moveTo(112 * scale, 31 * scale);
+    slash.lineTo(176 * scale, 23 * scale);
     slash.stroke({ color: 0xe84035, alpha: 0.85, width: 2 * scale });
     c.addChild(old, slash);
     return c;
@@ -1397,18 +1426,21 @@ export class HomeScene extends BaseScene {
 
   private shopBuyButton(width: number, height: number, text: string, scale: number) {
     const c = new Container();
+    const shadow = new Graphics();
+    shadow.roundRect(0, 3 * scale, width, height, 8 * scale);
+    shadow.fill({ color: 0x8a5600, alpha: 0.5 });
     const bg = new Graphics();
-    bg.roundRect(0, 0, width, height, 10 * scale);
-    bg.fill({ color: 0xf4b322, alpha: 1 });
-    bg.stroke({ color: 0xfff2a8, alpha: 0.95, width: 2 * scale });
+    bg.roundRect(0, 0, width, height, 8 * scale);
+    bg.fill({ color: 0xf4ad21, alpha: 1 });
+    bg.stroke({ color: 0xffdf61, alpha: 0.95, width: 2 * scale });
     const shine = new Graphics();
-    shine.roundRect(8 * scale, 6 * scale, width - 16 * scale, 15 * scale, 8 * scale);
-    shine.fill({ color: 0xffffff, alpha: 0.22 });
-    const labelText = label(text, Math.round(26 * scale), 0x3a2100, '900');
+    shine.roundRect(5 * scale, 4 * scale, width - 10 * scale, Math.max(5 * scale, height * 0.2), 5 * scale);
+    shine.fill({ color: 0xfff3a8, alpha: 0.25 });
+    const labelText = label(text, Math.round(24 * scale), palette.white, '900');
     labelText.anchor.set(0.5);
     labelText.x = width / 2;
-    labelText.y = height / 2;
-    c.addChild(bg, shine, labelText);
+    labelText.y = height / 2 - 1 * scale;
+    c.addChild(shadow, bg, shine, labelText);
     c.eventMode = 'static';
     c.cursor = 'pointer';
     return c;
@@ -1429,7 +1461,7 @@ export class HomeScene extends BaseScene {
     return c;
   }
 
-  private async handleShopPurchase(item: { id: string; title: string; cost: number; reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number } }) {
+  private async handleShopPurchase(item: { id: string; title: string; cost: number; reward: ShopReward }) {
     this.game.sound.play('tap');
     const result = await this.game.purchaseShopItem(item);
     if (!result.ok) {
@@ -1444,7 +1476,7 @@ export class HomeScene extends BaseScene {
     this.openInfoModal('购买成功', item.title, '道具已发放到当前账号。');
   }
 
-  private shopGoodsRow(item: { id: string; title: string; sub: string; cost: number; reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number } }, width: number) {
+  private shopGoodsRow(item: { id: string; title: string; sub: string; cost: number; reward: ShopReward }, width: number) {
     const c = new Container();
     c.addChild(this.flatPanel(width, 88, 0x071826, 0x68dfff));
     const title = label(item.title, 25, palette.white, '900');

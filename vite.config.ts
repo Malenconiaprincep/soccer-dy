@@ -1,7 +1,23 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => {
-  if (mode !== 'douyin') return {};
+  if (mode !== 'douyin') {
+    return {
+      server: {
+        proxy: {
+          '/api': 'http://localhost:8787'
+        }
+      },
+      build: {
+        rollupOptions: {
+          input: {
+            game: 'index.html',
+            shopAdmin: 'admin/shop.html'
+          }
+        }
+      }
+    };
+  }
 
   return {
     build: {

@@ -1,7 +1,8 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { defaultShopConfig, normalizeShopConfig } from './shop-config.mjs';
 
 const env = loadEnv();
 const port = Number(env.SERVER_PORT ?? 8787);
@@ -12,6 +13,7 @@ const douyinAppSecret = env.DOUYIN_APP_SECRET;
 const botAfterMs = Number(env.MATCH_BOT_AFTER_MS ?? 12000);
 const ticketTtlMs = Number(env.MATCH_TICKET_TTL_MS ?? 45000);
 const queue = new Map();
+const shopConfigPath = resolve(process.cwd(), 'server/shop-config.local.json');
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.warn('[server] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for database writes.');
@@ -53,6 +55,16 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === 'POST' && url.pathname === '/api/shop/grant') {
       sendJson(response, 200, await grantShopReward(await readJson(request)));
+      return;
+    }
+    if (request.method === 'GET' && url.pathname === '/api/shop-config') {
+      sendJson(response, 200, readShopConfig());
+      return;
+    }
+    if (request.method === 'PUT' && url.pathname === '/api/shop-config') {
+      const config = normalizeShopConfig(await readJson(request));
+      writeFileSync(shopConfigPath, JSON.stringify(config, null, 2));
+      sendJson(response, 200, config);
       return;
     }
     if (request.method === 'POST' && url.pathname === '/api/admin/cleanup-matches') {
@@ -354,11 +366,21 @@ function sendJson(response, status, payload) {
 function send(response, status, body = '', contentType = 'text/plain') {
   response.writeHead(status, {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': contentType
   });
   response.end(body);
+}
+
+function readShopConfig() {
+  if (!existsSync(shopConfigPath)) return defaultShopConfig;
+  try {
+    return normalizeShopConfig(JSON.parse(readFileSync(shopConfigPath, 'utf8')));
+  } catch (error) {
+    console.warn('[shop] failed to read local config, using defaults', error);
+    return defaultShopConfig;
+  }
 }
 
 function stringValue(value, fallback) {
