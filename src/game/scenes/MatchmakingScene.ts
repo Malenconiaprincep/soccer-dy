@@ -1,11 +1,9 @@
-import { Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
+import { Container, Graphics, Rectangle, Text } from 'pixi.js';
 import { BaseScene } from './BaseScene';
-import { label, palette } from '../ui';
+import { headerTitleSprite, imageBackButton, label, palette } from '../ui';
 
 export class MatchmakingScene extends BaseScene {
   private static readonly MATCH_DURATION_MS = 60000;
-  private static readonly MATCH_TITLE = '/assets/ui/matchtitle.png';
-  private static readonly MATCH_TITLE_FRAME = new Rectangle(140, 280, 768, 111);
   private elapsed = 0;
   private matched = false;
   private cancelled = false;
@@ -71,24 +69,17 @@ export class MatchmakingScene extends BaseScene {
 
   private drawHeader() {
     const shift = this.game.contentTopOffset * 0.24;
-    const back = label('‹', 64, palette.white, '900');
-    back.anchor.set(0.5);
-    back.x = 42;
-    back.y = 58 + shift;
-    back.eventMode = 'static';
-    back.cursor = 'pointer';
+    const back = imageBackButton(66);
+    back.x = 22;
+    back.y = 28 + shift;
     back.on('pointertap', () => {
       this.game.sound.play('tap');
       this.game.changeScene('formation');
     });
 
-    const titleTexture = Texture.from(MatchmakingScene.MATCH_TITLE);
-    const title = new Sprite(new Texture({ source: titleTexture.source, frame: MatchmakingScene.MATCH_TITLE_FRAME }));
-    title.anchor.set(0.5);
-    title.width = Math.min(this.game.width * 0.62, 420);
-    title.height = title.width * (MatchmakingScene.MATCH_TITLE_FRAME.height / MatchmakingScene.MATCH_TITLE_FRAME.width);
-    title.x = this.game.width / 2;
-    title.y = 124 + shift;
+    const title = headerTitleSprite('liveMatch', Math.min(this.game.width * 0.62, 245));
+    title.x = 110;
+    title.y = 32 + shift;
     this.container.addChild(back, title);
   }
 

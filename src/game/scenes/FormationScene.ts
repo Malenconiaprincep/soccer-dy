@@ -2,7 +2,7 @@ import { Container, FederatedPointerEvent, Graphics, Rectangle, Sprite, Text, Te
 import { BaseScene, PAGE_BG } from './BaseScene';
 import { formations } from '../data';
 import type { FormationData, LineupSlot, PlayerCardData, Position, Rarity } from '../types';
-import { coverSprite, glassPanel, label, palette } from '../ui';
+import { coverSprite, glassPanel, headerTitleSprite, imageBackButton, label, palette } from '../ui';
 
 const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
 
@@ -163,10 +163,9 @@ export class FormationScene extends BaseScene {
     });
     this.container.addChild(back);
 
-    const title = label('选择阵容', 44, 0xf2fff7, '900');
-    title.anchor.set(0.5);
-    title.x = this.game.width / 2;
-    title.y = 64 + shift;
+    const title = headerTitleSprite('squad', Math.min(216, this.game.width * 0.42));
+    title.x = 110;
+    title.y = 32 + shift;
 
     this.container.addChild(title);
   }
@@ -948,12 +947,9 @@ export class FormationScene extends BaseScene {
     panel.addChild(bg, shade);
 
     const headerCenterY = 58;
-    const close = label('‹', 64, palette.white, '900');
-    close.anchor.set(0.5);
-    close.x = 44;
-    close.y = headerCenterY;
-    close.eventMode = 'static';
-    close.cursor = 'pointer';
+    const close = imageBackButton(66);
+    close.x = 12;
+    close.y = headerCenterY - 33;
     close.on('pointertap', () => {
       this.game.sound.play('tap');
       this.closeModal();

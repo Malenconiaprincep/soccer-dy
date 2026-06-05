@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Text, TextStyle, Texture } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Text, TextStyle, Texture } from 'pixi.js';
 
 export const palette = {
   navy: 0x080d29,
@@ -10,6 +10,22 @@ export const palette = {
   green: 0x46b12b,
   white: 0xffffff,
   muted: 0x9fb4d8
+};
+
+const BACK_BUTTON = '/assets/ui/back.png';
+const BACK_BUTTON_FRAME = new Rectangle(155, 148, 713, 711);
+const HEADER_TITLE = '/assets/ui/headertitle.png';
+
+export type HeaderTitleKey = 'store' | 'match' | 'squad' | 'liveMatch' | 'matchReport' | 'scout' | 'championRoad';
+
+const HEADER_TITLE_FRAMES: Record<HeaderTitleKey, Rectangle> = {
+  store: new Rectangle(75, 52, 360, 110),
+  match: new Rectangle(588, 54, 448, 108),
+  squad: new Rectangle(74, 228, 350, 104),
+  liveMatch: new Rectangle(557, 226, 474, 124),
+  matchReport: new Rectangle(55, 408, 463, 116),
+  scout: new Rectangle(572, 410, 464, 116),
+  championRoad: new Rectangle(302, 564, 487, 111)
 };
 
 export function label(text: string, size = 24, color = palette.white, weight: '400' | '700' | '900' = '700') {
@@ -29,6 +45,34 @@ export function label(text: string, size = 24, color = palette.white, weight: '4
       }
     })
   });
+}
+
+export function imageBackButton(size = 66) {
+  const c = new Container();
+  const base = Texture.from(BACK_BUTTON);
+  const sprite = new Sprite(new Texture({
+    source: base.source,
+    frame: BACK_BUTTON_FRAME
+  }));
+  sprite.width = size;
+  sprite.height = size;
+  c.addChild(sprite);
+  c.hitArea = new Rectangle(0, 0, size, size);
+  c.eventMode = 'static';
+  c.cursor = 'pointer';
+  return c;
+}
+
+export function headerTitleSprite(key: HeaderTitleKey, width: number) {
+  const frame = HEADER_TITLE_FRAMES[key];
+  const base = Texture.from(HEADER_TITLE);
+  const sprite = new Sprite(new Texture({
+    source: base.source,
+    frame
+  }));
+  sprite.width = width;
+  sprite.height = width * (frame.height / frame.width);
+  return sprite;
 }
 
 export function roundedBox(width: number, height: number, fill: number, stroke = 0xffffff, alpha = 1) {

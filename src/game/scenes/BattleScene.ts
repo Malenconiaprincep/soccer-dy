@@ -1,7 +1,7 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import type { BattleEvent, LineupSlot, PlayerCardData, Position } from '../types';
-import { label, palette } from '../ui';
+import { headerTitleSprite, imageBackButton, label, palette } from '../ui';
 
 type MomentType = 'kickoff' | 'attack' | 'shot' | 'post' | 'corner' | 'save' | 'goal' | 'counter';
 
@@ -23,6 +23,11 @@ export class BattleScene extends BaseScene {
   private events: BattleEvent[] = [];
   private scoreText?: ReturnType<typeof label>;
   private timeText?: ReturnType<typeof label>;
+  private possessionLeftText?: ReturnType<typeof label>;
+  private possessionRightText?: ReturnType<typeof label>;
+  private possessionFill?: Graphics;
+  private possessionBall?: ReturnType<typeof label>;
+  private possessionBar?: { x: number; y: number; width: number; height: number };
   private moment: BattleMoment = {
     type: 'kickoff',
     title: '比赛开始',
@@ -45,6 +50,7 @@ export class BattleScene extends BaseScene {
   update(deltaMs: number) {
     this.elapsed += deltaMs;
     if (this.timeText) this.timeText.text = this.clockText();
+    this.updatePossessionPanel();
     if (this.elapsed > this.nextEventAt) {
       this.pushEvent();
       this.nextEventAt += 2200 + Math.random() * 1400;
@@ -57,6 +63,11 @@ export class BattleScene extends BaseScene {
 
   resize() {
     this.container.removeChildren();
+    this.possessionLeftText = undefined;
+    this.possessionRightText = undefined;
+    this.possessionFill = undefined;
+    this.possessionBall = undefined;
+    this.possessionBar = undefined;
     this.build();
   }
 
@@ -78,10 +89,16 @@ export class BattleScene extends BaseScene {
     const y = 56 + shift;
     const myHero = this.pickPlayer(this.game.lineup, ['FW', 'MF', 'GK']);
     const oppHero = this.pickPlayer(this.opponentLineup(), ['FW', 'MF', 'GK']);
-    const title = label('比赛日 1', 30, palette.white, '900');
-    title.anchor.set(0.5);
-    title.x = this.game.width / 2;
-    title.y = y;
+    const back = imageBackButton(66);
+    back.x = 22;
+    back.y = 28 + shift;
+    back.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.game.changeScene('matchup');
+    });
+    const title = headerTitleSprite('liveMatch', Math.min(this.game.width * 0.62, 245));
+    title.x = 110;
+    title.y = 32 + shift;
 
     const leftAvatar = this.playerBadge(myHero, 126, 0x2f8cff);
     leftAvatar.x = 86;
@@ -128,15 +145,16 @@ export class BattleScene extends BaseScene {
     this.timeText.anchor.set(0.5);
     this.timeText.x = this.game.width / 2;
     this.timeText.y = y + 196;
-    this.container.addChild(title, leftAvatar, rightAvatar, leftTitle, leftClub, rightTitle, rightClub, ai, score, this.timeText);
+    this.container.addChild(back, title, leftAvatar, rightAvatar, leftTitle, leftClub, rightTitle, rightClub, ai, score, this.timeText);
   }
 
   private drawEventFeed() {
+    const layout = this.battleLayout();
     const shift = this.game.contentTopOffset * 0.52;
     const x = 22;
     const y = 316 + shift;
     const w = this.game.width - 44;
-    const h = 720 + this.game.contentTopOffset * 0.18;
+    const h = layout.eventHeight;
     const panel = new Graphics();
     panel.roundRect(x, y, w, h, 16);
     panel.fill({ color: 0x06142f, alpha: 0.72 });
@@ -147,13 +165,14 @@ export class BattleScene extends BaseScene {
     const lineX = x + 70;
     const top = y + 74;
     const rowH = 82;
+    const maxRows = Math.max(3, Math.min(8, Math.floor((h - 100) / rowH) + 1));
     const line = new Graphics();
     line.moveTo(lineX, top - 30);
-    line.lineTo(lineX, Math.min(y + h - 36, top + rowH * (entries.length - 1) + 26));
+    line.lineTo(lineX, y + h - 36);
     line.stroke({ color: 0x348dff, alpha: 0.42, width: 3 });
     this.container.addChild(line);
 
-    entries.slice(0, 8).forEach((entry, index) => {
+    entries.slice(0, maxRows).forEach((entry, index) => {
       const rowY = top + index * rowH;
       const color = this.entryColor(entry.mood);
       const icon = this.eventIcon(entry, color);
@@ -187,7 +206,7 @@ export class BattleScene extends BaseScene {
   }
 
   private drawPossessionPanel() {
-    const y = this.game.height - 250;
+    const y = this.battleLayout().possessionY;
     const x = 22;
     const w = this.game.width - 44;
     const h = 206;
@@ -195,32 +214,34 @@ export class BattleScene extends BaseScene {
     panel.roundRect(x, y, w, h, 18);
     panel.fill({ color: 0x06142f, alpha: 0.78 });
     panel.stroke({ color: 0x2f8cff, alpha: 0.46, width: 2 });
+    const titleCenterY = y + 46;
     const titleMark = new Graphics();
-    titleMark.rect(x + 26, y + 28, 6, 32);
+    titleMark.roundRect(x + 26, titleCenterY - 15, 6, 30, 3);
     titleMark.fill({ color: 0x23d0ad, alpha: 1 });
     const title = label('比赛势头', 30, palette.white, '900');
+    title.anchor.set(0, 0.5);
     title.x = x + 42;
-    title.y = y + 20;
+    title.y = titleCenterY;
     const sub = label('控球率', 20, 0xcfe0ff, '700');
     sub.x = x + 42;
     sub.y = y + 82;
-    const left = label('62%', 40, 0x2f8cff, '900');
+    const left = label('0%', 40, 0x2f8cff, '900');
     left.x = x + 42;
     left.y = y + 126;
-    const right = label('38%', 40, 0xff5d68, '900');
+    const right = label('0%', 40, 0xff5d68, '900');
     right.anchor.set(1, 0);
     right.x = x + w - 42;
     right.y = y + 126;
+    const barBg = new Graphics();
+    const barX = x + 160;
+    const barY = y + 143;
+    const barW = w - 320;
+    const barH = 20;
+    barBg.roundRect(barX, barY, barW, barH, 10);
+    barBg.fill({ color: 0x183451, alpha: 1 });
     const bar = new Graphics();
-    bar.roundRect(x + 160, y + 143, w - 320, 20, 10);
-    bar.fill({ color: 0x183451, alpha: 1 });
-    bar.roundRect(x + 160, y + 143, (w - 320) * 0.62, 20, 10);
-    bar.fill({ color: 0x2f8cff, alpha: 0.95 });
-    bar.roundRect(x + 160 + (w - 320) * 0.62, y + 143, (w - 320) * 0.38, 20, 10);
-    bar.fill({ color: 0xff465d, alpha: 0.95 });
     const ball = label('⚽', 34, palette.white, '900');
     ball.anchor.set(0.5);
-    ball.x = x + 160 + (w - 320) * 0.62;
     ball.y = y + 152;
     const leftClub = label('蓝焰俱乐部', 21, 0x2f8cff, '900');
     leftClub.x = x + 42;
@@ -229,7 +250,60 @@ export class BattleScene extends BaseScene {
     rightClub.anchor.set(1, 0);
     rightClub.x = x + w - 42;
     rightClub.y = y + 176;
-    this.container.addChild(panel, titleMark, title, sub, left, right, bar, ball, leftClub, rightClub);
+    this.possessionLeftText = left;
+    this.possessionRightText = right;
+    this.possessionFill = bar;
+    this.possessionBall = ball;
+    this.possessionBar = { x: barX, y: barY, width: barW, height: barH };
+    this.updatePossessionPanel();
+    this.container.addChild(panel, titleMark, title, sub, left, right, barBg, bar, ball, leftClub, rightClub);
+  }
+
+  private battleLayout() {
+    const possessionHeight = 206;
+    const bottomPad = 44;
+    const gap = 28;
+    const eventY = 316 + this.game.contentTopOffset * 0.52;
+    const possessionY = this.game.height - possessionHeight - bottomPad;
+    return {
+      possessionY,
+      eventHeight: Math.max(420, possessionY - gap - eventY)
+    };
+  }
+
+  private updatePossessionPanel() {
+    if (!this.possessionLeftText || !this.possessionRightText || !this.possessionFill || !this.possessionBall || !this.possessionBar) return;
+    const homeShare = this.currentPossessionShare();
+    const leftValue = Math.round(homeShare * 100);
+    const rightValue = 100 - leftValue;
+    const { x, y, width, height } = this.possessionBar;
+    const split = Math.max(0, Math.min(width, width * homeShare));
+    this.possessionLeftText.text = `${leftValue}%`;
+    this.possessionRightText.text = `${rightValue}%`;
+    this.possessionFill.clear();
+    this.possessionFill.roundRect(x, y, split, height, 10);
+    this.possessionFill.fill({ color: 0x2f8cff, alpha: 0.95 });
+    this.possessionFill.roundRect(x + split, y, width - split, height, 10);
+    this.possessionFill.fill({ color: 0xff465d, alpha: 0.95 });
+    this.possessionBall.x = x + split;
+  }
+
+  private currentPossessionShare() {
+    const homePower = this.lineupPower(this.game.lineup);
+    const awayPower = this.lineupPower(this.opponentLineup());
+    const powerSwing = Math.max(-0.11, Math.min(0.11, (homePower - awayPower) / 1200));
+    const scoreSwing = Math.max(-0.08, Math.min(0.08, (this.scoreA - this.scoreB) * 0.035));
+    const momentSwing = this.moment.team === 'home' ? 0.08 : this.moment.team === 'away' ? -0.08 : 0;
+    const moodSwing = this.moment.mood === 'good' ? 0.035 : this.moment.mood === 'bad' ? -0.045 : 0;
+    const t = this.elapsed * 0.001;
+    const wave = Math.sin(t * 1.45) * 0.025 + Math.sin(t * 0.47 + 1.2) * 0.018;
+    return Math.max(0.32, Math.min(0.78, 0.5 + powerSwing + scoreSwing + momentSwing + moodSwing + wave));
+  }
+
+  private lineupPower(lineup: LineupSlot[]) {
+    const players = lineup.map((slot) => slot.player).filter(Boolean) as PlayerCardData[];
+    if (!players.length) return lineup.length * 72;
+    return players.reduce((sum, player) => sum + player.rating, 0) + (lineup.length - players.length) * 72;
   }
 
   private pushEvent() {

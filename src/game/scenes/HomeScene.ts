@@ -1,6 +1,6 @@
 import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BaseScene, PAGE_BG } from './BaseScene';
-import { avatar, coverSprite, glassPanel, label, palette } from '../ui';
+import { avatar, coverSprite, glassPanel, headerTitleSprite, label, palette } from '../ui';
 import { dailyOfferForDate, type ShopCommonItemConfig, type ShopDailyOfferConfig, type ShopReward } from '../../shopConfig';
 
 const HOME_BG = '/assets/home-bg.jpg';
@@ -14,8 +14,6 @@ const WEB_AVATAR = '/assets/players/generated/saka.png';
 const SIDE_BUTTONS = '/assets/ui/buttons.png';
 const SHOP_BACK_BUTTON = '/assets/ui/back.png';
 const SHOP_BACK_BUTTON_FRAME = new Rectangle(155, 148, 713, 711);
-const SHOP_TITLE = '/assets/ui/shoptitle.png';
-const SHOP_TITLE_FRAME = new Rectangle(320, 330, 875, 255);
 const SHOP_TOOLS_TITLE = '/assets/ui/toolstitle.png';
 const SHOP_TOOLS_TITLE_FRAME = new Rectangle(82, 172, 923, 114);
 const SHOP_DAILY_BG = '/assets/ui/everyday-active.png';
@@ -1193,7 +1191,7 @@ export class HomeScene extends BaseScene {
   private shopHeader(x: number, y: number, width: number, scale: number) {
     const c = new Container();
     const back = new Container();
-    const backSize = 84 * scale;
+    const backSize = 66 * scale;
     const backBase = Texture.from(SHOP_BACK_BUTTON);
     const backSprite = new Sprite(new Texture({
       source: backBase.source,
@@ -1211,15 +1209,9 @@ export class HomeScene extends BaseScene {
     });
     c.addChild(back);
 
-    const titleBase = Texture.from(SHOP_TITLE);
-    const title = new Sprite(new Texture({
-      source: titleBase.source,
-      frame: SHOP_TITLE_FRAME
-    }));
-    title.width = 210 * scale;
-    title.height = title.width * (SHOP_TITLE_FRAME.height / SHOP_TITLE_FRAME.width);
-    title.x = 104 * scale;
-    title.y = 11 * scale;
+    const title = headerTitleSprite('store', 210 * scale);
+    title.x = 88 * scale;
+    title.y = 4 * scale;
     c.addChild(title);
 
     const resource = this.shopResourcePill(200 * scale, 58 * scale, scale);

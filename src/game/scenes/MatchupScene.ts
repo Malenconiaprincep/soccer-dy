@@ -1,7 +1,7 @@
 import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import type { LineupSlot, PlayerCardData, Position } from '../types';
-import { glassPanel, label, palette } from '../ui';
+import { glassPanel, headerTitleSprite, imageBackButton, label, palette } from '../ui';
 
 export class MatchupScene extends BaseScene {
   protected build() {
@@ -37,44 +37,19 @@ export class MatchupScene extends BaseScene {
 
   private drawHeader() {
     const shift = this.game.contentTopOffset * 0.18;
-    const back = label('‹', 68, palette.white, '900');
-    back.anchor.set(0.5);
-    back.x = 42;
-    back.y = 58 + shift;
-    back.eventMode = 'static';
-    back.cursor = 'pointer';
+    const back = imageBackButton(66);
+    back.x = 22;
+    back.y = 28 + shift;
     back.on('pointertap', () => {
       this.game.sound.play('tap');
       this.game.changeScene('formation');
     });
 
-    const ghost = label('MATCH', 58, 0x2b4776, '900');
-    ghost.anchor.set(0.5);
-    ghost.alpha = 0.18;
-    ghost.x = this.game.width / 2;
-    ghost.y = 62 + shift;
+    const title = headerTitleSprite('match', Math.min(267, this.game.width * 0.48));
+    title.x = 110;
+    title.y = 32 + shift;
 
-    const title = label('对战', 48, palette.white, '900');
-    title.anchor.set(0.5);
-    title.x = this.game.width / 2;
-    title.y = 62 + shift;
-
-    const rules = new Container();
-    rules.x = this.game.width - 66;
-    rules.y = 55 + shift;
-    const rulesCircle = new Graphics();
-    rulesCircle.circle(0, 0, 25);
-    rulesCircle.fill({ color: 0x071735, alpha: 0.82 });
-    rulesCircle.stroke({ color: 0x668cff, alpha: 0.46, width: 2 });
-    const rulesIcon = label('!', 26, palette.white, '900');
-    rulesIcon.anchor.set(0.5);
-    rulesIcon.y = -1;
-    const rulesText = label('规则说明', 16, 0xd7e5ff, '900');
-    rulesText.anchor.set(0.5);
-    rulesText.y = 43;
-    rules.addChild(rulesCircle, rulesIcon, rulesText);
-
-    this.container.addChild(ghost, back, title, rules);
+    this.container.addChild(back, title);
   }
 
   private drawTeams() {

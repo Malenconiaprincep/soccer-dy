@@ -2,7 +2,7 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { rarityMeta, rarityName } from '../data';
 import type { PlayerCardData } from '../types';
-import { glassPanel, label, palette, pillButton } from '../ui';
+import { glassPanel, headerTitleSprite, imageBackButton, label, palette, pillButton } from '../ui';
 
 export class BlindBoxScene extends BaseScene {
   private revealed = new Set<string>();
@@ -32,21 +32,17 @@ export class BlindBoxScene extends BaseScene {
 
   private drawHeader() {
     const shift = this.game.contentTopOffset * 0.32;
-    const back = label('‹', 60, palette.white, '900');
-    back.anchor.set(0.5);
-    back.x = 42;
-    back.y = 58 + shift;
-    back.eventMode = 'static';
-    back.cursor = 'pointer';
+    const back = imageBackButton(66);
+    back.x = 22;
+    back.y = 28 + shift;
     back.on('pointertap', () => {
       this.game.sound.play('tap');
       this.game.changeScene('home');
     });
 
-    const title = label('球探中心', 44, 0xfff3b0, '900');
-    title.anchor.set(0.5);
-    title.x = this.game.width / 2;
-    title.y = 66 + shift;
+    const title = headerTitleSprite('scout', Math.min(256, this.game.width * 0.48));
+    title.x = 110;
+    title.y = 32 + shift;
     const sub = label('消耗球探券，三选一签下新球员', 22, 0xcfe0ff, '900');
     sub.anchor.set(0.5);
     sub.x = this.game.width / 2;

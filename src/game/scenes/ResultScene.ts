@@ -1,6 +1,6 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
-import { label, palette } from '../ui';
+import { headerTitleSprite, label, palette } from '../ui';
 import type { BattleEvent, PlayerCardData } from '../types';
 
 interface StatRow {
@@ -58,10 +58,9 @@ export class ResultScene extends BaseScene {
   }
 
   private drawHeader() {
-    const title = label('比赛结束', 34, palette.white, '900');
-    title.anchor.set(0.5);
-    title.x = this.game.width / 2;
-    title.y = 66 + this.topLift();
+    const title = headerTitleSprite('matchReport', Math.min(300, this.game.width * 0.48));
+    title.x = this.game.width / 2 - title.width / 2;
+    title.y = 35 + this.topLift();
     this.container.addChild(title);
   }
 
@@ -429,9 +428,12 @@ export class ResultScene extends BaseScene {
       time.x = 28;
       time.y = yy;
       if (row.player) this.drawTinyAvatar(panel, row.player, 92, yy - 2, color);
-      const name = label(row.name, 20, 0xd8e4f8, '700');
+      const displayName = row.name.length > 7 ? `${row.name.slice(0, 6)}...` : row.name;
+      const name = label(displayName, 20, 0xd8e4f8, '700');
       name.x = 132;
       name.y = yy + 1;
+      const maxNameWidth = Math.max(64, w - 146);
+      if (name.width > maxNameWidth) name.scale.x = maxNameWidth / name.width;
       panel.addChild(time, name);
     });
     this.container.addChild(panel);
@@ -613,7 +615,10 @@ export class ResultScene extends BaseScene {
   }
 
   private eventPlayerName(text: string) {
-    return text.match(/^(\S+)/)?.[1];
+    const first = text.trim().split(/[\s，,。.!！]/)[0];
+    if (!first || first.length > 5) return undefined;
+    if (/禁区|破门|推射|反击|扳回|扩大|抢点|远射|头球|射门|传球|通过/.test(first)) return undefined;
+    return first;
   }
 
   private starPlayer(players: Array<PlayerCardData | undefined>) {

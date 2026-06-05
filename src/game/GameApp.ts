@@ -150,6 +150,7 @@ export class GameApp {
       '/assets/ui/avatar-bg.png',
       '/assets/ui/buttons.png',
       '/assets/ui/back.png',
+      '/assets/ui/headertitle.png',
       '/assets/ui/shoptitle.png',
       '/assets/ui/toolstitle.png',
       '/assets/ui/everyday-active.png',

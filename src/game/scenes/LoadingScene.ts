@@ -1,6 +1,6 @@
 import { Graphics } from 'pixi.js';
 import { BaseScene } from './BaseScene';
-import { coverSprite, label, palette } from '../ui';
+import { coverSprite, headerTitleSprite, label, palette } from '../ui';
 
 const LOADING_BG = '/assets/loading-bg.png';
 
@@ -11,10 +11,9 @@ export class LoadingScene extends BaseScene {
   protected build() {
     this.container.addChild(coverSprite(LOADING_BG, this.game.width, this.game.height));
 
-    const logo = label('冠军之路', 46, 0xfff3b0, '900');
-    logo.anchor.set(0.5);
-    logo.x = this.game.width / 2;
-    logo.y = this.game.height * 0.43;
+    const logo = headerTitleSprite('championRoad', Math.min(360, this.game.width * 0.6));
+    logo.x = this.game.width / 2 - logo.width / 2;
+    logo.y = this.game.height * 0.39;
     const tip = label('正在进入球场...', 20, palette.muted);
     tip.anchor.set(0.5);
     tip.x = this.game.width / 2;
