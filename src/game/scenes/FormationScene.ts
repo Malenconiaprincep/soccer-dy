@@ -8,6 +8,9 @@ const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?
 
 type CardSource = { type: 'lineup'; slotId: string } | { type: 'bench'; index: number };
 
+const BACK_BUTTON = '/assets/ui/back.png';
+const BACK_BUTTON_FRAME = new Rectangle(155, 148, 713, 711);
+
 export class FormationScene extends BaseScene {
   private static readonly BLIND_BOX_PICK_COUNT = 3;
   private static readonly BLIND_CARD_BACK = '/assets/ui/card-guess1.png';
@@ -139,10 +142,19 @@ export class FormationScene extends BaseScene {
 
   private drawHeader() {
     const shift = this.game.contentTopOffset * 0.26;
-    const back = label('‹', 60, palette.white, '900');
-    back.anchor.set(0.5);
-    back.x = 42;
-    back.y = 58 + shift;
+    const back = new Container();
+    const backSize = 66;
+    const backBase = Texture.from(BACK_BUTTON);
+    const backSprite = new Sprite(new Texture({
+      source: backBase.source,
+      frame: BACK_BUTTON_FRAME
+    }));
+    backSprite.width = backSize;
+    backSprite.height = backSize;
+    back.addChild(backSprite);
+    back.x = 22;
+    back.y = 28 + shift;
+    back.hitArea = new Rectangle(0, 0, backSize, backSize);
     back.eventMode = 'static';
     back.cursor = 'pointer';
     back.on('pointertap', () => {

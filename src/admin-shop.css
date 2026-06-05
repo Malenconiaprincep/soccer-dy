@@ -81,6 +81,13 @@ select {
   border-color: #ff657b;
 }
 
+.primary-btn:disabled,
+.ghost-btn:disabled,
+.danger-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .status-line {
   min-height: 22px;
   margin-bottom: 14px;

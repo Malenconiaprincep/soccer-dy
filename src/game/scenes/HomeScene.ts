@@ -1,7 +1,7 @@
 import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BaseScene, PAGE_BG } from './BaseScene';
 import { avatar, coverSprite, glassPanel, label, palette } from '../ui';
-import type { ShopCommonItemConfig, ShopDailyOfferConfig, ShopReward } from '../../shopConfig';
+import { dailyOfferForDate, type ShopCommonItemConfig, type ShopDailyOfferConfig, type ShopReward } from '../../shopConfig';
 
 const HOME_BG = '/assets/home-bg.jpg';
 const TOP_BUTTON = '/assets/ui/top-button.png';
@@ -71,11 +71,15 @@ export class HomeScene extends BaseScene {
   private elapsedMs = 0;
   private startLightSweep?: Container;
   private startLightSweepWidth = 0;
+  private shopCountdownText?: ReturnType<typeof label>;
+  private shopCountdownRefreshMs = 0;
   private floaters: { node: Container; baseY: number; amplitude: number; phase: number }[] = [];
 
   protected build() {
     this.elapsedMs = 0;
     this.startLightSweep = undefined;
+    this.shopCountdownText = undefined;
+    this.shopCountdownRefreshMs = 0;
     this.floaters = [];
     this.container.addChild(coverSprite(HOME_BG, this.game.width, this.game.height));
     this.container.eventMode = 'passive';
@@ -107,6 +111,7 @@ export class HomeScene extends BaseScene {
     this.floaters.forEach((item) => {
       item.node.y = item.baseY + Math.sin(this.elapsedMs * 0.002 + item.phase) * item.amplitude;
     });
+    this.updateShopCountdown(deltaMs);
   }
 
   private getHomeTopInset() {
@@ -354,12 +359,7 @@ export class HomeScene extends BaseScene {
     follow.y = startY;
     follow.on('pointertap', () => this.openInfoModal('关注领奖', '关注抖音账号后领取奖励', '功能接入抖音关注能力后开放。'));
     this.floaters.push({ node: follow, baseY: follow.y, amplitude: 1.2, phase: 0.3 });
-    const rank = this.sideShortcutButton(3, '排行榜');
-    rank.x = rightX;
-    rank.y = startY + this.sideShortcutBlockHeight() + itemGap;
-    rank.on('pointertap', () => this.openInfoModal('排行榜', '赛季排行榜准备中', '后续会按胜场、胜率和战力展示好友排名。'));
-    this.floaters.push({ node: rank, baseY: rank.y, amplitude: 1.2, phase: 1.2 });
-    this.container.addChild(sign, shop, follow, rank);
+    this.container.addChild(sign, shop, follow);
   }
 
   private infoCard(titleText: string, valueText: string, subText: string, x: number, y: number, accent: number) {
@@ -1159,7 +1159,7 @@ export class HomeScene extends BaseScene {
     y += 136 * scale;
 
     const featureH = contentW * (SHOP_DAILY_BG_SIZE.height / SHOP_DAILY_BG_SIZE.width);
-    const feature = this.shopFeatureCard(this.game.shopConfig.dailyOffer, contentW, featureH, scale);
+    const feature = this.shopFeatureCard(dailyOfferForDate(this.game.shopConfig), contentW, featureH, scale);
     feature.x = left;
     feature.y = y;
     c.addChild(feature);
@@ -1265,11 +1265,11 @@ export class HomeScene extends BaseScene {
     bg.height = height;
     c.addChild(bg);
 
-    const name = label(item.title, Math.round(29 * scale), palette.white, '900');
+    const name = label(item.title, Math.round(32 * scale), palette.white, '900');
     name.x = width * 0.08;
     name.y = height * 0.305;
-    const count = label(item.countText, Math.round(32 * scale), 0xffd632, '900');
-    count.x = width * 0.27;
+    const count = label(item.countText, Math.round(35 * scale), 0xffd632, '900');
+    count.x = name.x + name.width + 10 * scale;
     count.y = height * 0.299;
     const sub = label(item.sub, Math.round(18 * scale), 0xf5f0e4, '900');
     sub.x = width * 0.08;
@@ -1277,20 +1277,21 @@ export class HomeScene extends BaseScene {
     c.addChild(name, count, sub);
 
     const ticket = this.signTicketIcon(176 * scale, 1);
-    ticket.x = width * 0.63;
+    ticket.x = width * 0.710;
     ticket.y = height * 0.38;
     ticket.rotation = -0.06;
     c.addChild(ticket);
 
     const badgeText = label(item.badgeText, Math.round(32 * scale), 0x2a1600, '900');
     badgeText.anchor.set(0.5);
-    badgeText.x = width * 0.905;
+    badgeText.x = width * 0.892;
     badgeText.y = height * 0.155;
+    badgeText.rotation = 0.08;
     c.addChild(badgeText);
 
     const price = this.shopFeaturePrice(item.cost, item.oldPriceText, scale);
     price.x = width * 0.085;
-    price.y = height * 0.565;
+    price.y = height * 0.595;
     c.addChild(price);
 
     const buy = new Container();
@@ -1302,11 +1303,38 @@ export class HomeScene extends BaseScene {
     buy.cursor = 'pointer';
     c.addChild(buy);
 
-    const timer = label(item.countdownText, Math.round(16 * scale), 0xffd66a, '900');
-    timer.x = width * 0.235;
-    timer.y = height * 0.807;
+    const timerLabelX = width * 0.085;
+    const timerLabelWidth = 136 * scale;
+    const timer = label(this.formatDailyCountdown(), Math.round(22 * scale), 0xffd66a, '900');
+    timer.x = timerLabelX + timerLabelWidth;
+    timer.y = height * 0.870;
+    this.shopCountdownText = timer;
+    this.shopCountdownRefreshMs = 0;
     c.addChild(timer);
     return c;
+  }
+
+  private updateShopCountdown(deltaMs: number) {
+    if (!this.shopCountdownText || this.shopCountdownText.destroyed) return;
+    this.shopCountdownRefreshMs += deltaMs;
+    if (this.shopCountdownRefreshMs < 250) return;
+    this.shopCountdownRefreshMs = 0;
+    this.shopCountdownText.text = this.formatDailyCountdown();
+  }
+
+  private formatDailyCountdown() {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setHours(24, 0, 0, 0);
+    const totalSeconds = Math.max(0, Math.floor((tomorrow.getTime() - now.getTime()) / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${this.padCountdown(hours)}:${this.padCountdown(minutes)}:${this.padCountdown(seconds)}`;
+  }
+
+  private padCountdown(value: number) {
+    return String(value).padStart(2, '0');
   }
 
   private shopFeaturePrice(cost: number, oldText: string, scale: number) {
@@ -1571,6 +1599,8 @@ export class HomeScene extends BaseScene {
     this.container.removeChild(this.taskModal);
     this.taskModal.destroy({ children: true });
     this.taskModal = undefined;
+    this.shopCountdownText = undefined;
+    this.shopCountdownRefreshMs = 0;
   }
 
   private taskRow(task: ReturnType<HomeScene['taskItems']>[number], width: number) {

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './admin-shop.css';
 import {
+  dailyOfferForDate,
   defaultShopConfig,
   normalizeShopConfig,
   type ShopCommonItemConfig,
@@ -59,15 +60,19 @@ function ShopAdminApp() {
     }
   }
 
-  function updateDaily(patch: Partial<ShopDailyOfferConfig>) {
-    setConfig((current) => ({
-      ...current,
-      dailyOffer: normalizeShopConfig({ ...current, dailyOffer: { ...current.dailyOffer, ...patch } }).dailyOffer
-    }));
+  function updateDaily(index: number, patch: Partial<ShopDailyOfferConfig>) {
+    setConfig((current) => {
+      const dailyOffers = current.dailyOffers.map((item, itemIndex) => {
+        if (itemIndex !== index) return item;
+        return normalizeShopConfig({ dailyOffers: [{ ...item, ...patch }] }).dailyOffers[0];
+      });
+      return { ...current, dailyOffers };
+    });
   }
 
-  function updateDailyReward(patch: Partial<ShopReward>) {
-    updateDaily({ reward: cleanReward({ ...config.dailyOffer.reward, ...patch }) });
+  function updateDailyReward(index: number, patch: Partial<ShopReward>) {
+    const item = config.dailyOffers[index];
+    updateDaily(index, { reward: cleanReward({ ...item.reward, ...patch }) });
   }
 
   function updateCommon(index: number, patch: Partial<ShopCommonItemConfig>) {
@@ -103,6 +108,34 @@ function ShopAdminApp() {
     }));
   }
 
+  function addDailyOffer() {
+    setConfig((current) => ({
+      ...current,
+      dailyOffers: [
+        ...current.dailyOffers,
+        {
+          id: `daily${current.dailyOffers.length + 1}`,
+          title: '球探券',
+          countText: '×1',
+          sub: '用于招募随机球员',
+          cost: 30,
+          oldPriceText: '原价 50',
+          badgeText: '8',
+          countdownText: '23:59:59',
+          icon: 'ticket',
+          reward: { scoutTickets: 1 }
+        }
+      ]
+    }));
+  }
+
+  function removeDailyOffer(index: number) {
+    setConfig((current) => ({
+      ...current,
+      dailyOffers: current.dailyOffers.filter((_, itemIndex) => itemIndex !== index)
+    }));
+  }
+
   function removeCommonItem(index: number) {
     setConfig((current) => ({
       ...current,
@@ -111,6 +144,7 @@ function ShopAdminApp() {
   }
 
   const normalized = useMemo(() => normalizeShopConfig(config), [config]);
+  const todayOffer = useMemo(() => dailyOfferForDate(normalized), [normalized]);
 
   return (
     <main className="admin-shell">
@@ -135,18 +169,18 @@ function ShopAdminApp() {
       <section className="section">
         <div className="section-head">
           <h2 className="section-title">每日特惠</h2>
+          <button className="ghost-btn" onClick={addDailyOffer} type="button">新增特惠</button>
         </div>
-        <div className="form-grid">
-          <TextField labelText="商品 ID" value={config.dailyOffer.id} onChange={(value) => updateDaily({ id: value })} />
-          <TextField labelText="标题" value={config.dailyOffer.title} onChange={(value) => updateDaily({ title: value })} />
-          <TextField labelText="数量文案" value={config.dailyOffer.countText} onChange={(value) => updateDaily({ countText: value })} />
-          <NumberField labelText="现价钻石" value={config.dailyOffer.cost} onChange={(value) => updateDaily({ cost: value })} />
-          <TextField className="wide" labelText="说明" value={config.dailyOffer.sub} onChange={(value) => updateDaily({ sub: value })} />
-          <TextField labelText="原价文案" value={config.dailyOffer.oldPriceText} onChange={(value) => updateDaily({ oldPriceText: value })} />
-          <TextField labelText="折扣数字" value={config.dailyOffer.badgeText} onChange={(value) => updateDaily({ badgeText: value })} />
-          <TextField labelText="倒计时" value={config.dailyOffer.countdownText} onChange={(value) => updateDaily({ countdownText: value })} />
-          <RewardFields reward={config.dailyOffer.reward} onChange={updateDailyReward} />
-        </div>
+        {config.dailyOffers.map((item, index) => (
+          <DailyOfferEditor
+            item={item}
+            index={index}
+            key={`${item.id}-${index}`}
+            onChange={(patch) => updateDaily(index, patch)}
+            onRewardChange={(patch) => updateDailyReward(index, patch)}
+            onRemove={() => removeDailyOffer(index)}
+          />
+        ))}
       </section>
 
       <section className="section">
@@ -172,10 +206,10 @@ function ShopAdminApp() {
         </div>
         <div className="preview">
           <div className="preview-card">
-            <p className="preview-title">{normalized.dailyOffer.title} {normalized.dailyOffer.countText}</p>
-            <p className="preview-sub">{normalized.dailyOffer.sub}</p>
-            <div className="preview-price">钻石 {normalized.dailyOffer.cost}</div>
-            <p className="preview-sub">{normalized.dailyOffer.oldPriceText} / {normalized.dailyOffer.countdownText}</p>
+            <p className="preview-title">今日特惠: {todayOffer.title} {todayOffer.countText}</p>
+            <p className="preview-sub">{todayOffer.sub}</p>
+            <div className="preview-price">钻石 {todayOffer.cost}</div>
+            <p className="preview-sub">{todayOffer.oldPriceText} / 共 {normalized.dailyOffers.length} 条轮换</p>
           </div>
           <div>
             {normalized.commonItems.map((item, index) => (
@@ -214,6 +248,35 @@ function CommonItemEditor(props: {
         <TextField className="wide" labelText="说明" value={item.sub} onChange={(value) => onChange({ sub: value })} />
         <NumberField labelText="钻石价格" value={item.cost ?? 0} onChange={(value) => onChange({ cost: value, priceText: undefined })} />
         <TextField labelText="现金价格文案" value={item.priceText ?? ''} onChange={(value) => onChange({ priceText: value || undefined })} />
+        <RewardFields reward={item.reward} onChange={onRewardChange} />
+      </div>
+    </div>
+  );
+}
+
+function DailyOfferEditor(props: {
+  item: ShopDailyOfferConfig;
+  index: number;
+  onChange: (patch: Partial<ShopDailyOfferConfig>) => void;
+  onRewardChange: (patch: Partial<ShopReward>) => void;
+  onRemove: () => void;
+}) {
+  const { item, index, onChange, onRewardChange, onRemove } = props;
+  return (
+    <div className="item-card">
+      <div className="item-toolbar">
+        <span className="item-name">特惠 {index + 1}: {item.title} {item.countText}</span>
+        <button className="danger-btn" disabled={index === 0} onClick={onRemove} type="button">删除</button>
+      </div>
+      <div className="form-grid">
+        <TextField labelText="商品 ID" value={item.id} onChange={(value) => onChange({ id: value })} />
+        <TextField labelText="标题" value={item.title} onChange={(value) => onChange({ title: value })} />
+        <TextField labelText="数量文案" value={item.countText} onChange={(value) => onChange({ countText: value })} />
+        <NumberField labelText="现价钻石" value={item.cost} onChange={(value) => onChange({ cost: value })} />
+        <TextField className="wide" labelText="说明" value={item.sub} onChange={(value) => onChange({ sub: value })} />
+        <TextField labelText="原价文案" value={item.oldPriceText} onChange={(value) => onChange({ oldPriceText: value })} />
+        <TextField labelText="折扣数字" value={item.badgeText} onChange={(value) => onChange({ badgeText: value })} />
+        <TextField labelText="倒计时文案" value={item.countdownText} onChange={(value) => onChange({ countdownText: value })} />
         <RewardFields reward={item.reward} onChange={onRewardChange} />
       </div>
     </div>

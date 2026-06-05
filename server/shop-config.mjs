@@ -1,18 +1,32 @@
 export const SHOP_CONFIG_KEY = 'shop-config';
 
 export const defaultShopConfig = {
-  dailyOffer: {
-    id: 'ticket5',
-    title: '球探券',
-    countText: '×5',
-    sub: '用于招募随机球员',
-    cost: 120,
-    oldPriceText: '原价 150',
-    badgeText: '8',
-    countdownText: '23:59:59',
-    icon: 'ticket',
-    reward: { scoutTickets: 5 }
-  },
+  dailyOffers: [
+    {
+      id: 'ticket5',
+      title: '球探券',
+      countText: '×5',
+      sub: '用于招募随机球员',
+      cost: 120,
+      oldPriceText: '原价 150',
+      badgeText: '8',
+      countdownText: '23:59:59',
+      icon: 'ticket',
+      reward: { scoutTickets: 5 }
+    },
+    {
+      id: 'energy30',
+      title: '体力补给',
+      countText: '×1',
+      sub: '恢复 30 点体力',
+      cost: 20,
+      oldPriceText: '原价 30',
+      badgeText: '7',
+      countdownText: '23:59:59',
+      icon: 'ticket',
+      reward: { energy: 30 }
+    }
+  ],
   commonItems: [
     {
       id: 'energy',
@@ -46,25 +60,36 @@ export const defaultShopConfig = {
 
 export function normalizeShopConfig(value) {
   const input = isRecord(value) ? value : {};
-  const daily = isRecord(input.dailyOffer) ? input.dailyOffer : {};
+  const rawDailyOffers = Array.isArray(input.dailyOffers)
+    ? input.dailyOffers
+    : isRecord(input.dailyOffer)
+      ? [input.dailyOffer]
+      : [];
   const items = Array.isArray(input.commonItems) ? input.commonItems : [];
   return {
-    dailyOffer: {
-      ...defaultShopConfig.dailyOffer,
-      id: stringValue(daily.id, defaultShopConfig.dailyOffer.id),
-      title: stringValue(daily.title, defaultShopConfig.dailyOffer.title),
-      countText: stringValue(daily.countText, defaultShopConfig.dailyOffer.countText),
-      sub: stringValue(daily.sub, defaultShopConfig.dailyOffer.sub),
-      cost: positiveNumber(daily.cost, defaultShopConfig.dailyOffer.cost),
-      oldPriceText: stringValue(daily.oldPriceText, defaultShopConfig.dailyOffer.oldPriceText),
-      badgeText: stringValue(daily.badgeText, defaultShopConfig.dailyOffer.badgeText),
-      countdownText: stringValue(daily.countdownText, defaultShopConfig.dailyOffer.countdownText),
-      icon: 'ticket',
-      reward: normalizeReward(daily.reward, defaultShopConfig.dailyOffer.reward)
-    },
+    dailyOffers: (rawDailyOffers.length ? rawDailyOffers : defaultShopConfig.dailyOffers).map((item, index) =>
+      normalizeDailyOffer(item, defaultShopConfig.dailyOffers[index] ?? defaultShopConfig.dailyOffers[0])
+    ),
     commonItems: (items.length ? items : defaultShopConfig.commonItems).map((item, index) =>
       normalizeCommonItem(item, defaultShopConfig.commonItems[index] ?? defaultShopConfig.commonItems[0])
     )
+  };
+}
+
+function normalizeDailyOffer(value, fallback) {
+  const daily = isRecord(value) ? value : {};
+  return {
+    ...fallback,
+    id: stringValue(daily.id, fallback.id),
+    title: stringValue(daily.title, fallback.title),
+    countText: stringValue(daily.countText, fallback.countText),
+    sub: stringValue(daily.sub, fallback.sub),
+    cost: positiveNumber(daily.cost, fallback.cost),
+    oldPriceText: stringValue(daily.oldPriceText, fallback.oldPriceText),
+    badgeText: stringValue(daily.badgeText, fallback.badgeText),
+    countdownText: stringValue(daily.countdownText, fallback.countdownText),
+    icon: 'ticket',
+    reward: normalizeReward(daily.reward, fallback.reward)
   };
 }
 
