@@ -23,6 +23,7 @@ const SCENES: SceneName[] = ['loading', 'home', 'formation', 'blindBox', 'matchm
 const DEV_SCENE_KEY = 'soccer.dev.defaultScene';
 const DEV_HOLD_LOADING_KEY = 'soccer.dev.holdLoading';
 const DEV_SIGN_DAY_KEY = 'soccer.dev.signDay';
+const DEV_BATTLE_EVENTS_KEY = 'soccer.dev.battleEventsAll';
 const DEV_PANEL_COLLAPSED_KEY = 'soccer.dev.panelCollapsed';
 const DEV_PANEL_POSITION_KEY = 'soccer.dev.panelPosition';
 
@@ -151,6 +152,7 @@ export class GameApp {
       '/assets/ui/buttons.png',
       '/assets/ui/back.png',
       '/assets/ui/headertitle.png',
+      '/assets/ui/gameevents.png',
       '/assets/ui/shoptitle.png',
       '/assets/ui/toolstitle.png',
       '/assets/ui/everyday-active.png',
@@ -358,6 +360,15 @@ export class GameApp {
     signDay.value = String(this.signInDayForDebug());
     signDayLabel.appendChild(signDay);
 
+    const battleEventsLabel = document.createElement('label');
+    battleEventsLabel.style.display = 'flex';
+    battleEventsLabel.style.alignItems = 'center';
+    battleEventsLabel.style.gap = '6px';
+    const battleEvents = document.createElement('input');
+    battleEvents.type = 'checkbox';
+    battleEvents.checked = globalThis.localStorage?.getItem(DEV_BATTLE_EVENTS_KEY) === '1';
+    battleEventsLabel.append(battleEvents, '显示全部比赛过程');
+
     const actions = document.createElement('div');
     actions.style.display = 'grid';
     actions.style.gridTemplateColumns = '1fr 1fr';
@@ -371,7 +382,7 @@ export class GameApp {
     hint.textContent = '?scene=home&signDay=4 可直开签到天数预览';
     hint.style.color = '#9fdcff';
     hint.style.lineHeight = '1.35';
-    const bodyItems = [select, holdLabel, signDayLabel, actions, hint];
+    const bodyItems = [select, holdLabel, signDayLabel, battleEventsLabel, actions, hint];
     let collapsedState = globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) === '1';
     let dragMoved = false;
 
@@ -402,6 +413,7 @@ export class GameApp {
       globalThis.localStorage?.setItem(DEV_SCENE_KEY, select.value);
       globalThis.localStorage?.setItem(DEV_HOLD_LOADING_KEY, hold.checked ? '1' : '0');
       globalThis.localStorage?.setItem(DEV_SIGN_DAY_KEY, signDay.value);
+      globalThis.localStorage?.setItem(DEV_BATTLE_EVENTS_KEY, battleEvents.checked ? '1' : '0');
       save.textContent = '已保存';
       window.setTimeout(() => {
         save.textContent = '设默认';
@@ -414,6 +426,10 @@ export class GameApp {
     signDay.onchange = () => {
       globalThis.localStorage?.setItem(DEV_SIGN_DAY_KEY, signDay.value);
       if (this.scene instanceof HomeScene) this.changeScene('home');
+    };
+    battleEvents.onchange = () => {
+      globalThis.localStorage?.setItem(DEV_BATTLE_EVENTS_KEY, battleEvents.checked ? '1' : '0');
+      if (this.scene instanceof BattleScene) this.changeScene('battle');
     };
     toggle.onclick = () => {
       if (dragMoved) return;

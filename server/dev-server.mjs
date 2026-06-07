@@ -10,6 +10,9 @@ const supabaseUrl = env.SUPABASE_URL ?? env.VITE_SUPABASE_URL;
 const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 const douyinAppId = env.DOUYIN_APP_ID;
 const douyinAppSecret = env.DOUYIN_APP_SECRET;
+const dashscopeApiKey = env.DASHSCOPE_API_KEY;
+const bailianModel = env.BAILIAN_MODEL ?? 'qwen-turbo';
+const bailianBaseUrl = env.BAILIAN_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1';
 const botAfterMs = Number(env.MATCH_BOT_AFTER_MS ?? 12000);
 const ticketTtlMs = Number(env.MATCH_TICKET_TTL_MS ?? 45000);
 const queue = new Map();
@@ -51,6 +54,10 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === 'POST' && url.pathname === '/api/matches') {
       sendJson(response, 200, await recordMatch(await readJson(request)));
+      return;
+    }
+    if (request.method === 'POST' && url.pathname === '/api/battle/moment') {
+      sendJson(response, 200, await generateBattleMoment(await readJson(request)));
       return;
     }
     if (request.method === 'POST' && url.pathname === '/api/shop/grant') {
@@ -221,6 +228,78 @@ async function recordMatch(body) {
   });
 
   return { ok: true, rewards };
+}
+
+async function generateBattleMoment(body) {
+  if (!dashscopeApiKey) {
+    const error = new Error('DASHSCOPE_API_KEY is not configured.');
+    error.status = 503;
+    throw error;
+  }
+
+  const minute = Math.max(1, Math.min(90, Number(body.minute ?? 1)));
+  const scoreA = Number(body.scoreA ?? 0);
+  const scoreB = Number(body.scoreB ?? 0);
+  const homePlayers = Array.isArray(body.homePlayers) ? body.homePlayers.slice(0, 8) : [];
+  const awayPlayers = Array.isArray(body.awayPlayers) ? body.awayPlayers.slice(0, 8) : [];
+  const recentEvents = Array.isArray(body.recentEvents) ? body.recentEvents.slice(0, 5) : [];
+  const allowedTypes = ['goal', 'shot', 'attack', 'save', 'corner', 'duel', 'assist', 'pass', 'tackle', 'dribble', 'yellow_card', 'red_card', 'offside', 'substitution', 'injury', 'tactic'];
+
+  const prompt = [
+    '你是一个足球小游戏比赛事件导演。请生成下一条比赛事件，只返回 JSON。',
+    '要求：',
+    '- 事件要符合当前分钟和比分，不要重复 recentEvents 里刚发生的内容。',
+    '- actorName 必须优先从 homePlayers 或 awayPlayers 的 displayName 中选择；系统事件可用“裁判”“教练组”。',
+    '- relatedActorNames 是相关球员 displayName 数组，最多 3 个。',
+    '- detail 使用简短中文，35 字以内。',
+    '- score 只有进球时可为 "home" 或 "away"，其他为 null。',
+    `- eventType 只能是：${allowedTypes.join(', ')}`,
+    'JSON schema: {"eventType":"shot","title":"射门","actorName":"小罗","relatedActorNames":["小罗"],"detail":"小罗禁区前沿起脚，门将飞身扑出。","mood":"good","score":null,"team":"home"}',
+    `当前：${minute}'，比分 ${scoreA}:${scoreB}`,
+    `我方球员：${JSON.stringify(homePlayers)}`,
+    `对方球员：${JSON.stringify(awayPlayers)}`,
+    `最近事件：${JSON.stringify(recentEvents)}`
+  ].join('\n');
+
+  const response = await fetch(`${bailianBaseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${dashscopeApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: bailianModel,
+      messages: [
+        { role: 'system', content: '你只输出合法 JSON，不要 Markdown。' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.8,
+      max_tokens: 260
+    })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = payload?.error?.message ?? payload?.message ?? `DashScope request failed: ${response.status}`;
+    throw new Error(message);
+  }
+
+  const content = payload?.choices?.[0]?.message?.content;
+  const parsed = parseJsonObject(content);
+  const eventType = allowedTypes.includes(parsed.eventType) ? parsed.eventType : 'attack';
+  const mood = ['normal', 'good', 'bad'].includes(parsed.mood) ? parsed.mood : 'normal';
+  const score = parsed.score === 'home' || parsed.score === 'away' ? parsed.score : null;
+  const team = parsed.team === 'away' ? 'away' : 'home';
+  return {
+    eventType,
+    title: stringValue(parsed.title, eventType),
+    actorName: stringValue(parsed.actorName, team === 'home' ? '球员' : '对手'),
+    relatedActorNames: Array.isArray(parsed.relatedActorNames) ? parsed.relatedActorNames.slice(0, 3).map((name) => String(name)) : [],
+    detail: stringValue(parsed.detail, '双方在中场展开争夺。').slice(0, 60),
+    mood,
+    score,
+    team
+  };
 }
 
 async function grantShopReward(body) {

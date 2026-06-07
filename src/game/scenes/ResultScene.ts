@@ -2,6 +2,7 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { headerTitleSprite, label, palette } from '../ui';
 import type { BattleEvent, PlayerCardData } from '../types';
+import { playerDisplayName } from '../playerNames';
 
 interface StatRow {
   icon: string;
@@ -185,7 +186,7 @@ export class ResultScene extends BaseScene {
 
     if (player) {
       this.drawRoundAvatar(panel, player, 64, 78, 58, 0x2798ff);
-      const name = label(player.name, 27, 0x34a0ff, '900');
+      const name = label(playerDisplayName(player), 27, 0x34a0ff, '900');
       name.x = 216;
       name.y = 54;
       const club = label('🛡 蓝焰俱乐部', 19, 0x19e3ca, '900');
@@ -578,12 +579,12 @@ export class ResultScene extends BaseScene {
 
     const forGoals = this.goalEvents(events, true).slice(0, 3).map((event, index) => ({
       time: `${event.time}'`,
-      name: this.eventPlayerName(event.text) ?? fallbackMine[index]?.name ?? '林浩',
+      name: this.eventPlayerName(event.text) ?? playerDisplayName(fallbackMine[index]) ?? '林浩',
       player: fallbackMine[index] ?? fallbackMine[0]
     }));
     const againstGoals = this.goalEvents(events, false).slice(0, 3).map((event, index) => ({
       time: `${event.time}'`,
-      name: this.eventPlayerName(event.text) ?? fallbackRival[index]?.name ?? '罗一鸣',
+      name: this.eventPlayerName(event.text) ?? playerDisplayName(fallbackRival[index]) ?? '罗一鸣',
       player: fallbackRival[index] ?? fallbackRival[0]
     }));
 
@@ -591,13 +592,13 @@ export class ResultScene extends BaseScene {
       for: forGoals.length
         ? forGoals
         : [
-            { time: "12'", name: fallbackMine[0]?.name ?? '赵启航', player: fallbackMine[0] },
-            { time: "68'", name: fallbackMine[1]?.name ?? '苏亚雷斯', player: fallbackMine[1] },
-            { time: "82'", name: fallbackMine[2]?.name ?? '林浩', player: fallbackMine[2] }
+            { time: "12'", name: playerDisplayName(fallbackMine[0]) ?? '赵启航', player: fallbackMine[0] },
+            { time: "68'", name: playerDisplayName(fallbackMine[1]) ?? '苏锋', player: fallbackMine[1] },
+            { time: "82'", name: playerDisplayName(fallbackMine[2]) ?? '林浩', player: fallbackMine[2] }
           ],
       against: againstGoals.length
         ? againstGoals
-        : [{ time: "45'", name: fallbackRival[0]?.name ?? '罗一鸣', player: fallbackRival[0] }]
+        : [{ time: "45'", name: playerDisplayName(fallbackRival[0]) ?? '罗一鸣', player: fallbackRival[0] }]
     };
   }
 
@@ -618,7 +619,7 @@ export class ResultScene extends BaseScene {
     const first = text.trim().split(/[\s，,。.!！]/)[0];
     if (!first || first.length > 5) return undefined;
     if (/禁区|破门|推射|反击|扳回|扩大|抢点|远射|头球|射门|传球|通过/.test(first)) return undefined;
-    return first;
+    return playerDisplayName(first);
   }
 
   private starPlayer(players: Array<PlayerCardData | undefined>) {

@@ -2,6 +2,7 @@ import { Container, FederatedPointerEvent, Graphics, Rectangle, Sprite, Text, Te
 import { BaseScene, PAGE_BG } from './BaseScene';
 import { formations } from '../data';
 import type { FormationData, LineupSlot, PlayerCardData, Position, Rarity } from '../types';
+import { playerDisplayName, shortenPlayerName } from '../playerNames';
 import { coverSprite, glassPanel, headerTitleSprite, imageBackButton, label, palette } from '../ui';
 
 const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
@@ -532,7 +533,7 @@ export class FormationScene extends BaseScene {
     nameBg.roundRect(-58, -4, 116, 34, 8);
     nameBg.fill({ color: 0x071e41, alpha: 0.92 });
     nameBg.stroke({ color: 0x56a8ff, alpha: 0.46, width: 2 });
-    const name = this.fitLabel(player.name, 17, 108, palette.white, '900', 0.72);
+    const name = this.fitLabel(playerDisplayName(player), 17, 108, palette.white, '900', 0.72);
     name.anchor.set(0.5);
     name.y = 13;
     c.addChild(frame, face, rating, pos, nameBg, name);
@@ -584,7 +585,7 @@ export class FormationScene extends BaseScene {
       position.anchor.set(0, 0);
       position.x = face.x + 4;
       position.y = face.y + 26;
-      const text = this.fitLabel(slot.player.name, 15, 78, palette.white, '900', 0.72);
+      const text = this.fitLabel(playerDisplayName(slot.player), 15, 78, palette.white, '900', 0.72);
       text.anchor.set(0.5);
       text.y = 71;
       c.addChild(frame, face, rating, nameBg, text, position);
@@ -1165,7 +1166,7 @@ export class FormationScene extends BaseScene {
     pos.y = by + bh * 0.23;
     c.addChild(rating, pos);
 
-    const nameText = this.compactPlayerName(player.name);
+    const nameText = this.compactPlayerName(playerDisplayName(player));
     const layout = this.cardFaceLayout(player.rarity);
     const name = this.fitLabel(nameText, Math.round(bw * 0.12), bw * 0.66, palette.white, '900', 0.82);
     name.anchor.set(0.5);
@@ -1176,8 +1177,7 @@ export class FormationScene extends BaseScene {
   }
 
   private compactPlayerName(name: string) {
-    const compact = name.replace(/[·\s]/g, '');
-    return compact.length > 4 ? `${compact.slice(0, 3)}…` : compact;
+    return shortenPlayerName(name);
   }
 
   private fitLabel(text: string, size: number, maxWidth: number, color = palette.white, weight: '400' | '700' | '900' = '700', minScale = 0.7) {
@@ -1588,7 +1588,7 @@ export class FormationScene extends BaseScene {
     skill.anchor.set(0.5);
     skill.x = bx + bw / 2;
     skill.y = by + bh * layout.skillY;
-    const name = this.fitLabel(player.name, Math.round(bw * 0.13), bw * 0.84, palette.white, '900', 0.72);
+    const name = this.fitLabel(playerDisplayName(player), Math.round(bw * 0.13), bw * 0.84, palette.white, '900', 0.72);
     name.anchor.set(0.5);
     name.x = bx + bw / 2;
     name.y = by + bh * layout.nameY;
@@ -1875,7 +1875,7 @@ export class FormationScene extends BaseScene {
     nameBg.roundRect(-66, 70, 132, 42, 9);
     nameBg.fill({ color: 0x071e41, alpha: 0.92 });
     nameBg.stroke({ color: 0x56a8ff, alpha: 0.46, width: 2 });
-    const name = this.fitLabel(player.name, 25, 120, palette.white, '900', 0.72);
+    const name = this.fitLabel(playerDisplayName(player), 25, 120, palette.white, '900', 0.72);
     name.anchor.set(0.5);
     name.y = 91;
     c.addChild(face, rating, pos, nameBg, name);

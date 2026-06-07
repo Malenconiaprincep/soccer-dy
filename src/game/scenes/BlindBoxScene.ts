@@ -2,6 +2,7 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { rarityMeta, rarityName } from '../data';
 import type { PlayerCardData } from '../types';
+import { playerDisplayName } from '../playerNames';
 import { glassPanel, headerTitleSprite, imageBackButton, label, palette, pillButton } from '../ui';
 
 export class BlindBoxScene extends BaseScene {
@@ -151,7 +152,7 @@ export class BlindBoxScene extends BaseScene {
       skill.anchor.set(0.5);
       skill.x = w / 2;
       skill.y = 238;
-      const name = label(player.name, 30, palette.white, '900');
+      const name = label(playerDisplayName(player), 30, palette.white, '900');
       name.anchor.set(0.5);
       name.x = w / 2;
       name.y = 278;

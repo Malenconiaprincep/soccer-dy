@@ -1,6 +1,7 @@
 import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import type { LineupSlot, PlayerCardData, Position } from '../types';
+import { playerDisplayName } from '../playerNames';
 import { glassPanel, headerTitleSprite, imageBackButton, label, palette } from '../ui';
 
 export class MatchupScene extends BaseScene {
@@ -370,7 +371,7 @@ export class MatchupScene extends BaseScene {
     const rating = label(player ? String(player.rating) : '--', 24, palette.white, '900');
     rating.x = right ? -boxW + avatarSize + 16 : avatarSize + 16;
     rating.y = 9;
-    const name = label(player?.name ?? '待定', 18, palette.white, '900');
+    const name = label(player ? playerDisplayName(player) : '待定', 18, palette.white, '900');
     name.x = right ? -boxW + avatarSize + 58 : avatarSize + 58;
     name.y = 12;
     const role = label(player ? `${this.positionName(player.position)} · ${player.role}` : '核心球员', 14, 0xcfe0ff, '700');
