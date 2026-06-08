@@ -292,7 +292,7 @@ async function generateBattleMoment(body) {
   const team = parsed.team === 'away' ? 'away' : 'home';
   return {
     eventType,
-    title: stringValue(parsed.title, eventType),
+    title: titleForBattleEvent(eventType),
     actorName: stringValue(parsed.actorName, team === 'home' ? '球员' : '对手'),
     relatedActorNames: Array.isArray(parsed.relatedActorNames) ? parsed.relatedActorNames.slice(0, 3).map((name) => String(name)) : [],
     detail: stringValue(parsed.detail, '双方在中场展开争夺。').slice(0, 60),
@@ -300,6 +300,28 @@ async function generateBattleMoment(body) {
     score,
     team
   };
+}
+
+function titleForBattleEvent(eventType) {
+  const titles = {
+    goal: '进球',
+    shot: '射门',
+    attack: '进攻',
+    save: '扑救',
+    corner: '角球',
+    duel: '拼抢',
+    assist: '助攻',
+    pass: '传球',
+    tackle: '抢断',
+    dribble: '过人',
+    yellow_card: '黄牌',
+    red_card: '红牌',
+    offside: '越位',
+    substitution: '换人',
+    injury: '受伤',
+    tactic: '战术'
+  };
+  return titles[eventType] ?? '进攻';
 }
 
 async function grantShopReward(body) {
@@ -465,6 +487,22 @@ function readShopConfig() {
 function stringValue(value, fallback) {
   const text = value == null ? '' : String(value).trim();
   return text || fallback;
+}
+
+function parseJsonObject(content) {
+  const text = String(content ?? '').trim();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return {};
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return {};
+    }
+  }
 }
 
 function requiredString(value, name) {

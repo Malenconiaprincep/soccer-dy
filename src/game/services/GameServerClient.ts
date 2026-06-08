@@ -30,6 +30,17 @@ export interface MatchOpponent {
   mode: 'ai' | 'douyinRealtime';
 }
 
+export interface GeneratedBattleMoment {
+  eventType: string;
+  title: string;
+  actorName: string;
+  relatedActorNames: string[];
+  detail: string;
+  mood: 'normal' | 'good' | 'bad';
+  score: 'home' | 'away' | null;
+  team: 'home' | 'away';
+}
+
 export class GameServerClient {
   private readonly baseUrl = runtimeEnv.VITE_GAME_SERVER_URL;
   private readonly publicBaseUrl = runtimeEnv.VITE_GAME_SERVER_URL ?? '';
@@ -96,6 +107,18 @@ export class GameServerClient {
         rating: slot.player?.rating
       }))
     });
+  }
+
+  async generateBattleMoment(payload: {
+    minute: number;
+    scoreA: number;
+    scoreB: number;
+    homePlayers: Array<{ id: string; displayName: string; position: string; rating: number }>;
+    awayPlayers: Array<{ id: string; displayName: string; position: string; rating: number }>;
+    recentEvents: Array<{ time: number; text: string; mood: string; eventType?: string; title?: string }>;
+  }) {
+    if (!this.baseUrl) return undefined;
+    return this.post<GeneratedBattleMoment>('/api/battle/moment', payload);
   }
 
   async grantShopReward(payload: {

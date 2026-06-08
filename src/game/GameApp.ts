@@ -24,6 +24,7 @@ const DEV_SCENE_KEY = 'soccer.dev.defaultScene';
 const DEV_HOLD_LOADING_KEY = 'soccer.dev.holdLoading';
 const DEV_SIGN_DAY_KEY = 'soccer.dev.signDay';
 const DEV_BATTLE_EVENTS_KEY = 'soccer.dev.battleEventsAll';
+const DEV_BATTLE_STAY_KEY = 'soccer.dev.battleStay';
 const DEV_PANEL_COLLAPSED_KEY = 'soccer.dev.panelCollapsed';
 const DEV_PANEL_POSITION_KEY = 'soccer.dev.panelPosition';
 
@@ -316,12 +317,7 @@ export class GameApp {
     toggle.style.fontSize = '12px';
     header.append(title, toggle);
 
-    const select = document.createElement('select');
-    select.style.height = '30px';
-    select.style.borderRadius = '6px';
-    select.style.background = '#071936';
-    select.style.color = '#fff';
-    select.style.border = '1px solid #2f83d6';
+    const select = this.devPanelSelect();
     SCENES.forEach((scene) => {
       const option = document.createElement('option');
       option.value = scene;
@@ -345,12 +341,7 @@ export class GameApp {
     signDayLabel.style.alignItems = 'center';
     signDayLabel.style.gap = '6px';
     signDayLabel.textContent = '签到天数';
-    const signDay = document.createElement('select');
-    signDay.style.height = '30px';
-    signDay.style.borderRadius = '6px';
-    signDay.style.background = '#071936';
-    signDay.style.color = '#fff';
-    signDay.style.border = '1px solid #2f83d6';
+    const signDay = this.devPanelSelect();
     Array.from({ length: 7 }, (_, index) => index + 1).forEach((day) => {
       const option = document.createElement('option');
       option.value = String(day);
@@ -369,6 +360,15 @@ export class GameApp {
     battleEvents.checked = globalThis.localStorage?.getItem(DEV_BATTLE_EVENTS_KEY) === '1';
     battleEventsLabel.append(battleEvents, '显示全部比赛过程');
 
+    const battleStayLabel = document.createElement('label');
+    battleStayLabel.style.display = 'flex';
+    battleStayLabel.style.alignItems = 'center';
+    battleStayLabel.style.gap = '6px';
+    const battleStay = document.createElement('input');
+    battleStay.type = 'checkbox';
+    battleStay.checked = globalThis.localStorage?.getItem(DEV_BATTLE_STAY_KEY) === '1';
+    battleStayLabel.append(battleStay, '停留比赛中');
+
     const actions = document.createElement('div');
     actions.style.display = 'grid';
     actions.style.gridTemplateColumns = '1fr 1fr';
@@ -382,7 +382,7 @@ export class GameApp {
     hint.textContent = '?scene=home&signDay=4 可直开签到天数预览';
     hint.style.color = '#9fdcff';
     hint.style.lineHeight = '1.35';
-    const bodyItems = [select, holdLabel, signDayLabel, battleEventsLabel, actions, hint];
+    const bodyItems = [select, holdLabel, signDayLabel, battleEventsLabel, battleStayLabel, actions, hint];
     let collapsedState = globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) === '1';
     let dragMoved = false;
 
@@ -414,6 +414,7 @@ export class GameApp {
       globalThis.localStorage?.setItem(DEV_HOLD_LOADING_KEY, hold.checked ? '1' : '0');
       globalThis.localStorage?.setItem(DEV_SIGN_DAY_KEY, signDay.value);
       globalThis.localStorage?.setItem(DEV_BATTLE_EVENTS_KEY, battleEvents.checked ? '1' : '0');
+      globalThis.localStorage?.setItem(DEV_BATTLE_STAY_KEY, battleStay.checked ? '1' : '0');
       save.textContent = '已保存';
       window.setTimeout(() => {
         save.textContent = '设默认';
@@ -430,6 +431,9 @@ export class GameApp {
     battleEvents.onchange = () => {
       globalThis.localStorage?.setItem(DEV_BATTLE_EVENTS_KEY, battleEvents.checked ? '1' : '0');
       if (this.scene instanceof BattleScene) this.changeScene('battle');
+    };
+    battleStay.onchange = () => {
+      globalThis.localStorage?.setItem(DEV_BATTLE_STAY_KEY, battleStay.checked ? '1' : '0');
     };
     toggle.onclick = () => {
       if (dragMoved) return;
@@ -467,7 +471,7 @@ export class GameApp {
       panel.addEventListener('pointercancel', onUp);
     });
 
-    panel.append(header, select, holdLabel, signDayLabel, actions, hint);
+    panel.append(header, ...bodyItems);
     document.body.appendChild(panel);
     setCollapsed(collapsedState);
     this.devPanel = panel;
@@ -520,6 +524,21 @@ export class GameApp {
     button.style.fontWeight = '700';
     button.style.cursor = 'pointer';
     return button;
+  }
+
+  private devPanelSelect() {
+    const select = document.createElement('select');
+    select.style.height = '36px';
+    select.style.borderRadius = '7px';
+    select.style.background = '#071936';
+    select.style.color = '#fff';
+    select.style.border = '1px solid #2f83d6';
+    select.style.fontSize = '15px';
+    select.style.fontWeight = '700';
+    select.style.lineHeight = '36px';
+    select.style.padding = '0 10px';
+    select.style.outline = 'none';
+    return select;
   }
 
   setFormation(formation: FormationData) {

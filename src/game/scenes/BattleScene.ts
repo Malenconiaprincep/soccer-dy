@@ -2,6 +2,7 @@ import { Container, FederatedPointerEvent, Graphics, Rectangle, Sprite, Texture 
 import { BaseScene } from './BaseScene';
 import type { BattleEvent, LineupSlot, PlayerCardData, Position } from '../types';
 import { playerDisplayName } from '../playerNames';
+import type { GeneratedBattleMoment } from '../services/GameServerClient';
 import { headerTitleSprite, label, palette } from '../ui';
 
 type MomentType = 'kickoff' | 'attack' | 'shot' | 'post' | 'corner' | 'save' | 'goal' | 'counter';
@@ -33,7 +34,9 @@ type GameEventCardKey =
 
 const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
 const DEV_BATTLE_EVENTS_KEY = 'soccer.dev.battleEventsAll';
+const DEV_BATTLE_STAY_KEY = 'soccer.dev.battleStay';
 const GAME_EVENTS = '/assets/ui/gameevents.png';
+const GAME_EVENT_CARD_ASPECT = 508 / 72;
 const GAME_EVENT_CARD_FRAMES: Record<GameEventCardKey, { x: number; y: number; width: number; height: number }> = {
   goal: { x: 15, y: 16, width: 508, height: 72 },
   shot: { x: 15, y: 96, width: 508, height: 72 },
@@ -57,18 +60,33 @@ const GAME_EVENT_CARD_FRAMES: Record<GameEventCardKey, { x: number; y: number; w
   tactic: { x: 550, y: 576, width: 515, height: 72 },
   timer: { x: 550, y: 656, width: 515, height: 72 },
   half_time: { x: 550, y: 736, width: 515, height: 72 },
-  kick_off: { x: 550, y: 816, width: 515, height: 56 },
+  kick_off: { x: 550, y: 793, width: 515, height: 72 },
   match_end: { x: 550, y: 872, width: 515, height: 60 }
 };
 
+const EVENT_CARD_LAYOUT = {
+  timeX: 0.265,
+  timeY: 0.5,
+  textX: 0.32,
+  titleY: 0.24,
+  detailY: 0.58,
+  shadeX: 0.29,
+  shadeY: 0.14,
+  shadeW: 0.26,
+  shadeH: 0.72
+} as const;
+
 interface BattleMoment {
   type: MomentType;
+  eventType?: GameEventCardKey;
   title: string;
   detail: string;
   mood: BattleEvent['mood'];
   score?: 'home' | 'away';
   actor?: PlayerCardData;
+  actorName?: string;
   actors?: PlayerCardData[];
+  actorNames?: string[];
   team?: 'home' | 'away';
 }
 
@@ -101,6 +119,11 @@ export class BattleScene extends BaseScene {
   private possessionBar?: { x: number; y: number; width: number; height: number };
   private eventScrollY = 0;
   private eventDrag?: { pointerId: number; startY: number; startScrollY: number };
+  private generatedMoment?: BattleMoment;
+  private generatedMomentLoading = false;
+  private generatedMomentDisabled = false;
+  private goalOverlay?: Container;
+  private goalOverlayAge = 0;
   private moment: BattleMoment = {
     type: 'kickoff',
     title: '比赛开始',
@@ -118,18 +141,21 @@ export class BattleScene extends BaseScene {
   enter() {
     super.enter();
     this.game.sound.play('kickoff');
+    this.prefetchGeneratedMoment();
   }
 
   update(deltaMs: number) {
     this.elapsed += deltaMs;
     if (this.timeText) this.timeText.text = this.clockText();
+    this.updateGoalAnimation(deltaMs);
     if (this.isBattleProcessDebug()) return;
     this.updatePossessionPanel();
     if (this.elapsed > this.nextEventAt) {
       this.pushEvent();
       this.nextEventAt += 2200 + Math.random() * 1400;
+      this.prefetchGeneratedMoment();
     }
-    if (this.elapsed > 26000) {
+    if (this.elapsed > 26000 && !this.isBattleStayDebug()) {
       this.game.battleResult = { scoreA: this.scoreA, scoreB: this.scoreB, events: this.events };
       this.game.changeScene('result');
     }
@@ -235,18 +261,8 @@ export class BattleScene extends BaseScene {
     const text = label(mark, mark.length > 1 ? 24 : 34, 0xffffff, '900');
     text.anchor.set(0.5);
     text.y = size * 0.02;
-    const rating = label(String(Math.round(this.logoRating(mark))), 18, palette.white, '900');
-    rating.x = -size / 2 - 11;
-    rating.y = -size / 2 - 8;
-    c.addChild(frame, glow, shield, stripe, text, rating);
+    c.addChild(frame, glow, shield, stripe, text);
     return c;
-  }
-
-  private logoRating(mark: string) {
-    const lineup = mark === '蓝' ? this.game.lineup : this.opponentLineup();
-    const players = lineup.map((slot) => slot.player).filter(Boolean) as PlayerCardData[];
-    if (!players.length) return 72;
-    return players.reduce((sum, player) => sum + player.rating, 0) / players.length;
   }
 
   private matchClockBox(width: number, height: number) {
@@ -285,10 +301,13 @@ export class BattleScene extends BaseScene {
     const cardW = w - 36;
     const viewportW = cardW;
     const viewportH = h - 36;
-    const gap = debugAll ? 6 : 10;
-    const debugColumns = 2;
+    const gap = debugAll ? 14 : 10;
+    const debugColumns = 1;
     const debugRows = Math.ceil(entries.length / debugColumns);
-    const rowH = debugAll ? Math.min(66, Math.max(46, (h - 36 - gap * (debugRows - 1)) / debugRows)) : Math.min(96, Math.max(78, (h - 34) / 5.6));
+    const aspectRowH = Math.round(cardW / GAME_EVENT_CARD_ASPECT);
+    const rowH = debugAll
+      ? Math.min(80, Math.max(68, aspectRowH))
+      : Math.min(96, Math.max(78, Math.min(aspectRowH, (h - 34) / 5.6)));
     const rows = debugAll ? debugRows : entries.length;
     const contentH = Math.max(viewportH, rows * (rowH + gap) - gap);
     const maxScroll = Math.max(0, contentH - viewportH);
@@ -315,7 +334,7 @@ export class BattleScene extends BaseScene {
       const debugCardW = (cardW - gap) / debugColumns;
       const rowX = debugAll ? col * (debugCardW + gap) : 0;
       const rowY = row * (rowH + gap);
-      cardLayer.addChild(this.eventCard(entry, rowX, rowY, debugAll ? debugCardW : cardW, rowH));
+      cardLayer.addChild(this.eventCard(entry, rowX, rowY, debugAll ? debugCardW : cardW, rowH, debugAll));
     });
     viewport.addChild(cardLayer);
     this.container.addChild(viewport);
@@ -360,27 +379,37 @@ export class BattleScene extends BaseScene {
     }
   }
 
-  private eventCard(entry: BattleEventEntry, x: number, y: number, width: number, height: number) {
+  private eventCard(entry: BattleEventEntry, x: number, y: number, width: number, height: number, showType = false) {
     const c = new Container();
     c.x = x;
     c.y = y;
-    const frame = this.eventCardFrame(entry);
+    const typeKey = entry.eventType ?? this.eventCardKey(entry.title, entry.mood);
+    const frameRect = GAME_EVENT_CARD_FRAMES[typeKey];
     const base = Texture.from(GAME_EVENTS);
-    const bg = new Sprite(new Texture({ source: base.source, frame }));
-    bg.width = width;
-    bg.height = height;
+    const bg = new Sprite(new Texture({ source: base.source, frame: new Rectangle(frameRect.x, frameRect.y, frameRect.width, frameRect.height) }));
+    this.fitEventCardSprite(bg, frameRect.width, frameRect.height, width, height);
     c.addChild(bg);
 
     const textShade = new Graphics();
-    textShade.roundRect(width * 0.31, height * 0.13, width * 0.56, height * 0.72, Math.max(7, height * 0.12));
-    textShade.fill({ color: 0x020817, alpha: 0.46 });
+    const layout = this.eventCardLayout(entry);
+    textShade.roundRect(
+      width * layout.shadeX,
+      height * layout.shadeY,
+      width * layout.shadeW,
+      height * layout.shadeH,
+      Math.max(6, height * 0.1)
+    );
+    textShade.fill({ color: 0x020817, alpha: 0.34 });
     c.addChild(textShade);
 
     const accent = this.entryColor(entry.mood);
-    const time = label(`${entry.time}'`, Math.round(height * 0.31), entry.mood === 'normal' ? 0xffd632 : accent, '900');
+    const timeSize = entry.eventType === 'kick_off' || entry.eventType === 'half_time'
+      ? Math.round(height * 0.24)
+      : Math.round(height * 0.26);
+    const time = label(`${entry.time}'`, timeSize, entry.mood === 'normal' ? 0xffd632 : accent, '900');
     time.anchor.set(0.5);
-    time.x = width * 0.2;
-    time.y = height * 0.5;
+    time.x = width * layout.timeX;
+    time.y = height * layout.timeY;
 
     const compact = width < 360;
     const actorText = entry.actor ? playerDisplayName(entry.actor) : entry.title;
@@ -388,17 +417,36 @@ export class BattleScene extends BaseScene {
       this.trimEventText(actorText, compact ? 4 : 7),
       this.trimEventText(this.eventCardTitle(entry.title), compact ? 5 : 8),
       entry.players ?? (entry.player ? [entry.player] : []),
-      Math.round(height * (compact ? 0.2 : 0.26)),
+      Math.round(height * (compact ? 0.2 : 0.24)),
       accent,
       height
     );
-    title.x = width * 0.35;
-    title.y = height * 0.2;
-    const detail = label(this.trimEventText(entry.text, compact ? 12 : 28), Math.round(height * (compact ? 0.15 : 0.19)), 0xe5efff, '700');
+    title.x = width * layout.textX;
+    title.y = height * layout.titleY;
+    const detail = label(this.trimEventText(entry.text, compact ? 12 : 28), Math.round(height * (compact ? 0.15 : 0.18)), 0xe5efff, '700');
     detail.style.dropShadow = { color: 0x000000, blur: 4, distance: 2, alpha: 0.95, angle: Math.PI / 4 };
-    detail.x = width * 0.35;
-    detail.y = height * 0.55;
+    detail.x = width * layout.textX;
+    detail.y = height * layout.detailY;
     c.addChild(time, title, detail);
+
+    if (showType) {
+      const typeText = label(typeKey, Math.round(height * 0.17), 0xffef9c, '900');
+      typeText.anchor.set(1, 0);
+      typeText.x = width - 10;
+      typeText.y = 5;
+      const frameText = label(`${frameRect.x},${frameRect.y} ${frameRect.width}x${frameRect.height}`, Math.round(height * 0.14), 0x9fdcff, '700');
+      frameText.anchor.set(1, 0);
+      frameText.x = width - 10;
+      frameText.y = 5 + typeText.height + 2;
+      const badge = new Graphics();
+      const badgeW = Math.max(typeText.width, frameText.width) + 14;
+      const badgeH = typeText.height + frameText.height + 10;
+      badge.roundRect(width - badgeW - 6, 3, badgeW, badgeH, 5);
+      badge.fill({ color: 0x020817, alpha: 0.82 });
+      badge.stroke({ color: 0x2f8cff, alpha: 0.75, width: 1 });
+      c.addChild(badge, typeText, frameText);
+    }
+
     const cardMask = new Graphics();
     cardMask.roundRect(0, 0, width, height, Math.max(8, height * 0.14));
     cardMask.fill(0xffffff);
@@ -407,14 +455,26 @@ export class BattleScene extends BaseScene {
     return c;
   }
 
+  private fitEventCardSprite(sprite: Sprite, frameW: number, frameH: number, cardW: number, cardH: number) {
+    const scale = cardW / frameW;
+    sprite.width = cardW;
+    sprite.height = frameH * scale;
+    sprite.x = 0;
+    sprite.y = (cardH - sprite.height) / 2;
+  }
+
+  private eventCardLayout(entry: BattleEventEntry) {
+    if (entry.eventType === 'kick_off' || entry.eventType === 'half_time') {
+      return { ...EVENT_CARD_LAYOUT, textX: 0.34, shadeX: 0.31 };
+    }
+    return EVENT_CARD_LAYOUT;
+  }
+
   private eventTitleLine(actor: string, action: string, players: PlayerCardData[], size: number, color: number, cardHeight: number) {
     const c = new Container();
-    const actorLabel = label(actor, size, color, '900');
-    actorLabel.style.dropShadow = { color: 0x000000, blur: 4, distance: 2, alpha: 0.95, angle: Math.PI / 4 };
-    c.addChild(actorLabel);
-    let cursorX = actorLabel.width + Math.max(4, size * 0.22);
+    let cursorX = 0;
     if (players.length) {
-      const avatarSize = Math.max(16, Math.min(24, cardHeight * 0.32));
+      const avatarSize = Math.max(20, Math.min(30, cardHeight * 0.42));
       players.slice(0, 3).forEach((player, index) => {
         const avatar = this.eventPlayerAvatar(player, avatarSize, color);
         avatar.x = cursorX + avatarSize / 2 + index * (avatarSize * 0.68);
@@ -423,6 +483,11 @@ export class BattleScene extends BaseScene {
       });
       cursorX += avatarSize + Math.max(0, players.slice(0, 3).length - 1) * (avatarSize * 0.68) + Math.max(5, size * 0.24);
     }
+    const actorLabel = label(actor, size, color, '900');
+    actorLabel.style.dropShadow = { color: 0x000000, blur: 4, distance: 2, alpha: 0.95, angle: Math.PI / 4 };
+    actorLabel.x = cursorX;
+    c.addChild(actorLabel);
+    cursorX += actorLabel.width + Math.max(4, size * 0.22);
     const actionLabel = label(action, size, color, '900');
     actionLabel.style.dropShadow = { color: 0x000000, blur: 4, distance: 2, alpha: 0.95, angle: Math.PI / 4 };
     actionLabel.x = cursorX;
@@ -467,7 +532,7 @@ export class BattleScene extends BaseScene {
 
   private eventCardTitle(title: string) {
     if (title === '进球') return '破门！';
-    if (title === '射门') return '射门被扑';
+    if (title === '射门') return '完成射门';
     if (title === '角球') return '获得角球';
     if (title === '黄牌') return '吃到黄牌';
     if (title === '红牌') return '被罚下';
@@ -656,11 +721,13 @@ export class BattleScene extends BaseScene {
   }
 
   private pushEvent() {
-    const next = this.createMoment();
+    const next = this.generatedMoment ?? this.createMoment();
+    this.generatedMoment = undefined;
     this.moment = next;
     if (next.score === 'home') this.scoreA += 1;
     if (next.score === 'away') this.scoreB += 1;
-    if (next.type === 'goal') this.game.sound.play('goal');
+    const isGoal = next.type === 'goal' || !!next.score;
+    if (isGoal) this.game.sound.play('goal');
     else if (next.mood === 'bad') this.game.sound.play('danger');
     else if (next.mood === 'good') this.game.sound.play('confirm');
     else this.game.sound.play('tap');
@@ -669,33 +736,172 @@ export class BattleScene extends BaseScene {
       text: next.detail,
       scoreA: this.scoreA,
       scoreB: this.scoreB,
-      mood: next.mood
+      mood: next.mood,
+      eventType: next.eventType ?? this.eventTypeForMoment(next),
+      title: next.title,
+      actor: next.actorName ?? this.playerName(next.actor),
+      relatedActors: next.actorNames ?? (next.actors?.map((player) => this.playerName(player)) ?? (next.actor ? [this.playerName(next.actor)] : [])),
+      team: next.team
     });
     if (this.scoreText) this.scoreText.text = `${this.scoreA} : ${this.scoreB}`;
     this.resize();
+    if (isGoal) this.playGoalAnimation(next.score ?? 'home');
+  }
+
+  private playGoalAnimation(team: 'home' | 'away') {
+    this.goalOverlay?.destroy({ children: true });
+    this.goalOverlayAge = 0;
+    const c = new Container();
+    c.eventMode = 'none';
+    const shade = new Graphics();
+    shade.rect(0, 0, this.game.width, this.game.height);
+    shade.fill({ color: 0x020817, alpha: 0.64 });
+
+    const accent = team === 'home' ? 0x27a2ff : 0xff536a;
+    const banner = new Graphics();
+    const bw = Math.min(this.game.width - 72, 560);
+    const bh = 172;
+    const bx = (this.game.width - bw) / 2;
+    const by = this.game.height * 0.34;
+    banner.roundRect(bx, by, bw, bh, 18);
+    banner.fill({ color: 0x06142f, alpha: 0.94 });
+    banner.stroke({ color: accent, alpha: 0.95, width: 3 });
+    banner.rect(bx + 28, by + bh - 8, bw - 56, 4);
+    banner.fill({ color: accent, alpha: 0.82 });
+
+    const flash = new Graphics();
+    flash.moveTo(bx + 40, by + 36);
+    flash.lineTo(bx + bw - 36, by + 16);
+    flash.lineTo(bx + bw - 92, by + 60);
+    flash.lineTo(bx + 76, by + 86);
+    flash.fill({ color: accent, alpha: 0.18 });
+
+    const title = label(team === 'home' ? '破门!' : '对手破门', 58, team === 'home' ? 0x35a8ff : 0xff5d68, '900');
+    title.anchor.set(0.5);
+    title.x = this.game.width / 2;
+    title.y = by + 66;
+    title.style.dropShadow = { color: 0x000000, blur: 8, distance: 4, alpha: 0.95, angle: Math.PI / 4 };
+
+    const sub = label(`${this.scoreA} : ${this.scoreB}`, 42, 0xffd632, '900');
+    sub.anchor.set(0.5);
+    sub.x = this.game.width / 2;
+    sub.y = by + 122;
+
+    const ball = label('⚽', 54, palette.white, '900');
+    ball.anchor.set(0.5);
+    ball.x = bx + bw - 72;
+    ball.y = by + 82;
+
+    c.addChild(shade, banner, flash, title, sub, ball);
+    this.goalOverlay = c;
+    this.container.addChild(c);
+  }
+
+  private updateGoalAnimation(deltaMs: number) {
+    if (!this.goalOverlay) return;
+    this.goalOverlayAge += deltaMs;
+    const t = this.goalOverlayAge / 1400;
+    const pulse = 1 + Math.sin(this.goalOverlayAge * 0.018) * 0.035;
+    this.goalOverlay.scale.set(pulse);
+    this.goalOverlay.x = (this.game.width * (1 - pulse)) / 2;
+    this.goalOverlay.y = (this.game.height * (1 - pulse)) / 2;
+    this.goalOverlay.alpha = t < 0.72 ? 1 : Math.max(0, 1 - (t - 0.72) / 0.28);
+    if (this.goalOverlayAge >= 1400) {
+      this.goalOverlay.destroy({ children: true });
+      this.goalOverlay = undefined;
+      this.goalOverlayAge = 0;
+    }
+  }
+
+  private prefetchGeneratedMoment() {
+    if (this.generatedMoment || this.generatedMomentLoading || this.generatedMomentDisabled || !this.game.server.enabled || this.isBattleProcessDebug()) return;
+    this.generatedMomentLoading = true;
+    void this.game.server.generateBattleMoment({
+      minute: this.matchMinute(),
+      scoreA: this.scoreA,
+      scoreB: this.scoreB,
+      homePlayers: this.playersForGeneration(this.game.lineup),
+      awayPlayers: this.playersForGeneration(this.opponentLineup()),
+      recentEvents: this.events.slice(0, 5).map((event) => ({ time: event.time, text: event.text, mood: event.mood, eventType: event.eventType, title: event.title }))
+    }).then((moment) => {
+      if (moment) this.generatedMoment = this.toBattleMoment(moment);
+    }).catch((error) => {
+      this.generatedMomentDisabled = true;
+      console.warn('[battle-ai] disabled, falling back to local moments', error);
+    }).finally(() => {
+      this.generatedMomentLoading = false;
+    });
+  }
+
+  private playersForGeneration(lineup: LineupSlot[]) {
+    return lineup
+      .map((slot) => slot.player ? {
+        id: slot.player.id,
+        displayName: playerDisplayName(slot.player),
+        position: slot.position,
+        rating: slot.player.rating
+      } : undefined)
+      .filter(Boolean) as Array<{ id: string; displayName: string; position: string; rating: number }>;
+  }
+
+  private toBattleMoment(moment: GeneratedBattleMoment): BattleMoment {
+    const actor = this.findPlayerByName(moment.actorName);
+    const actors = moment.relatedActorNames.map((name) => this.findPlayerByName(name)).filter(Boolean) as PlayerCardData[];
+    return {
+      type: this.momentTypeFromGenerated(moment.eventType),
+      eventType: this.safeEventType(moment.eventType),
+      title: moment.title,
+      detail: moment.detail,
+      mood: moment.mood,
+      score: moment.score ?? undefined,
+      actor,
+      actorName: playerDisplayName(moment.actorName),
+      actors: actors.length ? actors : actor ? [actor] : [],
+      actorNames: moment.relatedActorNames.map((name) => playerDisplayName(name)),
+      team: moment.team
+    };
+  }
+
+  private safeEventType(eventType?: string): GameEventCardKey | undefined {
+    return eventType && eventType in GAME_EVENT_CARD_FRAMES ? eventType as GameEventCardKey : undefined;
+  }
+
+  private momentTypeFromGenerated(eventType: string): MomentType {
+    if (eventType === 'goal') return 'goal';
+    if (eventType === 'shot') return 'shot';
+    if (eventType === 'save') return 'save';
+    if (eventType === 'corner') return 'corner';
+    if (eventType === 'yellow_card' || eventType === 'red_card' || eventType === 'offside') return 'counter';
+    if (eventType === 'tackle' || eventType === 'duel' || eventType === 'pass' || eventType === 'dribble' || eventType === 'assist') return 'attack';
+    return 'attack';
   }
 
   private eventEntries() {
     if (this.isBattleProcessDebug()) return this.debugBattleEntries();
+    const currentActor = this.moment.actorName ?? this.playerName(this.moment.actor);
+    const currentPlayerNames = this.moment.actorNames ?? [currentActor];
     const current = {
+      eventType: this.moment.eventType ?? this.eventTypeForMoment(this.moment),
       time: this.matchMinute(),
       title: this.cardTitle(),
-      actor: this.playerName(this.moment.actor),
+      actor: currentActor,
       player: this.moment.actor,
-      players: this.moment.actors ?? (this.moment.actor ? [this.moment.actor] : []),
+      players: this.moment.actors ?? this.findPlayersByNames(currentPlayerNames),
       text: this.moment.detail,
       mood: this.moment.mood,
       scoreA: this.scoreA,
       scoreB: this.scoreB
     };
     const history = this.events.map((event) => {
-      const actor = this.eventActor(event.text);
+      const actor = event.actor ?? this.eventActor(event.text);
+      const relatedActors = event.relatedActors?.length ? event.relatedActors : [actor];
       return {
+        eventType: this.safeEventType(event.eventType),
         time: event.time,
         title: this.eventTitle(event),
         actor,
         player: this.findPlayerByName(actor),
-        players: this.findPlayersByActor(actor),
+        players: this.findPlayersByNames(relatedActors),
         text: event.text,
         mood: event.mood,
         scoreA: event.scoreA,
@@ -744,14 +950,64 @@ export class BattleScene extends BaseScene {
     return params.get('battleEvents') === 'all' || globalThis.localStorage?.getItem(DEV_BATTLE_EVENTS_KEY) === '1';
   }
 
+  private isBattleStayDebug() {
+    if (!runtimeEnv.DEV) return false;
+    const params = new URLSearchParams(globalThis.location?.search ?? '');
+    return params.get('battleStay') === '1' || globalThis.localStorage?.getItem(DEV_BATTLE_STAY_KEY) === '1';
+  }
+
   private eventTitle(event: BattleEvent) {
-    if (event.text.includes('破门') || event.text.includes('进球') || event.scoreA || event.scoreB) return '进球';
-    if (event.text.includes('射门') || event.text.includes('起脚')) return '射门';
+    if (event.title) return event.title;
+    const eventType = this.safeEventType(event.eventType);
+    if (eventType) return this.titleForEventType(eventType);
+    if (event.text.includes('破门') || event.text.includes('进球') || event.text.includes('入网')) return '进球';
+    if (/射门|起脚|远射|抽射|推射|劲射|打门/.test(event.text)) return '射门';
     if (event.text.includes('抢断')) return '抢断';
     if (event.text.includes('角球')) return '角球';
     if (event.text.includes('扑')) return '扑救';
     if (event.mood === 'bad') return '危险';
     return '配合';
+  }
+
+  private titleForEventType(eventType: GameEventCardKey) {
+    const titles: Record<GameEventCardKey, string> = {
+      goal: '进球',
+      shot: '射门',
+      attack: '进攻',
+      save: '扑救',
+      goal_confirm: '进球确认',
+      corner: '角球',
+      duel: '拼抢',
+      assist: '助攻',
+      pass: '传球',
+      tackle: '抢断',
+      dribble: '过人',
+      whistle: '哨响',
+      yellow_card: '黄牌',
+      red_card: '红牌',
+      offside: '越位',
+      substitution: '换人',
+      jersey_change: '阵容',
+      injury: '受伤',
+      player_injury: '球员受伤',
+      tactic: '战术',
+      timer: '补时',
+      half_time: '半场',
+      kick_off: '开球',
+      match_end: '结束'
+    };
+    return titles[eventType];
+  }
+
+  private eventTypeForMoment(moment: BattleMoment): GameEventCardKey {
+    if (moment.eventType) return moment.eventType;
+    if (moment.score || moment.type === 'goal') return 'goal';
+    if (moment.type === 'shot' || moment.type === 'post') return 'shot';
+    if (moment.type === 'corner') return 'corner';
+    if (moment.type === 'save') return 'save';
+    if (moment.type === 'kickoff') return 'kick_off';
+    if (moment.type === 'counter') return 'attack';
+    return 'attack';
   }
 
   private eventActor(text: string) {
@@ -773,6 +1029,10 @@ export class BattleScene extends BaseScene {
 
   private findPlayersByActor(actor: string) {
     const names = actor.split(/\s*(?:与|和|、|\/|&|\+)\s*/).map((name) => name.trim()).filter(Boolean);
+    return this.findPlayersByNames(names);
+  }
+
+  private findPlayersByNames(names: string[]) {
     const result: PlayerCardData[] = [];
     names.forEach((name) => {
       const player = this.findPlayerByName(name);
@@ -893,6 +1153,7 @@ export class BattleScene extends BaseScene {
   }
 
   private cardTitle() {
+    if (this.moment.title) return this.moment.title;
     if (this.moment.type === 'goal') return '进球时刻';
     if (this.moment.type === 'counter') return '危险时刻';
     if (this.moment.type === 'save') return '门前险情';

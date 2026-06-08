@@ -46,6 +46,11 @@ export interface BattleEvent {
   scoreA: number;
   scoreB: number;
   mood: 'normal' | 'good' | 'bad';
+  eventType?: string;
+  title?: string;
+  actor?: string;
+  relatedActors?: string[];
+  team?: 'home' | 'away';
 }
 
 export interface PlayerSaveData {
