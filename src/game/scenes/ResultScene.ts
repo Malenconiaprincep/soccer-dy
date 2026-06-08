@@ -163,76 +163,138 @@ export class ResultScene extends BaseScene {
   private reportTabLayout() {
     const w = this.game.width - 44;
     const y = STATS_PANEL_Y + this.topLift();
-    const tabH = 54;
-    const contentTop = tabH + 18;
+    const tabBarH = 58;
+    const tabCaretH = 10;
+    const blockGap = 16;
+    const contentPadTop = 18;
+    const contentPadBottom = 24;
     const rowH = 82;
-    const rowStart = contentTop + 6;
-    const h = rowStart + this.statsRows().length * rowH + 24;
-    return { x: RESULT_PANEL_X, y, w, h, tabH, contentTop, rowH, rowStart };
+    const contentH = contentPadTop + this.statsRows().length * rowH + contentPadBottom;
+    const contentY = y + tabBarH + tabCaretH + blockGap;
+    const totalH = contentY - y + contentH;
+    return {
+      x: RESULT_PANEL_X,
+      y,
+      w,
+      tabBarH,
+      tabCaretH,
+      blockGap,
+      contentY,
+      contentH,
+      contentPadTop,
+      rowH,
+      totalH
+    };
   }
 
   private mvpBlockLayout() {
     const stats = this.reportTabLayout();
     const h = 144;
-    return { x: stats.x, y: stats.y + stats.h + STATS_BLOCK_GAP, w: stats.w, h };
+    return { x: stats.x, y: stats.y + stats.totalH + STATS_BLOCK_GAP, w: stats.w, h };
   }
 
   private drawReportTabsPanel() {
     const layout = this.reportTabLayout();
-    const panel = new Container();
-    panel.x = layout.x;
-    panel.y = layout.y;
-    panel.addChild(this.panelBg(layout.w, layout.h, 0x041229, 0x238ce9, 0.92, 16));
 
-    this.drawReportTabButton(panel, 22, 16, (layout.w - 58) / 2, 44, '技术统计', 'stats');
-    this.drawReportTabButton(panel, layout.w / 2 + 7, 16, (layout.w - 58) / 2, 44, '比赛事件', 'events');
+    const tabPanel = new Container();
+    tabPanel.x = layout.x;
+    tabPanel.y = layout.y;
+    this.drawReportTabBar(tabPanel, 0, 0, layout.w, layout.tabBarH);
+    this.container.addChild(tabPanel);
+
+    const contentPanel = new Container();
+    contentPanel.x = layout.x;
+    contentPanel.y = layout.contentY;
+    contentPanel.addChild(this.panelBg(layout.w, layout.contentH, 0x041229, 0x238ce9, 0.92, 16));
 
     if (this.activeReportTab === 'stats') {
       const rows = this.statsRows();
       rows.forEach((row, index) => {
-        this.drawStatRow(panel, row, layout.rowStart + index * layout.rowH, layout.w, index < rows.length - 1);
+        this.drawStatRow(contentPanel, row, layout.contentPadTop + index * layout.rowH, layout.w, index < rows.length - 1);
       });
     } else {
       const cardH = 76;
-      const rowH = 88;
-      const availableRows = Math.max(1, Math.floor((layout.h - layout.contentTop - 24) / rowH));
+      const eventRowH = 88;
+      const availableRows = Math.max(1, Math.floor((layout.contentH - layout.contentPadTop - 24) / eventRowH));
       const events = this.reportEvents().slice(0, availableRows);
-      this.drawTimelineEventList(panel, events, layout.w, layout.contentTop + 10, cardH, rowH, 290);
+      this.drawTimelineEventList(contentPanel, events, layout.w, layout.contentPadTop + 10, cardH, eventRowH, 290);
     }
 
-    this.container.addChild(panel);
+    this.container.addChild(contentPanel);
   }
 
-  private drawReportTabButton(parent: Container, x: number, y: number, w: number, h: number, text: string, tab: 'stats' | 'events') {
-    const active = this.activeReportTab === tab;
-    const button = new Container();
-    button.x = x;
-    button.y = y;
-    button.eventMode = 'static';
-    button.cursor = 'pointer';
+  private drawReportTabBar(parent: Container, x: number, y: number, w: number, h: number) {
+    const statsActive = this.activeReportTab === 'stats';
+    const segmentW = w / 2;
+    const radius = h / 2;
+    const bar = new Container();
+    bar.x = x;
+    bar.y = y;
 
-    const bg = new Graphics();
-    bg.roundRect(0, 0, w, h, 12);
-    bg.fill({ color: active ? 0x1f83ed : 0x071936, alpha: active ? 0.95 : 0.84 });
-    bg.stroke({ color: active ? 0xffd23f : 0x2b77c8, alpha: active ? 0.95 : 0.72, width: active ? 2.5 : 2 });
+    const track = new Graphics();
+    track.roundRect(0, 0, w, h, radius);
+    track.fill({ color: 0x041a35, alpha: 0.96 });
+    track.stroke({ color: 0x238ce9, alpha: 0.9, width: 2 });
 
-    const shine = new Graphics();
-    shine.roundRect(8, 5, w - 16, 12, 6);
-    shine.fill({ color: 0xffffff, alpha: active ? 0.16 : 0.08 });
+    const indicator = new Graphics();
+    const r = Math.min(radius, segmentW, h / 2);
+    if (statsActive) {
+      indicator.moveTo(r, 0);
+      indicator.lineTo(segmentW, 0);
+      indicator.lineTo(segmentW, h);
+      indicator.lineTo(r, h);
+      indicator.arc(r, r, r, Math.PI / 2, -Math.PI / 2);
+      indicator.closePath();
+    } else {
+      indicator.moveTo(segmentW, 0);
+      indicator.lineTo(w - r, 0);
+      indicator.arc(w - r, r, r, -Math.PI / 2, Math.PI / 2);
+      indicator.lineTo(segmentW, h);
+      indicator.closePath();
+    }
+    indicator.fill({ color: 0x1f83ed, alpha: 1 });
 
-    const t = label(text, 22, active ? 0xffffff : 0xb9d8ff, '900');
-    t.anchor.set(0.5);
-    t.x = w / 2;
-    t.y = h / 2 + 1;
+    const caretX = statsActive ? segmentW / 2 : segmentW + segmentW / 2;
+    const caret = new Graphics();
+    caret.moveTo(caretX - 8, h);
+    caret.lineTo(caretX + 8, h);
+    caret.lineTo(caretX, h + 9);
+    caret.closePath();
+    caret.fill({ color: 0x1f83ed, alpha: 1 });
 
-    button.addChild(bg, shine, t);
-    button.on('pointertap', () => {
-      if (this.activeReportTab === tab) return;
-      this.game.sound.play('tap');
-      this.activeReportTab = tab;
-      this.resize();
-    });
-    parent.addChild(button);
+    const statsLabel = label('统计信息', 26, statsActive ? 0xffffff : 0xa8bdd9, '900');
+    statsLabel.anchor.set(0.5);
+    statsLabel.x = segmentW / 2;
+    statsLabel.y = h / 2 + 1;
+
+    const eventsLabel = label('比赛事件', 26, statsActive ? 0xa8bdd9 : 0xffffff, '900');
+    eventsLabel.anchor.set(0.5);
+    eventsLabel.x = segmentW + segmentW / 2;
+    eventsLabel.y = h / 2 + 1;
+
+    const statsHit = new Graphics();
+    statsHit.rect(0, 0, segmentW, h + 10);
+    statsHit.fill({ color: 0xffffff, alpha: 0.001 });
+    statsHit.eventMode = 'static';
+    statsHit.cursor = 'pointer';
+    statsHit.on('pointertap', () => this.switchReportTab('stats'));
+
+    const eventsHit = new Graphics();
+    eventsHit.rect(segmentW, 0, segmentW, h + 10);
+    eventsHit.fill({ color: 0xffffff, alpha: 0.001 });
+    eventsHit.eventMode = 'static';
+    eventsHit.cursor = 'pointer';
+    eventsHit.on('pointertap', () => this.switchReportTab('events'));
+
+    bar.addChild(track, indicator, caret, statsLabel, eventsLabel, statsHit, eventsHit);
+    parent.addChild(bar);
+  }
+
+  private switchReportTab(tab: 'stats' | 'events') {
+    if (this.activeReportTab === tab) return;
+    this.game.sound.play('tap');
+    this.activeReportTab = tab;
+    this.resize();
   }
 
   private drawMvpPanel() {
@@ -290,25 +352,25 @@ export class ResultScene extends BaseScene {
       ['⚑', '1', '助攻']
     ];
     stats.forEach(([iconText, value, name], index) => {
-      const x = w - 156 + index * 92;
+      const x = w - 168 + index * 102;
       if (index > 0) {
         const line = new Graphics();
-        line.rect(x - 46, 40, 1, 76);
+        line.rect(x - 51, 34, 1, 84);
         line.fill({ color: 0x2f5a91, alpha: 0.6 });
         panel.addChild(line);
       }
-      const icon = label(iconText, 24, 0xdbe7ff, '900');
+      const icon = label(iconText, 30, 0xdbe7ff, '900');
       icon.anchor.set(0.5);
-      icon.x = x - 22;
-      icon.y = 58;
-      const v = label(value, 27, palette.white, '900');
+      icon.x = x - 26;
+      icon.y = 56;
+      const v = label(value, 34, palette.white, '900');
       v.anchor.set(0, 0.5);
       v.x = x;
-      v.y = 58;
-      const n = label(name, 18, 0xc7d6ec, '700');
+      v.y = 56;
+      const n = label(name, 22, 0xc7d6ec, '700');
       n.anchor.set(0.5);
-      n.x = x - 2;
-      n.y = 92;
+      n.x = x - 4;
+      n.y = 96;
       panel.addChild(icon, v, n);
     });
 
