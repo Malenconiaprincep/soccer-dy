@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { headerTitleSprite, label, palette } from '../ui';
 import type { BattleEvent, PlayerCardData } from '../types';
@@ -6,12 +6,15 @@ import { playerDisplayName } from '../playerNames';
 
 const HOME_ACCENT = 0x2f8cff;
 const OPPONENT_ACCENT = 0xff465d;
+const GAME_BUTTON = '/assets/ui/gamebutton.png';
+const GAME_BUTTON_FRAME = { width: 540, height: 720 };
 const RESULT_PANEL_X = 22;
 const STATS_PANEL_Y = 310;
 const STATS_BLOCK_GAP = 36;
+const RESULT_ACTION_H = 74;
 
 interface StatRow {
-  icon: string;
+  icon: 'possession' | 'shots' | 'target' | 'pass' | 'corner' | 'tackle';
   name: string;
   left: string;
   right: string;
@@ -21,6 +24,7 @@ interface StatRow {
 
 export class ResultScene extends BaseScene {
   private rewardsGranted = false;
+  private activeReportTab: 'stats' | 'events' = 'stats';
 
   enter() {
     super.enter();
@@ -40,9 +44,8 @@ export class ResultScene extends BaseScene {
     this.drawShade();
     this.drawHeader();
     this.drawScoreSummary();
-    this.drawStatsPanel();
+    this.drawReportTabsPanel();
     this.drawMvpPanel();
-    this.drawReportTimeline();
     this.drawActions();
   }
 
@@ -154,44 +157,79 @@ export class ResultScene extends BaseScene {
     return c;
   }
 
-  private statsBlockLayout() {
+  private reportTabLayout() {
     const w = this.game.width - 44;
     const y = STATS_PANEL_Y + this.topLift();
-    const headerH = 48;
-    const rowH = 88;
-    const rowStart = headerH + 16;
+    const tabH = 54;
+    const contentTop = tabH + 18;
+    const rowH = 82;
+    const rowStart = contentTop + 6;
     const h = rowStart + this.statsRows().length * rowH + 24;
-    return { x: RESULT_PANEL_X, y, w, h, rowH, rowStart };
+    return { x: RESULT_PANEL_X, y, w, h, tabH, contentTop, rowH, rowStart };
   }
 
   private mvpBlockLayout() {
-    const stats = this.statsBlockLayout();
+    const stats = this.reportTabLayout();
     const h = 144;
     return { x: stats.x, y: stats.y + stats.h + STATS_BLOCK_GAP, w: stats.w, h };
   }
 
-  private keyEventsBlockLayout(eventCount: number) {
-    const mvp = this.mvpBlockLayout();
-    const cardH = 76;
-    const rowH = 88;
-    const headerH = 56;
-    const h = headerH + Math.max(cardH, eventCount * rowH) + 20;
-    return { x: mvp.x, y: mvp.y + mvp.h + STATS_BLOCK_GAP, w: mvp.w, h, cardH, rowH, headerH };
-  }
-
-  private drawStatsPanel() {
-    const layout = this.statsBlockLayout();
+  private drawReportTabsPanel() {
+    const layout = this.reportTabLayout();
     const panel = new Container();
     panel.x = layout.x;
     panel.y = layout.y;
-    const rows = this.statsRows();
     panel.addChild(this.panelBg(layout.w, layout.h, 0x041229, 0x238ce9, 0.92, 16));
-    this.drawSectionTitle(panel, layout.w / 2, 26, '数据统计', layout.w);
 
-    rows.forEach((row, index) => {
-      this.drawStatRow(panel, row, layout.rowStart + index * layout.rowH, layout.w, index < rows.length - 1);
-    });
+    this.drawReportTabButton(panel, 22, 16, (layout.w - 58) / 2, 44, '技术统计', 'stats');
+    this.drawReportTabButton(panel, layout.w / 2 + 7, 16, (layout.w - 58) / 2, 44, '比赛事件', 'events');
+
+    if (this.activeReportTab === 'stats') {
+      const rows = this.statsRows();
+      rows.forEach((row, index) => {
+        this.drawStatRow(panel, row, layout.rowStart + index * layout.rowH, layout.w, index < rows.length - 1);
+      });
+    } else {
+      const cardH = 76;
+      const rowH = 88;
+      const availableRows = Math.max(1, Math.floor((layout.h - layout.contentTop - 24) / rowH));
+      const events = this.reportEvents().slice(0, availableRows);
+      this.drawTimelineEventList(panel, events, layout.w, layout.contentTop + 10, cardH, rowH, 290);
+    }
+
     this.container.addChild(panel);
+  }
+
+  private drawReportTabButton(parent: Container, x: number, y: number, w: number, h: number, text: string, tab: 'stats' | 'events') {
+    const active = this.activeReportTab === tab;
+    const button = new Container();
+    button.x = x;
+    button.y = y;
+    button.eventMode = 'static';
+    button.cursor = 'pointer';
+
+    const bg = new Graphics();
+    bg.roundRect(0, 0, w, h, 12);
+    bg.fill({ color: active ? 0x1f83ed : 0x071936, alpha: active ? 0.95 : 0.84 });
+    bg.stroke({ color: active ? 0xffd23f : 0x2b77c8, alpha: active ? 0.95 : 0.72, width: active ? 2.5 : 2 });
+
+    const shine = new Graphics();
+    shine.roundRect(8, 5, w - 16, 12, 6);
+    shine.fill({ color: 0xffffff, alpha: active ? 0.16 : 0.08 });
+
+    const t = label(text, 22, active ? 0xffffff : 0xb9d8ff, '900');
+    t.anchor.set(0.5);
+    t.x = w / 2;
+    t.y = h / 2 + 1;
+
+    button.addChild(bg, shine, t);
+    button.on('pointertap', () => {
+      if (this.activeReportTab === tab) return;
+      this.game.sound.play('tap');
+      this.activeReportTab = tab;
+      this.resize();
+    });
+    parent.addChild(button);
   }
 
   private drawMvpPanel() {
@@ -272,19 +310,6 @@ export class ResultScene extends BaseScene {
     });
 
     panel.addChild(score, scoreLabel);
-    this.container.addChild(panel);
-  }
-
-  private drawReportTimeline() {
-    const events = this.reportEvents();
-    const layout = this.keyEventsBlockLayout(events.length);
-    const panel = new Container();
-    panel.x = layout.x;
-    panel.y = layout.y;
-    panel.addChild(this.panelBg(layout.w, layout.h, 0x041229, 0x238ce9, 0.88, 14));
-
-    this.drawSectionTitle(panel, layout.w / 2, 28, '关键事件', layout.w);
-    this.drawTimelineEventList(panel, events, layout.w, layout.headerH + 8, layout.cardH, layout.rowH, 290);
     this.container.addChild(panel);
   }
 
@@ -517,8 +542,11 @@ export class ResultScene extends BaseScene {
   }
 
   private drawActions() {
-    const y = Math.max(1206 + this.topLift() * 0.15, this.game.height - 112);
-    const back = this.actionButton(248, 74, '返回大厅', 0x0b62d8, 0x2aa0ff, false);
+    const mvp = this.mvpBlockLayout();
+    const preferredY = mvp.y + mvp.h + 28;
+    const maxY = this.game.height - RESULT_ACTION_H - Math.max(24, this.game.safeAreaBottom + 18);
+    const y = Math.min(preferredY, maxY);
+    const back = this.actionButton(248, RESULT_ACTION_H, '返回大厅', 0x0b62d8, 0x2aa0ff, false);
     back.x = 82;
     back.y = y;
     back.on('pointertap', () => {
@@ -526,7 +554,7 @@ export class ResultScene extends BaseScene {
       this.game.changeScene('home');
     });
 
-    const next = this.actionButton(248, 74, '继续比赛', 0xffc341, 0xfff0a2, true);
+    const next = this.actionButton(248, RESULT_ACTION_H, '继续比赛', 0xffc341, 0xfff0a2, true);
     next.x = this.game.width - 82 - 248;
     next.y = y;
     next.on('pointertap', () => {
@@ -563,26 +591,79 @@ export class ResultScene extends BaseScene {
     const titleY = y + 14;
     const barY = y + 38;
 
-    const icon = label(row.icon, 28, 0xe8f2ff, '900');
-    icon.anchor.set(0, 0.5);
+    const icon = this.statIcon(row.icon, 28);
     const name = label(row.name, 26, 0xd9e4f4, '700');
     name.anchor.set(0, 0.5);
-    const titleGap = 10;
-    name.x = icon.width + titleGap;
+    const titleGap = 12;
+    name.x = 28 + titleGap;
     const title = new Container();
     title.x = (w - (name.x + name.width)) / 2;
     title.y = titleY;
+    icon.y = -14;
     title.addChild(icon, name);
 
     if (showDivider) {
       const divider = new Graphics();
-      divider.rect(padX, y + barY + barH + 14, barW, 1);
+      divider.rect(padX, barY + barH + 12, barW, 1);
       divider.fill({ color: 0x15345a, alpha: 0.45 });
       parent.addChild(divider);
     }
 
     this.drawComparisonBar(parent, barX, barY, barW, barH, row.leftValue, row.rightValue, row.left, row.right);
     parent.addChild(title);
+  }
+
+  private statIcon(type: StatRow['icon'], size: number) {
+    const c = new Container();
+    const g = new Graphics();
+    const color = 0xe8f2ff;
+    const cx = size / 2;
+    const cy = size / 2;
+    const r = size * 0.36;
+
+    if (type === 'possession') {
+      g.circle(cx, cy, r);
+      g.fill({ color: 0xffffff, alpha: 0.96 });
+      g.stroke({ color: 0x0a1830, alpha: 0.85, width: 2 });
+      g.moveTo(cx, cy - r);
+      g.lineTo(cx + r * 0.52, cy - r * 0.18);
+      g.lineTo(cx + r * 0.32, cy + r * 0.62);
+      g.lineTo(cx - r * 0.32, cy + r * 0.62);
+      g.lineTo(cx - r * 0.52, cy - r * 0.18);
+      g.closePath();
+      g.fill({ color: 0x1b2233, alpha: 0.92 });
+    } else if (type === 'shots') {
+      g.circle(cx, cy, r);
+      g.stroke({ color, alpha: 0.95, width: 3 });
+      g.circle(cx, cy, r * 0.5);
+      g.stroke({ color, alpha: 0.75, width: 2 });
+    } else if (type === 'target') {
+      g.circle(cx, cy, r);
+      g.fill({ color, alpha: 0.95 });
+      g.stroke({ color: 0x8fb6e8, alpha: 0.9, width: 2 });
+    } else if (type === 'pass') {
+      g.moveTo(size * 0.16, size * 0.58);
+      g.lineTo(size * 0.56, size * 0.38);
+      g.lineTo(size * 0.46, size * 0.25);
+      g.lineTo(size * 0.82, size * 0.38);
+      g.lineTo(size * 0.54, size * 0.66);
+      g.lineTo(size * 0.58, size * 0.5);
+      g.lineTo(size * 0.22, size * 0.7);
+      g.stroke({ color, alpha: 0.95, width: 3 });
+    } else if (type === 'corner') {
+      g.rect(size * 0.22, size * 0.2, 3, size * 0.6);
+      g.fill({ color, alpha: 0.95 });
+      g.poly([size * 0.28, size * 0.2, size * 0.74, size * 0.32, size * 0.28, size * 0.48]);
+      g.fill({ color, alpha: 0.95 });
+    } else {
+      g.rect(size * 0.32, size * 0.28, size * 0.36, size * 0.44);
+      g.fill({ color, alpha: 0.95 });
+      g.rect(size * 0.42, size * 0.38, size * 0.16, size * 0.24);
+      g.fill({ color: 0x06142c, alpha: 0.95 });
+    }
+
+    c.addChild(g);
+    return c;
   }
 
   private drawComparisonBar(
@@ -723,21 +804,11 @@ export class ResultScene extends BaseScene {
 
   private actionButton(width: number, height: number, text: string, fill: number, stroke: number, gold: boolean) {
     const button = new Container();
-    const glow = new Graphics();
-    glow.roundRect(-8, -8, width + 16, height + 16, 12);
-    glow.fill({ color: fill, alpha: 0.22 });
-    const bg = new Graphics();
-    bg.roundRect(0, 0, width, height, 8);
-    bg.fill({ color: fill, alpha: 0.96 });
-    bg.stroke({ color: stroke, alpha: 0.95, width: 3 });
-    const top = new Graphics();
-    top.roundRect(8, 8, width - 16, height * 0.34, 8);
-    top.fill({ color: 0xffffff, alpha: gold ? 0.22 : 0.1 });
-    const title = label(text, 30, gold ? 0x452600 : palette.white, '900');
-    title.anchor.set(0.5);
-    title.x = width / 2;
-    title.y = height / 2 + 1;
-    button.addChild(glow, bg, top, title);
+    const frame = new Rectangle(gold ? GAME_BUTTON_FRAME.width : 0, 0, GAME_BUTTON_FRAME.width, GAME_BUTTON_FRAME.height);
+    const sprite = new Sprite(new Texture({ source: Texture.from(GAME_BUTTON).source, frame }));
+    sprite.width = width;
+    sprite.height = height;
+    button.addChild(sprite);
     button.eventMode = 'static';
     button.cursor = 'pointer';
     return button;
@@ -779,12 +850,12 @@ export class ResultScene extends BaseScene {
   private statsRows(): StatRow[] {
     const derived = this.deriveMatchStats();
     return [
-      { icon: '⚽', name: '控球率', left: `${derived.possessionHome}%`, right: `${derived.possessionAway}%`, leftValue: derived.possessionHome, rightValue: derived.possessionAway },
-      { icon: '◎', name: '射门', left: String(derived.shotsHome), right: String(derived.shotsAway), leftValue: derived.shotsHome, rightValue: derived.shotsAway },
-      { icon: '◉', name: '射正', left: String(derived.onTargetHome), right: String(derived.onTargetAway), leftValue: derived.onTargetHome, rightValue: derived.onTargetAway },
-      { icon: '⌁', name: '传球成功率', left: `${derived.passHome}%`, right: `${derived.passAway}%`, leftValue: derived.passHome, rightValue: derived.passAway },
-      { icon: '⚑', name: '角球', left: String(derived.cornersHome), right: String(derived.cornersAway), leftValue: derived.cornersHome, rightValue: derived.cornersAway },
-      { icon: '◧', name: '抢断', left: String(derived.tacklesHome), right: String(derived.tacklesAway), leftValue: derived.tacklesHome, rightValue: derived.tacklesAway }
+      { icon: 'possession', name: '控球率', left: `${derived.possessionHome}%`, right: `${derived.possessionAway}%`, leftValue: derived.possessionHome, rightValue: derived.possessionAway },
+      { icon: 'shots', name: '射门', left: String(derived.shotsHome), right: String(derived.shotsAway), leftValue: derived.shotsHome, rightValue: derived.shotsAway },
+      { icon: 'target', name: '射正', left: String(derived.onTargetHome), right: String(derived.onTargetAway), leftValue: derived.onTargetHome, rightValue: derived.onTargetAway },
+      { icon: 'pass', name: '传球成功率', left: `${derived.passHome}%`, right: `${derived.passAway}%`, leftValue: derived.passHome, rightValue: derived.passAway },
+      { icon: 'corner', name: '角球', left: String(derived.cornersHome), right: String(derived.cornersAway), leftValue: derived.cornersHome, rightValue: derived.cornersAway },
+      { icon: 'tackle', name: '抢断', left: String(derived.tacklesHome), right: String(derived.tacklesAway), leftValue: derived.tacklesHome, rightValue: derived.tacklesAway }
     ];
   }
 
