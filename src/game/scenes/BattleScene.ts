@@ -11,9 +11,8 @@ type GameEventCardKey = 'shot' | 'goal' | 'save' | 'corner' | 'yellow' | 'red' |
 const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
 const DEV_BATTLE_EVENTS_KEY = 'soccer.dev.battleEventsAll';
 const DEV_BATTLE_STAY_KEY = 'soccer.dev.battleStay';
+const DEV_BATTLE_AI_KEY = 'soccer.dev.battleAi';
 const GAME_EVENTS = '/assets/ui/gameevents.png';
-const GAME_EVENT_SHEET = { x: 25, width: 675, rowHeight: 110 };
-const GAME_EVENT_CARD_ASPECT = GAME_EVENT_SHEET.width / GAME_EVENT_SHEET.rowHeight;
 const GAME_EVENT_CARD_FRAMES: Record<GameEventCardKey, { x: number; y: number; width: number; height: number }> = {
   shot: { x: 25, y: 44, width: 675, height: 110 },
   goal: { x: 25, y: 165, width: 675, height: 110 },
@@ -24,6 +23,9 @@ const GAME_EVENT_CARD_FRAMES: Record<GameEventCardKey, { x: number; y: number; w
   injury: { x: 25, y: 769, width: 675, height: 110 },
   sub: { x: 25, y: 889, width: 675, height: 111 }
 };
+
+const OPPONENT_ACCENT = 0xff465d;
+const HOME_ACCENT = 0x2f8cff;
 
 const EVENT_CARD_LAYOUT = {
   timeX: 0.228,
@@ -76,6 +78,7 @@ interface BattleEventEntry {
   mood: BattleEvent['mood'];
   scoreA: number;
   scoreB: number;
+  team?: 'home' | 'away';
 }
 
 export class BattleScene extends BaseScene {
@@ -116,6 +119,7 @@ export class BattleScene extends BaseScene {
 
   enter() {
     super.enter();
+    this.generatedMomentDisabled = false;
     this.game.sound.play('kickoff');
     this.prefetchGeneratedMoment();
   }
@@ -171,7 +175,7 @@ export class BattleScene extends BaseScene {
     const leftLogo = this.teamLogo(116, 0x2f8cff, 0x16e2ff, '蓝');
     leftLogo.x = 86;
     leftLogo.y = y + 116;
-    const rightLogo = this.teamLogo(116, 0xffd34a, 0xff7042, 'AI');
+    const rightLogo = this.teamLogo(116, OPPONENT_ACCENT, 0xff5d68, 'AI');
     rightLogo.x = this.game.width - 86;
     rightLogo.y = y + 116;
 
@@ -209,7 +213,7 @@ export class BattleScene extends BaseScene {
 
     const timeBox = this.matchClockBox(178, 58);
     timeBox.x = this.game.width / 2 - 89;
-    timeBox.y = y + 186;
+    timeBox.y = y + 176;
     this.timeText = label(this.clockText(), 34, 0xffd632, '900');
     this.timeText.anchor.set(0.5);
     this.timeText.x = 89;
@@ -280,7 +284,7 @@ export class BattleScene extends BaseScene {
     const gap = debugAll ? 16 : 10;
     const debugColumns = 1;
     const debugRows = Math.ceil(entries.length / debugColumns);
-    const aspectRowH = Math.ceil(cardW / GAME_EVENT_CARD_ASPECT);
+    const aspectRowH = Math.ceil(cardW / this.eventCardAspect());
     const rowH = debugAll
       ? aspectRowH
       : Math.max(96, Math.min(aspectRowH, Math.round((h - 34) / 4.2)));
@@ -378,6 +382,15 @@ export class BattleScene extends BaseScene {
     this.fitEventCardSprite(bg, width, height);
     c.addChild(bg);
 
+    const team = this.eventTeam(entry);
+    const accent = this.entryAccent(entry, team);
+    if (team === 'away') {
+      const border = new Graphics();
+      border.roundRect(1.5, 1.5, width - 3, height - 3, Math.max(8, height * 0.14));
+      border.stroke({ color: OPPONENT_ACCENT, width: 2.5, alpha: 0.95 });
+      c.addChild(border);
+    }
+
     const textShade = new Graphics();
     const layout = this.eventCardLayout(entry);
     textShade.roundRect(
@@ -390,8 +403,7 @@ export class BattleScene extends BaseScene {
     textShade.fill({ color: 0x020817, alpha: 0.34 });
     c.addChild(textShade);
 
-    const accent = this.entryColor(entry.mood);
-    const time = label(`${entry.time}'`, Math.round(height * 0.26), entry.mood === 'normal' ? 0xffd632 : accent, '900');
+    const time = label(`${entry.time}'`, Math.round(height * 0.26), accent, '900');
     time.anchor.set(0.5);
     time.x = width * layout.timeX;
     time.y = height * layout.timeY;
@@ -440,10 +452,16 @@ export class BattleScene extends BaseScene {
   }
 
   private fitEventCardSprite(sprite: Sprite, cardW: number, cardH: number) {
-    sprite.width = cardW;
-    sprite.height = cardH;
-    sprite.x = 0;
-    sprite.y = 0;
+    const scale = Math.min(cardW / sprite.texture.width, cardH / sprite.texture.height);
+    sprite.scale.set(scale);
+    sprite.x = (cardW - sprite.texture.width * scale) / 2;
+    sprite.y = (cardH - sprite.texture.height * scale) / 2;
+  }
+
+  private eventCardAspect() {
+    const frames = Object.values(GAME_EVENT_CARD_FRAMES);
+    const averageHeight = frames.reduce((sum, frame) => sum + frame.height, 0) / frames.length;
+    return GAME_EVENT_CARD_FRAMES.shot.width / averageHeight;
   }
 
   private eventCardLayout(_entry: BattleEventEntry) {
@@ -551,7 +569,7 @@ export class BattleScene extends BaseScene {
     left.anchor.set(0, 0.5);
     left.x = x + 50;
     left.y = y + 112;
-    const right = label('对方反击', 28, 0xff465d, '900');
+    const right = label('对方反击', 28, OPPONENT_ACCENT, '900');
     right.anchor.set(1, 0.5);
     right.x = x + w - 50;
     right.y = y + 112;
@@ -781,7 +799,7 @@ export class BattleScene extends BaseScene {
   }
 
   private prefetchGeneratedMoment() {
-    if (this.generatedMoment || this.generatedMomentLoading || this.generatedMomentDisabled || !this.game.server.enabled || this.isBattleProcessDebug()) return;
+    if (this.generatedMoment || this.generatedMomentLoading || this.generatedMomentDisabled || !this.shouldUseBattleAi()) return;
     this.generatedMomentLoading = true;
     void this.game.server.generateBattleMoment({
       minute: this.matchMinute(),
@@ -858,7 +876,8 @@ export class BattleScene extends BaseScene {
       text: this.moment.detail,
       mood: this.moment.mood,
       scoreA: this.scoreA,
-      scoreB: this.scoreB
+      scoreB: this.scoreB,
+      team: this.moment.team
     };
     const history = this.events.map((event) => {
       const actor = event.actor ?? this.eventActor(event.text);
@@ -873,7 +892,8 @@ export class BattleScene extends BaseScene {
         text: event.text,
         mood: event.mood,
         scoreA: event.scoreA,
-        scoreB: event.scoreB
+        scoreB: event.scoreB,
+        team: event.team
       };
     });
     const newest = history[0];
@@ -906,6 +926,19 @@ export class BattleScene extends BaseScene {
     if (!runtimeEnv.DEV) return false;
     const params = new URLSearchParams(globalThis.location?.search ?? '');
     return params.get('battleStay') === '1' || globalThis.localStorage?.getItem(DEV_BATTLE_STAY_KEY) === '1';
+  }
+
+  private isBattleAiEnabled() {
+    const params = new URLSearchParams(globalThis.location?.search ?? '');
+    if (params.get('battleAi') === '1') return true;
+    if (params.get('battleAi') === '0') return false;
+    return globalThis.localStorage?.getItem(DEV_BATTLE_AI_KEY) === '1';
+  }
+
+  private shouldUseBattleAi() {
+    if (!this.game.server.enabled || this.isBattleProcessDebug()) return false;
+    if (runtimeEnv.DEV) return this.isBattleAiEnabled();
+    return true;
   }
 
   private eventTitle(event: BattleEvent) {
@@ -974,10 +1007,21 @@ export class BattleScene extends BaseScene {
     return result;
   }
 
-  private entryColor(mood: BattleEvent['mood']) {
-    if (mood === 'bad') return 0xff5d68;
-    if (mood === 'good') return 0x2f8cff;
-    return 0xffd632;
+  private entryAccent(_entry: BattleEventEntry, team: 'home' | 'away') {
+    return team === 'away' ? OPPONENT_ACCENT : HOME_ACCENT;
+  }
+
+  private eventTeam(entry: BattleEventEntry): 'home' | 'away' {
+    if (entry.team) return entry.team;
+    const players = entry.players?.length ? entry.players : entry.player ? [entry.player] : [];
+    if (players.some((player) => this.opponentLineup().some((slot) => slot.player?.id === player.id))) return 'away';
+    const actor = entry.actor?.trim();
+    if (actor) {
+      for (const slot of this.opponentLineup()) {
+        if (slot.player && playerDisplayName(slot.player) === actor) return 'away';
+      }
+    }
+    return 'home';
   }
 
   private eventTag(text: string, color: number) {

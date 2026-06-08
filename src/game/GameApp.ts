@@ -25,6 +25,7 @@ const DEV_HOLD_LOADING_KEY = 'soccer.dev.holdLoading';
 const DEV_SIGN_DAY_KEY = 'soccer.dev.signDay';
 const DEV_BATTLE_EVENTS_KEY = 'soccer.dev.battleEventsAll';
 const DEV_BATTLE_STAY_KEY = 'soccer.dev.battleStay';
+const DEV_BATTLE_AI_KEY = 'soccer.dev.battleAi';
 const DEV_PANEL_COLLAPSED_KEY = 'soccer.dev.panelCollapsed';
 const DEV_PANEL_POSITION_KEY = 'soccer.dev.panelPosition';
 
@@ -369,6 +370,15 @@ export class GameApp {
     battleStay.checked = globalThis.localStorage?.getItem(DEV_BATTLE_STAY_KEY) === '1';
     battleStayLabel.append(battleStay, '停留比赛中');
 
+    const battleAiLabel = document.createElement('label');
+    battleAiLabel.style.display = 'flex';
+    battleAiLabel.style.alignItems = 'center';
+    battleAiLabel.style.gap = '6px';
+    const battleAi = document.createElement('input');
+    battleAi.type = 'checkbox';
+    battleAi.checked = globalThis.localStorage?.getItem(DEV_BATTLE_AI_KEY) === '1';
+    battleAiLabel.append(battleAi, '比赛走大模型');
+
     const actions = document.createElement('div');
     actions.style.display = 'grid';
     actions.style.gridTemplateColumns = '1fr 1fr';
@@ -379,10 +389,10 @@ export class GameApp {
     actions.append(go, save);
 
     const hint = document.createElement('div');
-    hint.textContent = '?scene=home&signDay=4 可直开签到天数预览';
+    hint.textContent = '?scene=battle&battleAi=1 可直开大模型比赛';
     hint.style.color = '#9fdcff';
     hint.style.lineHeight = '1.35';
-    const bodyItems = [select, holdLabel, signDayLabel, battleEventsLabel, battleStayLabel, actions, hint];
+    const bodyItems = [select, holdLabel, signDayLabel, battleEventsLabel, battleStayLabel, battleAiLabel, actions, hint];
     let collapsedState = globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) === '1';
     let dragMoved = false;
 
@@ -415,6 +425,7 @@ export class GameApp {
       globalThis.localStorage?.setItem(DEV_SIGN_DAY_KEY, signDay.value);
       globalThis.localStorage?.setItem(DEV_BATTLE_EVENTS_KEY, battleEvents.checked ? '1' : '0');
       globalThis.localStorage?.setItem(DEV_BATTLE_STAY_KEY, battleStay.checked ? '1' : '0');
+      globalThis.localStorage?.setItem(DEV_BATTLE_AI_KEY, battleAi.checked ? '1' : '0');
       save.textContent = '已保存';
       window.setTimeout(() => {
         save.textContent = '设默认';
@@ -434,6 +445,10 @@ export class GameApp {
     };
     battleStay.onchange = () => {
       globalThis.localStorage?.setItem(DEV_BATTLE_STAY_KEY, battleStay.checked ? '1' : '0');
+    };
+    battleAi.onchange = () => {
+      globalThis.localStorage?.setItem(DEV_BATTLE_AI_KEY, battleAi.checked ? '1' : '0');
+      if (this.scene instanceof BattleScene) this.changeScene('battle');
     };
     toggle.onclick = () => {
       if (dragMoved) return;
