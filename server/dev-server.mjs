@@ -250,9 +250,10 @@ async function streamBattleScript(response, body) {
   });
 
   try {
-    await fetchBattleScriptEvents(body, Math.max(6, Math.min(14, Number(body.count ?? 10))), (event) => {
+    const events = await fetchBattleScriptEvents(body, Math.max(6, Math.min(20, Number(body.count ?? 14))));
+    for (const event of events) {
       response.write(`data: ${JSON.stringify(event)}\n\n`);
-    });
+    }
     response.write('data: [DONE]\n\n');
   } catch (error) {
     console.error('[battle-ai] script stream failed', error);
@@ -275,21 +276,24 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
   const awayPlayers = normalizeSquadPlayers(body.awayPlayers);
   const recentEvents = Array.isArray(body.recentEvents) ? body.recentEvents.slice(0, 5) : [];
   const allowedTypes = ['goal', 'shot', 'save', 'corner', 'yellow', 'red', 'injury', 'sub'];
-  const eventCount = Math.max(1, Math.min(14, Number(count ?? 10)));
+  const eventCount = Math.max(1, Math.min(20, Number(count ?? 14)));
 
   const prompt = [
     '你是一个足球小游戏比赛事件导演。请连续生成比赛事件。',
     '输出要求：',
-    `- 共 ${eventCount} 条事件，按时间顺序从近到远或递增分钟均可，minute 范围 ${minute}-90`,
+    `- 共 ${eventCount} 条事件，minute 严格递增，覆盖 ${minute}-90 分钟全场比赛`,
+    `- 最后一条事件的 minute 必须在 85-90 之间，不要全部挤在前 30 分钟`,
     '- 每行一个 JSON 对象，不要 Markdown，不要外层数组',
     '- actorName 必须是 roster 中吃到牌/进球/射门的球员 displayName',
     '- 黄牌/红牌/受伤/射门/进球的 actorName 禁止用“裁判”“教练组”；裁判仅可在 detail 里描述动作',
-    '- 换人事件 actorName 可用“教练组”；扑救可用 roster 中的门将或后卫',
-    '- relatedActorNames 最多 3 个；detail 35 字以内中文',
+    '- 换人 sub：relatedActorNames 必须为 [被换下的球员, 被换上的球员] 共 2 人，前者 role=starter 后者 role=bench',
+    '- 换人 detail 必须写“XX 下，YY 上”，XX/YY 为 relatedActorNames 中的 displayName',
+    '- 换人 actorName 可用“教练组”；扑救可用 roster 中的门将或后卫',
+    '- relatedActorNames 最多 3 个；非换人 detail 35 字以内中文',
     '- score 仅进球时为 "home" 或 "away"，否则 null',
     '- roster 含 role=starter 首发与 role=bench 替补，换人与受伤可涉及替补',
     `- eventType 只能是：${allowedTypes.join(', ')}`,
-    '每行 JSON 字段：{"minute":12,"eventType":"shot","actorName":"小罗","relatedActorNames":["小罗"],"detail":"...","mood":"good","score":null,"team":"home"}',
+    '每行 JSON 字段：{"minute":12,"eventType":"sub","actorName":"教练组","relatedActorNames":["萨利巴","拉莫斯"],"detail":"萨利巴 下，拉莫斯 上","mood":"normal","score":null,"team":"home"}',
     `当前：${minute}'，比分 ${scoreA}:${scoreB}`,
     `我方 roster：${JSON.stringify(homePlayers)}`,
     `对方 roster：${JSON.stringify(awayPlayers)}`,
@@ -310,7 +314,7 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
       ],
       stream: true,
       temperature: 0.85,
-      max_tokens: Math.min(1800, 180 * eventCount)
+      max_tokens: Math.min(2400, 200 * eventCount)
     })
   });
 
@@ -332,7 +336,6 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
       const event = normalizeBattleMoment(parseJsonObject(line), allowedTypes, homePlayers, awayPlayers);
       if (!event) continue;
       events.push(event);
-      if (onEvent) onEvent(event);
     }
   }
   const tail = content.trim();
@@ -340,7 +343,6 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
     const event = normalizeBattleMoment(parseJsonObject(tail), allowedTypes, homePlayers, awayPlayers);
     if (event && !events.some((item) => item.detail === event.detail && item.actorName === event.actorName && item.minute === event.minute)) {
       events.push(event);
-      if (onEvent) onEvent(event);
     }
   }
 
@@ -351,17 +353,31 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
       if (!event) continue;
       if (events.some((existing) => existing.detail === event.detail && existing.actorName === event.actorName && existing.minute === event.minute)) continue;
       events.push(event);
-      if (onEvent) onEvent(event);
     }
   }
 
   if (!events.length) {
-    const fallback = fallbackBattleMoment('shot', 'home');
-    events.push(fallback);
-    if (onEvent) onEvent(fallback);
+    events.push(fallbackBattleMoment('shot', 'home'));
   }
 
-  return events.slice(0, eventCount);
+  const finalEvents = spreadEventMinutes(events.slice(0, eventCount), minute, 90);
+  if (onEvent) {
+    for (const event of finalEvents) onEvent(event);
+  }
+  return finalEvents;
+}
+
+function spreadEventMinutes(events, startMinute = 1, endMinute = 90) {
+  if (!events.length) return [];
+  const sorted = [...events].sort((a, b) => a.minute - b.minute);
+  if (sorted.length === 1) {
+    return [{ ...sorted[0], minute: Math.max(startMinute, Math.min(endMinute, sorted[0].minute)) }];
+  }
+  const span = Math.max(1, endMinute - startMinute);
+  return sorted.map((event, index) => ({
+    ...event,
+    minute: Math.max(startMinute, Math.min(endMinute, Math.round(startMinute + (index / (sorted.length - 1)) * span)))
+  }));
 }
 
 async function* readDashscopeDeltaStream(response) {
@@ -414,15 +430,63 @@ function pickRosterActor(team, homePlayers, awayPlayers) {
   return candidate?.displayName;
 }
 
+function pickSubstitutionPair(team, homePlayers, awayPlayers) {
+  const pool = team === 'away' ? awayPlayers : homePlayers;
+  const starters = pool.filter((player) => player.role === 'starter');
+  const bench = pool.filter((player) => player.role === 'bench');
+  const offPlayer = starters[Math.floor(Math.random() * Math.max(1, starters.length))] ?? pool[0];
+  const onPlayer = bench.find((player) => player.displayName !== offPlayer?.displayName) ?? bench[0] ?? pool[1];
+  return {
+    off: offPlayer?.displayName ?? pickRosterActor(team, homePlayers, awayPlayers) ?? '球员',
+    on: onPlayer?.displayName ?? pickRosterActor(team, homePlayers, awayPlayers) ?? '替补'
+  };
+}
+
+function normalizeSubstitution(raw, team, homePlayers, awayPlayers, names) {
+  const pair = pickSubstitutionPair(team, homePlayers, awayPlayers);
+  const related = (Array.isArray(raw.relatedActorNames) ? raw.relatedActorNames : [])
+    .map((name) => String(name))
+    .filter((name) => names.has(name) && !isSystemActor(name));
+  let off = related[0];
+  let on = related[1];
+  if (!off || !on || off === on) {
+    off = pair.off;
+    on = pair.on === off ? pickSubstitutionPair(team, homePlayers, awayPlayers).on : pair.on;
+  }
+  const detail = stringValue(raw.detail, `${off} 下，${on} 上`);
+  const finalDetail = detail.includes(off) && detail.includes(on) ? detail : `${off} 下，${on} 上`;
+  return {
+    actorName: isSystemActor(raw.actorName) ? '教练组' : stringValue(raw.actorName, '教练组'),
+    relatedActorNames: [off, on],
+    detail: finalDetail.slice(0, 60)
+  };
+}
+
 function normalizeBattleMoment(raw, allowedTypes, homePlayers = [], awayPlayers = []) {
   if (!raw || typeof raw !== 'object') return null;
   const eventType = allowedTypes.includes(raw.eventType) ? raw.eventType : 'shot';
   const mood = ['normal', 'good', 'bad'].includes(raw.mood) ? raw.mood : 'normal';
-  const score = raw.score === 'home' || raw.score === 'away' ? raw.score : null;
   const team = raw.team === 'away' ? 'away' : 'home';
+  const score = raw.score === 'home' || raw.score === 'away'
+    ? raw.score
+    : (eventType === 'goal' ? team : null);
   const minute = Math.max(1, Math.min(90, Number(raw.minute ?? 1)));
   const relatedActorNames = Array.isArray(raw.relatedActorNames) ? raw.relatedActorNames.slice(0, 3).map((name) => String(name)) : [];
   const names = rosterNames(homePlayers, awayPlayers);
+  if (eventType === 'sub') {
+    const sub = normalizeSubstitution(raw, team, homePlayers, awayPlayers, names);
+    return {
+      minute,
+      eventType,
+      title: titleForBattleEvent(eventType),
+      actorName: sub.actorName,
+      relatedActorNames: sub.relatedActorNames,
+      detail: sub.detail,
+      mood,
+      score,
+      team
+    };
+  }
   let actorName = stringValue(raw.actorName, team === 'home' ? '球员' : '对手');
   const playerOnlyEvents = new Set(['goal', 'shot', 'save', 'corner', 'yellow', 'red', 'injury']);
   if (playerOnlyEvents.has(eventType) && (isSystemActor(actorName) || !names.has(actorName))) {

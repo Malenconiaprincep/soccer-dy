@@ -119,7 +119,8 @@ export class BattleScene extends BaseScene {
   private scoreA = 0;
   private scoreB = 0;
   private events: BattleEvent[] = [];
-  private scoreText?: ReturnType<typeof label>;
+  private leftScoreText?: ReturnType<typeof label>;
+  private rightScoreText?: ReturnType<typeof label>;
   private timeText?: ReturnType<typeof label>;
   private possessionLeftText?: ReturnType<typeof label>;
   private possessionRightText?: ReturnType<typeof label>;
@@ -132,6 +133,7 @@ export class BattleScene extends BaseScene {
   private momentQueue: BattleMoment[] = [];
   private momentScriptLoading = false;
   private momentScriptDisabled = false;
+  private momentScriptFetched = false;
   private eventFeedState?: EventFeedState;
   private cardAnimations: EventCardAnimation[] = [];
   private eventPushPausedUntil = 0;
@@ -156,10 +158,12 @@ export class BattleScene extends BaseScene {
     super.enter();
     this.momentQueue = [];
     this.momentScriptDisabled = false;
+    this.momentScriptFetched = false;
     this.lastPushElapsed = 0;
     this.eventPushPausedUntil = 0;
     this.cardAnimations = [];
     this.eventFeedState = undefined;
+    this.game.ensureHomeSubstitutes();
     this.game.sound.play('kickoff');
     this.ensureBattleScriptBuffer(true);
   }
@@ -177,7 +181,6 @@ export class BattleScene extends BaseScene {
       } else if (this.canPushNextEvent()) {
         this.pushEvent();
         this.nextEventAt += 2200 + Math.random() * 1400;
-        this.ensureBattleScriptBuffer();
       } else {
         this.nextEventAt = this.elapsed + 500;
       }
@@ -247,18 +250,18 @@ export class BattleScene extends BaseScene {
 
     const score = new Container();
     score.x = this.game.width / 2;
-    score.y = y + 122;
-    const leftScore = label(String(this.scoreA), 66, 0x2f8cff, '900');
-    leftScore.anchor.set(1, 0.5);
-    leftScore.x = -30;
-    const colon = label(':', 54, palette.white, '900');
+    score.y = y + 118;
+    const scoreSize = 84;
+    const colonSize = 68;
+    this.leftScoreText = label(String(this.scoreA), scoreSize, 0x2f8cff, '900');
+    this.leftScoreText.anchor.set(1, 0.5);
+    this.leftScoreText.x = -38;
+    const colon = label(':', colonSize, palette.white, '900');
     colon.anchor.set(0.5);
-    const rightScore = label(String(this.scoreB), 66, 0xff5d68, '900');
-    rightScore.anchor.set(0, 0.5);
-    rightScore.x = 30;
-    this.scoreText = label(`${this.scoreA} : ${this.scoreB}`, 1, palette.white, '900');
-    this.scoreText.visible = false;
-    score.addChild(leftScore, colon, rightScore, this.scoreText);
+    this.rightScoreText = label(String(this.scoreB), scoreSize, 0xff5d68, '900');
+    this.rightScoreText.anchor.set(0, 0.5);
+    this.rightScoreText.x = 38;
+    score.addChild(this.leftScoreText, colon, this.rightScoreText);
 
     const timeBox = this.matchClockBox(178, 58);
     timeBox.x = this.game.width / 2 - 89;
@@ -380,118 +383,46 @@ export class BattleScene extends BaseScene {
     };
 
     this.populateEventCards(false);
-
-    if (maxScroll > 0) {
-      const track = new Graphics();
-      track.roundRect(x + w - 18, y + 76, 6, h - 120, 3);
-      track.fill({ color: 0xffffff, alpha: 0.3 });
-      const thumbH = Math.max(54, (viewportH / contentH) * (h - 120));
-      const thumbY = y + 76 + (this.eventScrollY / maxScroll) * (h - 120 - thumbH);
-      const scroll = new Graphics();
-      scroll.roundRect(x + w - 19, thumbY, 8, thumbH, 4);
-      scroll.fill({ color: 0x1ee47e, alpha: 0.9 });
-      this.container.addChild(track, scroll);
-      this.eventFeedState.track = track;
-      this.eventFeedState.scroll = scroll;
-
-      const applyScroll = (next: number) => {
-        const feed = this.eventFeedState;
-        if (!feed) return;
-        const rows = this.eventEntries().length;
-        const liveContentH = Math.max(feed.viewportH, rows * (feed.rowH + feed.gap) - feed.gap);
-        const liveMaxScroll = Math.max(0, liveContentH - feed.viewportH);
-        feed.maxScroll = liveMaxScroll;
-        this.eventScrollY = Math.max(0, Math.min(next, liveMaxScroll));
-        cardLayer.y = -this.eventScrollY;
-        if (liveMaxScroll <= 0) return;
-        const liveThumbH = Math.max(54, (feed.viewportH / liveContentH) * (h - 120));
-        const nextThumbY = y + 76 + (this.eventScrollY / liveMaxScroll) * (h - 120 - liveThumbH);
-        scroll.clear();
-        scroll.roundRect(x + w - 19, nextThumbY, 8, liveThumbH, 4);
-        scroll.fill({ color: 0x1ee47e, alpha: 0.9 });
-      };
-
-      viewport.on('wheel', (event) => {
-        const deltaY = (event as unknown as { deltaY?: number }).deltaY ?? 0;
-        applyScroll(this.eventScrollY + deltaY * 0.8);
-      });
-      viewport.on('pointerdown', (event: FederatedPointerEvent) => {
-        this.eventDrag = { pointerId: event.pointerId, startY: event.global.y, startScrollY: this.eventScrollY };
-      });
-      viewport.on('pointermove', (event: FederatedPointerEvent) => {
-        if (!this.eventDrag || this.eventDrag.pointerId !== event.pointerId) return;
-        applyScroll(this.eventDrag.startScrollY - (event.global.y - this.eventDrag.startY) * 1.3);
-      });
-      const endDrag = (event: FederatedPointerEvent) => {
-        if (this.eventDrag?.pointerId === event.pointerId) this.eventDrag = undefined;
-      };
-      viewport.on('pointerup', endDrag);
-      viewport.on('pointerupoutside', endDrag);
-      viewport.on('pointercancel', endDrag);
-    }
+    this.bindEventFeedScroll(viewport, cardLayer);
+    this.ensureEventFeedScrollbar();
   }
 
-  private refreshEventFeed(animateTop = false) {
-    if (!this.eventFeedState) {
-      this.drawEventFeed();
-      if (animateTop) this.populateEventCards(true);
-      return;
-    }
-    if (animateTop) this.eventScrollY = 0;
-    this.populateEventCards(animateTop);
-    this.updateEventFeedScroll();
-  }
+  private bindEventFeedScroll(viewport: Container, cardLayer: Container) {
+    if ((viewport as Container & { _scrollBound?: boolean })._scrollBound) return;
+    (viewport as Container & { _scrollBound?: boolean })._scrollBound = true;
 
-  private prependEventCard(entry: BattleEventEntry) {
-    const state = this.eventFeedState;
-    if (!state) {
-      this.refreshEventFeed(true);
-      return;
-    }
+    const applyScroll = (next: number) => {
+      const feed = this.eventFeedState;
+      if (!feed) return;
+      const rows = this.eventEntries().length;
+      const liveContentH = Math.max(feed.viewportH, rows * (feed.rowH + feed.gap) - feed.gap);
+      const liveMaxScroll = Math.max(0, liveContentH - feed.viewportH);
+      feed.maxScroll = liveMaxScroll;
+      this.eventScrollY = Math.max(0, Math.min(next, liveMaxScroll));
+      cardLayer.y = -this.eventScrollY;
+      this.ensureEventFeedScrollbar();
+    };
 
-    if (state.cardLayer.children.length > this.events.length) {
-      this.populateEventCards(false);
-      return;
-    }
-    if (state.cardLayer.children.length >= this.events.length) return;
-
-    const shiftY = state.rowH + state.gap;
-    state.cardLayer.children.forEach((child) => {
-      child.y += shiftY;
+    viewport.on('wheel', (event) => {
+      const deltaY = (event as unknown as { deltaY?: number }).deltaY ?? 0;
+      applyScroll(this.eventScrollY + deltaY * 0.8);
     });
-
-    const cardW = state.debugAll ? (state.cardW - state.gap) : state.cardW;
-    const card = this.eventCard(entry, 0, 0, cardW, state.rowH, state.debugAll);
-    state.cardLayer.addChildAt(card, 0);
-    this.playEventCardEnter(card, 0);
-    this.eventScrollY = 0;
-    state.cardLayer.y = 0;
-    this.updateEventFeedScroll();
-  }
-
-  private populateEventCards(animateTop: boolean) {
-    const state = this.eventFeedState;
-    if (!state) return;
-
-    const entries = this.eventEntries();
-    state.cardLayer.removeChildren();
-    this.cardAnimations = this.cardAnimations.filter((anim) => anim.card.parent === state.cardLayer);
-
-    entries.forEach((entry, index) => {
-      const col = state.debugAll ? index % 1 : 0;
-      const row = state.debugAll ? Math.floor(index / 1) : index;
-      const debugCardW = (state.cardW - state.gap) / 1;
-      const rowX = state.debugAll ? col * (debugCardW + state.gap) : 0;
-      const rowY = row * (state.rowH + state.gap);
-      const card = this.eventCard(entry, rowX, rowY, state.debugAll ? debugCardW : state.cardW, state.rowH, state.debugAll);
-      state.cardLayer.addChild(card);
-      if (animateTop && index === 0) this.playEventCardEnter(card, rowY);
+    viewport.on('pointerdown', (event: FederatedPointerEvent) => {
+      this.eventDrag = { pointerId: event.pointerId, startY: event.global.y, startScrollY: this.eventScrollY };
     });
-
-    state.cardLayer.y = -this.eventScrollY;
+    viewport.on('pointermove', (event: FederatedPointerEvent) => {
+      if (!this.eventDrag || this.eventDrag.pointerId !== event.pointerId) return;
+      applyScroll(this.eventDrag.startScrollY - (event.global.y - this.eventDrag.startY) * 1.3);
+    });
+    const endDrag = (event: FederatedPointerEvent) => {
+      if (this.eventDrag?.pointerId === event.pointerId) this.eventDrag = undefined;
+    };
+    viewport.on('pointerup', endDrag);
+    viewport.on('pointerupoutside', endDrag);
+    viewport.on('pointercancel', endDrag);
   }
 
-  private updateEventFeedScroll() {
+  private ensureEventFeedScrollbar() {
     const state = this.eventFeedState;
     if (!state) return;
 
@@ -502,12 +433,71 @@ export class BattleScene extends BaseScene {
     this.eventScrollY = Math.max(0, Math.min(this.eventScrollY, maxScroll));
     state.cardLayer.y = -this.eventScrollY;
 
-    if (!state.scroll || !state.track || maxScroll <= 0) return;
-    const thumbH = Math.max(54, (state.viewportH / contentH) * (state.h - 120));
-    const thumbY = state.y + 76 + (this.eventScrollY / maxScroll) * (state.h - 120 - thumbH);
+    if (maxScroll <= 0) {
+      state.track?.destroy();
+      state.scroll?.destroy();
+      state.track = undefined;
+      state.scroll = undefined;
+      return;
+    }
+
+    const trackH = state.h - 120;
+    const thumbH = Math.max(54, (state.viewportH / contentH) * trackH);
+    const thumbY = state.y + 76 + (this.eventScrollY / maxScroll) * (trackH - thumbH);
+
+    if (!state.track || !state.scroll) {
+      const track = new Graphics();
+      track.roundRect(state.x + state.w - 18, state.y + 76, 6, trackH, 3);
+      track.fill({ color: 0xffffff, alpha: 0.3 });
+      const scroll = new Graphics();
+      scroll.roundRect(state.x + state.w - 19, thumbY, 8, thumbH, 4);
+      scroll.fill({ color: 0x1ee47e, alpha: 0.9 });
+      this.container.addChild(track, scroll);
+      state.track = track;
+      state.scroll = scroll;
+      return;
+    }
+
     state.scroll.clear();
     state.scroll.roundRect(state.x + state.w - 19, thumbY, 8, thumbH, 4);
     state.scroll.fill({ color: 0x1ee47e, alpha: 0.9 });
+  }
+
+  private refreshEventFeed(animateTop = false) {
+    if (!this.eventFeedState) {
+      this.drawEventFeed();
+      if (animateTop) this.syncEventCards(this.eventEntries(), 0);
+      return;
+    }
+    if (animateTop) this.eventScrollY = 0;
+    this.syncEventCards(this.eventEntries(), animateTop ? 0 : -1);
+    this.ensureEventFeedScrollbar();
+  }
+
+  private syncEventCards(entries: BattleEventEntry[], animateIndex: number) {
+    const state = this.eventFeedState;
+    if (!state) return;
+
+    state.cardLayer.removeChildren();
+    this.cardAnimations = this.cardAnimations.filter((anim) => anim.card.parent === state.cardLayer);
+
+    entries.forEach((entry, index) => {
+      const rowY = index * (state.rowH + state.gap);
+      const cardW = state.debugAll ? (state.cardW - state.gap) : state.cardW;
+      const card = this.eventCard(entry, 0, rowY, cardW, state.rowH, state.debugAll);
+      state.cardLayer.addChild(card);
+      if (index === animateIndex) this.playEventCardEnter(card, rowY);
+    });
+
+    state.cardLayer.y = -this.eventScrollY;
+  }
+
+  private populateEventCards(animateTop: boolean) {
+    this.syncEventCards(this.eventEntries(), animateTop ? 0 : -1);
+  }
+
+  private updateEventFeedScroll() {
+    this.ensureEventFeedScrollbar();
   }
 
   private playEventCardEnter(card: Container, targetY: number) {
@@ -592,7 +582,8 @@ export class BattleScene extends BaseScene {
     );
     title.x = width * layout.textX;
     title.y = height * layout.titleY;
-    const detail = label(this.trimEventText(entry.text, compact ? 12 : 28), Math.round(height * (compact ? 0.15 : 0.18)), 0xe5efff, '700');
+    const detailText = this.eventCardDetail(entry);
+    const detail = label(this.trimEventText(detailText, compact ? 12 : 28), Math.round(height * (compact ? 0.15 : 0.18)), 0xe5efff, '700');
     detail.style.dropShadow = { color: 0x000000, blur: 4, distance: 2, alpha: 0.95, angle: Math.PI / 4 };
     detail.x = width * layout.textX;
     detail.y = height * layout.detailY;
@@ -617,6 +608,20 @@ export class BattleScene extends BaseScene {
     }
 
     return c;
+  }
+
+  private eventCardDetail(entry: BattleEventEntry) {
+    if (this.normalizeEventType(entry.eventType) !== 'sub') return entry.text;
+    return this.substitutionDetail(entry);
+  }
+
+  private substitutionDetail(entry: BattleEventEntry) {
+    const players = entry.players ?? [];
+    if (players.length >= 2) {
+      return `${playerDisplayName(players[0])} 下，${playerDisplayName(players[1])} 上`;
+    }
+    if (entry.text.includes('下') && entry.text.includes('上')) return entry.text;
+    return entry.text;
   }
 
   private eventCardTextureFrame(frameRect: { x: number; y: number; width: number; height: number }) {
@@ -894,23 +899,34 @@ export class BattleScene extends BaseScene {
     if (this.events[0] && this.isSameBattleEvent(newEvent, this.events[0])) return;
 
     this.moment = next;
-    if (next.score === 'home') this.scoreA += 1;
-    if (next.score === 'away') this.scoreB += 1;
+    const scoringTeam = this.resolveScoringTeam(next);
+    if (scoringTeam === 'home') this.scoreA += 1;
+    if (scoringTeam === 'away') this.scoreB += 1;
     newEvent.scoreA = this.scoreA;
     newEvent.scoreB = this.scoreB;
-    const isGoal = next.type === 'goal' || !!next.score;
+    const isGoal = scoringTeam !== undefined;
     if (isGoal) this.game.sound.play('goal');
     else if (next.mood === 'bad') this.game.sound.play('danger');
     else if (next.mood === 'good') this.game.sound.play('confirm');
     else this.game.sound.play('tap');
     this.events.unshift(newEvent);
-    if (this.scoreText) this.scoreText.text = `${this.scoreA} : ${this.scoreB}`;
+    if (this.normalizeEventType(newEvent.eventType) === 'sub' && newEvent.relatedActors && newEvent.relatedActors.length >= 2) {
+      newEvent.text = `${playerDisplayName(newEvent.relatedActors[0])} 下，${playerDisplayName(newEvent.relatedActors[1])} 上`;
+    }
+    this.updateScoreDisplay();
     this.lastPushElapsed = this.elapsed;
     const entry = this.momentToEventEntry(next);
-    if (this.eventFeedState) this.prependEventCard(entry);
-    else this.refreshEventFeed(true);
+    const entries = this.eventEntries();
+    const animateIndex = entries.findIndex((item) => this.isSameEventEntry(item, entry));
+    if (this.eventFeedState) {
+      if (animateIndex === 0 && this.eventScrollY < 8) this.eventScrollY = 0;
+      this.syncEventCards(entries, animateIndex);
+      this.ensureEventFeedScrollbar();
+    } else {
+      this.refreshEventFeed(true);
+    }
     if (isGoal) {
-      this.playGoalAnimation(next.score ?? 'home');
+      this.playGoalAnimation(scoringTeam ?? 'home');
       const goalPauseMs = 1400 + 2800;
       this.eventPushPausedUntil = this.elapsed + goalPauseMs;
       this.nextEventAt = this.eventPushPausedUntil;
@@ -985,7 +1001,7 @@ export class BattleScene extends BaseScene {
   private ensureBattleScriptBuffer(force = false) {
     if (!this.shouldUseBattleAi()) return;
     if (this.momentScriptLoading || this.momentScriptDisabled) return;
-    if (!force && this.momentQueue.length >= 4) return;
+    if (!force && this.momentScriptFetched) return;
 
     this.momentScriptLoading = true;
     void this.game.server.streamBattleScript(this.battleScriptPayload(), (moment) => {
@@ -996,15 +1012,17 @@ export class BattleScene extends BaseScene {
       console.warn('[battle-ai] script stream failed, falling back to local moments', error);
     }).finally(() => {
       this.momentScriptLoading = false;
+      this.momentScriptFetched = true;
     });
   }
 
   private battleScriptPayload() {
+    this.game.ensureHomeSubstitutes();
     return {
       minute: this.matchMinute(),
       scoreA: this.scoreA,
       scoreB: this.scoreB,
-      count: 10,
+      count: 18,
       homePlayers: this.squadForGeneration(this.game.lineup, this.game.substitutes),
       awayPlayers: this.squadForGeneration(this.opponentLineup(), this.opponentSubstitutes()),
       recentEvents: this.events.slice(0, 5).map((event) => ({
@@ -1047,17 +1065,32 @@ export class BattleScene extends BaseScene {
     return [...starters, ...bench];
   }
 
+  private updateScoreDisplay() {
+    if (this.leftScoreText) this.leftScoreText.text = String(this.scoreA);
+    if (this.rightScoreText) this.rightScoreText.text = String(this.scoreB);
+  }
+
+  private resolveScoringTeam(moment: BattleMoment): 'home' | 'away' | undefined {
+    if (moment.score === 'home' || moment.score === 'away') return moment.score;
+    const isGoal = moment.type === 'goal' || moment.eventType === 'goal';
+    if (!isGoal) return undefined;
+    return moment.team === 'away' ? 'away' : 'home';
+  }
+
   private toBattleMoment(moment: GeneratedBattleMoment): BattleMoment {
     const sanitized = this.sanitizeGeneratedMoment(moment);
-    const actor = this.findPlayerByName(sanitized.actorName);
-    const actors = sanitized.relatedActorNames.map((name) => this.findPlayerByName(name)).filter(Boolean) as PlayerCardData[];
+    const actors = sanitized.relatedActorNames
+      .map((name) => this.findPlayerByName(name))
+      .filter(Boolean) as PlayerCardData[];
+    const score = sanitized.score ?? (sanitized.eventType === 'goal' ? sanitized.team : undefined);
+    const actor = this.findPlayerByName(sanitized.actorName) ?? actors[0];
     return {
       type: this.momentTypeFromGenerated(sanitized.eventType),
       eventType: this.safeEventType(sanitized.eventType),
       title: sanitized.title,
       detail: sanitized.detail,
       mood: sanitized.mood,
-      score: sanitized.score ?? undefined,
+      score,
       actor,
       actorName: playerDisplayName(sanitized.actorName),
       actors: actors.length ? actors : actor ? [actor] : [],
@@ -1100,7 +1133,7 @@ export class BattleScene extends BaseScene {
   private battleEventToEntry(event: BattleEvent): BattleEventEntry {
     const actor = event.actor ?? this.eventActor(event.text);
     const relatedActors = event.relatedActors?.length ? event.relatedActors : [actor];
-    return {
+    const entry: BattleEventEntry = {
       eventType: this.safeEventType(event.eventType),
       time: event.time,
       title: this.eventTitle(event),
@@ -1113,24 +1146,31 @@ export class BattleScene extends BaseScene {
       scoreB: event.scoreB,
       team: event.team
     };
+    entry.text = this.eventCardDetail(entry);
+    return entry;
   }
 
   private momentToEventEntry(moment: BattleMoment): BattleEventEntry {
     const actor = moment.actorName ?? this.playerName(moment.actor);
     const relatedActors = moment.actorNames ?? (moment.actors?.map((player) => this.playerName(player)) ?? (moment.actor ? [this.playerName(moment.actor)] : []));
-    return {
+    const players = moment.actors?.length
+      ? moment.actors
+      : this.findPlayersByNames(relatedActors);
+    const entry: BattleEventEntry = {
       eventType: this.safeEventType(moment.eventType ?? this.eventTypeForMoment(moment)),
       time: moment.minute ?? this.matchMinute(),
       title: moment.title,
       actor,
       player: moment.actor,
-      players: moment.actors ?? this.findPlayersByNames(relatedActors),
+      players,
       text: moment.detail,
       mood: moment.mood,
       scoreA: this.scoreA,
       scoreB: this.scoreB,
       team: moment.team
     };
+    entry.text = this.eventCardDetail(entry);
+    return entry;
   }
 
   private sortEventEntries(entries: BattleEventEntry[]) {
@@ -1366,7 +1406,27 @@ export class BattleScene extends BaseScene {
     if (roll < 0.54) return { type: 'corner', eventType: 'corner', title: '角球', detail: `${this.playerName(creator)} 边路传中被挡出底线，获得角球。`, mood: 'good', actor: creator, team: 'home' };
     if (roll < 0.68) return { type: 'save', eventType: 'save', title: '扑救', detail: `${this.playerName(defender)} 飞身将 ${this.playerName(awayAttacker)} 的近距离射门扑出。`, mood: 'good', actor: defender, actors: [defender, awayAttacker].filter(Boolean) as PlayerCardData[], team: 'home' };
     if (roll < 0.76) return { type: 'counter', eventType: 'yellow', title: '黄牌', detail: `${this.playerName(defender)} 战术犯规，裁判出示黄牌。`, mood: 'normal', actor: defender, team: 'home' };
-    if (roll < 0.82) return { type: 'counter', eventType: 'sub', title: '换人', detail: '教练做出换人调整，加强边路冲击。', mood: 'normal', team: 'home' };
+    if (roll < 0.82) {
+      const team: 'home' | 'away' = Math.random() < 0.55 ? 'home' : 'away';
+      const off = this.pickPlayer(team === 'home' ? this.game.lineup : this.opponentLineup(), ['MF', 'FW', 'DF']);
+      const on = this.pickSubstitute(team);
+      if (off && on) {
+        const offName = this.playerName(off);
+        const onName = this.playerName(on);
+        return {
+          type: 'counter',
+          eventType: 'sub',
+          title: '换人',
+          detail: `${offName} 下，${onName} 上`,
+          mood: 'normal',
+          actorName: '教练组',
+          actorNames: [offName, onName],
+          actors: [off, on],
+          team
+        };
+      }
+      return { type: 'counter', eventType: 'sub', title: '换人', detail: '教练做出换人调整。', mood: 'normal', team: 'home' };
+    }
     if (roll < 0.86) return { type: 'counter', eventType: 'injury', title: '受伤', detail: `${this.playerName(scorer)} 拼抢后倒地，队医进场检查。`, mood: 'bad', actor: scorer, team: 'home' };
     if (roll < 0.94) return { type: 'counter', eventType: 'red', title: '红牌', detail: `${this.playerName(awayScorer)} 犯规动作过大，被主裁直接罚下。`, mood: 'bad', score: 'away', actor: awayScorer, team: 'away' };
     return { type: 'shot', eventType: 'shot', title: '射门', detail: `${this.playerName(creator)} 连续传导，耐心寻找最后一传。`, mood: 'normal', actor: creator, team: 'home' };
@@ -1374,6 +1434,13 @@ export class BattleScene extends BaseScene {
 
   private opponentLineup() {
     return this.game.battleSource.opponentLineup ?? [];
+  }
+
+  private pickSubstitute(team: 'home' | 'away') {
+    const pool = (team === 'home' ? this.game.substitutes : this.opponentSubstitutes())
+      .filter(Boolean) as PlayerCardData[];
+    if (!pool.length) return undefined;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   private pickPlayer(lineup: LineupSlot[], positions: Position[]) {

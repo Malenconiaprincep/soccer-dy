@@ -136,6 +136,7 @@ export class GameApp {
     this.selectedFormation = savedLineup.formation;
     this.lineup = savedLineup.lineup;
     this.substitutes = Array.from({ length: 5 }, () => undefined);
+    this.ensureHomeSubstitutes();
     const auth = await this.platform.login();
     this.user = {
       userId: auth.userId || this.user.userId,
@@ -767,6 +768,23 @@ export class GameApp {
 
   lineupPower() {
     return this.lineup.reduce((sum, slot) => sum + (slot.player?.rating ?? 0), 0);
+  }
+
+  ensureHomeSubstitutes() {
+    const usedIds = new Set([
+      ...this.lineup.flatMap((slot) => (slot.player ? [slot.player.id] : [])),
+      ...this.substitutes.filter(Boolean).map((player) => player!.id)
+    ]);
+    const benchPool = this.ownedPlayers()
+      .filter((player) => !usedIds.has(player.id))
+      .sort((a, b) => b.rating - a.rating);
+    let poolIndex = 0;
+    this.substitutes = this.substitutes.map((substitute) => {
+      if (substitute) return substitute;
+      const next = benchPool[poolIndex];
+      poolIndex += 1;
+      return next;
+    });
   }
 
   prepareOpponent() {
