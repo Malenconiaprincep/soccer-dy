@@ -626,6 +626,7 @@ export class ResultScene extends BaseScene {
     leftFill.fill({ color: HOME_ACCENT, alpha: 0.96 });
 
     const rightFill = new Graphics();
+    rightFill.y = 1.5;
     if (leftW <= 0) {
       rightFill.roundRect(0, 0, iw, ih, radius);
     } else if (rightW <= radius * 2) {
