@@ -7,11 +7,14 @@ import { playerDisplayName } from '../playerNames';
 const HOME_ACCENT = 0x2f8cff;
 const OPPONENT_ACCENT = 0xff465d;
 const GAME_BUTTON = '/assets/ui/gamebutton.png';
-const GAME_BUTTON_FRAME = { width: 540, height: 720 };
+const GAME_BUTTON_FRAMES = {
+  blue: new Rectangle(47, 266, 471, 168),
+  gold: new Rectangle(574, 266, 471, 168)
+};
 const RESULT_PANEL_X = 22;
 const STATS_PANEL_Y = 310;
 const STATS_BLOCK_GAP = 36;
-const RESULT_ACTION_H = 74;
+const RESULT_ACTION_H = 88;
 
 interface StatRow {
   icon: 'possession' | 'shots' | 'target' | 'pass' | 'corner' | 'tackle';
@@ -804,8 +807,9 @@ export class ResultScene extends BaseScene {
 
   private actionButton(width: number, height: number, text: string, fill: number, stroke: number, gold: boolean) {
     const button = new Container();
-    const frame = new Rectangle(gold ? GAME_BUTTON_FRAME.width : 0, 0, GAME_BUTTON_FRAME.width, GAME_BUTTON_FRAME.height);
-    const sprite = new Sprite(new Texture({ source: Texture.from(GAME_BUTTON).source, frame }));
+    const source = Texture.from(GAME_BUTTON).source;
+    const frame = gold ? GAME_BUTTON_FRAMES.gold : GAME_BUTTON_FRAMES.blue;
+    const sprite = new Sprite(new Texture({ source, frame }));
     sprite.width = width;
     sprite.height = height;
     button.addChild(sprite);
