@@ -191,11 +191,14 @@ export class ResultScene extends BaseScene {
     panel.x = 22;
     panel.y = 392 + this.topLift();
     const w = this.game.width - 44;
-    const h = 386;
-    panel.addChild(this.panelBg(w, h, 0x061b32, 0x238ce9, 0.82, 16));
+    const rows = this.statsRows();
+    const rowH = 62;
+    const startY = 24;
+    const h = startY + rows.length * rowH + 18;
+    panel.addChild(this.panelBg(w, h, 0x041229, 0x238ce9, 0.92, 16));
 
-    this.statsRows().forEach((row, index) => {
-      this.drawStatRow(panel, row, 54 + index * 55, w);
+    rows.forEach((row, index) => {
+      this.drawStatRow(panel, row, startY + index * rowH, w, index < rows.length - 1);
     });
     this.container.addChild(panel);
   }
@@ -203,7 +206,7 @@ export class ResultScene extends BaseScene {
   private drawMvpPanel() {
     const panel = new Container();
     panel.x = 22;
-    panel.y = 796 + this.topLift();
+    panel.y = 824 + this.topLift();
     const w = this.game.width - 44;
     const h = 144;
     panel.addChild(this.panelBg(w, h, 0x061b32, 0x238ce9, 0.82, 14));
@@ -283,54 +286,101 @@ export class ResultScene extends BaseScene {
   private drawReportTimeline() {
     const panel = new Container();
     panel.x = 22;
-    panel.y = 956 + this.topLift();
+    panel.y = 984 + this.topLift();
     const w = this.game.width - 44;
-    const h = 190;
-    panel.addChild(this.panelBg(w, h, 0x061b32, 0x238ce9, 0.78, 14));
-
     const events = this.reportEvents();
+    const rowH = 62;
+    const headerH = 52;
+    const h = headerH + events.length * rowH + 24;
+    panel.addChild(this.panelBg(w, h, 0x041229, 0x238ce9, 0.88, 14));
+
+    this.drawSectionTitle(panel, w / 2, 26, '关键事件', w);
+
     const centerX = w / 2;
-    const line = new Graphics();
-    line.rect(centerX - 1, 22, 2, h - 44);
-    line.fill({ color: 0x1d67b5, alpha: 0.72 });
-    panel.addChild(line);
+    const startY = headerH + 8;
+    const axis = new Graphics();
+    axis.rect(centerX - 1, startY, 2, Math.max(rowH, events.length * rowH - 8));
+    axis.fill({ color: 0x3aa2ff, alpha: 0.42 });
+    panel.addChild(axis);
 
     events.forEach((event, index) => {
-      const y = 24 + index * 38;
-      const leftSide = index % 2 === 0;
-      const color = event.mood === 'bad' ? 0xff5362 : event.mood === 'good' ? 0x2f95ff : 0xffd35d;
+      const y = startY + index * rowH;
+      const nodeY = y + rowH / 2 - 2;
+      const homeSide = this.eventTeamSide(event) === 'home';
+      const color = this.eventTimelineColor(event, homeSide);
+      const iconOffset = 50;
+      const textGap = 74;
+      const maxTextW = centerX - textGap - 16;
+
+      this.drawTimelineConnector(panel, centerX, nodeY, homeSide, color, iconOffset - 4);
+
       const dot = new Graphics();
-      dot.circle(centerX, y + 12, 14);
-      dot.fill({ color: 0x071329, alpha: 1 });
-      dot.stroke({ color, alpha: 0.96, width: 3 });
-      const time = label(`${event.time}'`, 17, color, '900');
+      dot.circle(centerX, nodeY, 15);
+      dot.fill({ color: 0x06152d, alpha: 1 });
+      dot.stroke({ color, alpha: 0.96, width: 2.5 });
+      const time = label(`${event.time}'`, 13, color, '900');
       time.anchor.set(0.5);
       time.x = centerX;
-      time.y = y + 3;
-      const icon = label(this.eventIcon(event), 22, color, '900');
+      time.y = nodeY - 1;
+
+      const icon = label(this.eventTimelineIcon(event), 17, this.eventTimelineIconColor(event), '900');
       icon.anchor.set(0.5);
-      icon.x = leftSide ? 92 : centerX + 72;
-      icon.y = y + 12;
-      const title = label(`${this.eventActorName(event)} ${this.eventTag(event)}`, 20, palette.white, '900');
-      title.x = leftSide ? 120 : centerX + 104;
-      title.y = y - 1;
-      const detail = label(this.eventAssistText(event), 16, 0xbfd4ef, '700');
-      detail.x = title.x;
-      detail.y = y + 24;
-      if (leftSide) {
-        title.anchor.set(1, 0);
+      icon.x = homeSide ? centerX - iconOffset : centerX + iconOffset;
+      icon.y = nodeY;
+
+      const headline = label(`${this.eventActorName(event)} ${this.eventTag(event)}`, 19, palette.white, '900');
+      const detail = label(this.eventTimelineDetail(event), 15, 0xa8bdd9, '700');
+      const textEdge = homeSide ? centerX - textGap : centerX + textGap;
+
+      if (homeSide) {
+        headline.anchor.set(1, 0);
+        headline.x = textEdge;
+        headline.y = nodeY - 16;
         detail.anchor.set(1, 0);
-        title.x = centerX - 52;
-        detail.x = centerX - 52;
-        icon.x = centerX - 88;
+        detail.x = textEdge;
+        detail.y = nodeY + 4;
+      } else {
+        headline.anchor.set(0, 0);
+        headline.x = textEdge;
+        headline.y = nodeY - 16;
+        detail.anchor.set(0, 0);
+        detail.x = textEdge;
+        detail.y = nodeY + 4;
       }
-      const maxTextWidth = centerX - 120;
-      if (title.width > maxTextWidth) title.scale.x = maxTextWidth / title.width;
-      if (detail.width > maxTextWidth) detail.scale.x = maxTextWidth / detail.width;
-      panel.addChild(dot, time, icon, title, detail);
+      if (headline.width > maxTextW) headline.scale.x = maxTextW / headline.width;
+      if (detail.width > maxTextW) detail.scale.x = maxTextW / detail.width;
+
+      panel.addChild(dot, time, icon, headline, detail);
     });
 
     this.container.addChild(panel);
+  }
+
+  private drawSectionTitle(parent: Container, centerX: number, y: number, text: string, panelW: number) {
+    const title = label(text, 24, palette.white, '900');
+    title.anchor.set(0.5);
+    title.x = centerX;
+    title.y = y;
+
+    const lineW = Math.min(110, panelW * 0.16);
+    const gap = title.width / 2 + 14;
+    const leftLine = new Graphics();
+    leftLine.moveTo(centerX - gap - lineW, y + 2);
+    leftLine.lineTo(centerX - gap, y + 2);
+    leftLine.stroke({ color: 0x3aa2ff, alpha: 0.55, width: 1.5 });
+    const rightLine = new Graphics();
+    rightLine.moveTo(centerX + gap, y + 2);
+    rightLine.lineTo(centerX + gap + lineW, y + 2);
+    rightLine.stroke({ color: 0x3aa2ff, alpha: 0.55, width: 1.5 });
+
+    const leftDot = new Graphics();
+    leftDot.circle(centerX - gap - lineW, y + 2, 3);
+    leftDot.fill({ color: 0x3aa2ff, alpha: 0.8 });
+    const rightDot = new Graphics();
+    rightDot.circle(centerX + gap + lineW, y + 2, 3);
+    rightDot.fill({ color: 0x3aa2ff, alpha: 0.8 });
+
+    parent.addChild(leftLine, rightLine, leftDot, rightDot, title);
   }
 
   private drawEventsPanel() {
@@ -339,75 +389,79 @@ export class ResultScene extends BaseScene {
     panel.y = 392 + this.topLift();
     const w = this.game.width - 44;
     const h = 760;
-    panel.addChild(this.panelBg(w, h, 0x061b32, 0x238ce9, 0.82, 16));
+    panel.addChild(this.panelBg(w, h, 0x041229, 0x238ce9, 0.92, 16));
 
-    const title = label('比赛事件', 27, palette.white, '900');
-    title.x = 26;
-    title.y = 22;
+    const title = label('比赛事件', 28, palette.white, '900');
+    title.x = 28;
+    title.y = 24;
     panel.addChild(title);
 
-    const events = this.matchEvents().slice(0, 12);
+    const events = this.timelineEvents();
     const centerX = w / 2;
-    const rowH = 68;
-    const startY = 78;
-    const axisBottom = startY + Math.max(0, events.length * rowH - 18);
+    const rowH = 74;
+    const startY = 70;
+    const axisHeight = Math.max(rowH, events.length * rowH - 10);
 
     const axis = new Graphics();
-    axis.rect(centerX - 1, startY, 2, axisBottom - startY);
-    axis.fill({ color: 0x1d67b5, alpha: 0.72 });
+    axis.rect(centerX - 1, startY, 2, axisHeight);
+    axis.fill({ color: 0x3aa2ff, alpha: 0.42 });
     panel.addChild(axis);
 
     events.forEach((event, index) => {
       const y = startY + index * rowH;
+      const nodeY = y + rowH / 2 - 2;
       const homeSide = this.eventTeamSide(event) === 'home';
-      const color = homeSide ? HOME_ACCENT : OPPONENT_ACCENT;
-      const nodeY = y + 26;
+      const color = this.eventTimelineColor(event, homeSide);
+      const iconOffset = 56;
+      const textGap = 82;
+      const maxTextW = centerX - textGap - 18;
 
-      this.drawTimelineConnector(panel, centerX, nodeY, homeSide, color);
+      this.drawTimelineConnector(panel, centerX, nodeY, homeSide, color, iconOffset - 6);
 
       const dot = new Graphics();
-      dot.circle(centerX, nodeY, 16);
-      dot.fill({ color: 0x071329, alpha: 1 });
-      dot.stroke({ color, alpha: 0.96, width: 3 });
-      const time = label(`${event.time}'`, 15, color, '900');
+      dot.circle(centerX, nodeY, 18);
+      dot.fill({ color: 0x06152d, alpha: 1 });
+      dot.stroke({ color, alpha: 0.96, width: 2.5 });
+      const time = label(`${event.time}'`, 14, color, '900');
       time.anchor.set(0.5);
       time.x = centerX;
       time.y = nodeY - 1;
 
-      const icon = label(this.eventTimelineIcon(event), 20, color, '900');
+      const icon = label(this.eventTimelineIcon(event), 19, this.eventTimelineIconColor(event), '900');
       icon.anchor.set(0.5);
-      icon.x = homeSide ? centerX - 58 : centerX + 58;
+      icon.x = homeSide ? centerX - iconOffset : centerX + iconOffset;
       icon.y = nodeY;
 
       const actor = this.eventActorName(event);
       const tag = this.eventTag(event);
-      const headline = label(`${actor} ${tag}`, 20, palette.white, '900');
-      headline.y = y + 8;
-      const detail = label(this.eventTimelineDetail(event), 16, 0xbfd4ef, '700');
-      detail.y = y + 34;
+      const headline = label(`${actor} ${tag}`, 21, palette.white, '900');
+      const detail = label(this.eventTimelineDetail(event), 16, 0xa8bdd9, '700');
+      const textEdge = homeSide ? centerX - textGap : centerX + textGap;
 
-      const textEdge = centerX - 78;
-      const maxTextWidth = centerX - 118;
       if (homeSide) {
         headline.anchor.set(1, 0);
         headline.x = textEdge;
+        headline.y = nodeY - 18;
         detail.anchor.set(1, 0);
         detail.x = textEdge;
+        detail.y = nodeY + 5;
       } else {
         headline.anchor.set(0, 0);
-        headline.x = centerX + 78;
+        headline.x = textEdge;
+        headline.y = nodeY - 18;
         detail.anchor.set(0, 0);
-        detail.x = centerX + 78;
+        detail.x = textEdge;
+        detail.y = nodeY + 5;
       }
-      if (headline.width > maxTextWidth) headline.scale.x = maxTextWidth / headline.width;
-      if (detail.width > maxTextWidth) detail.scale.x = maxTextWidth / detail.width;
+      if (headline.width > maxTextW) headline.scale.x = maxTextW / headline.width;
+      if (detail.width > maxTextW) detail.scale.x = maxTextW / detail.width;
 
       panel.addChild(dot, time, icon, headline, detail);
 
       if (this.isGoalEvent(event)) {
-        const score = label(`${event.scoreA}:${event.scoreB}`, 22, color, '900');
-        score.anchor.set(homeSide ? 1 : 0, 0.5);
-        score.x = homeSide ? 28 : w - 28;
+        const score = label(`${event.scoreA}:${event.scoreB}`, 24, color, '900');
+        score.anchor.set(homeSide ? 0 : 1, 0.5);
+        score.x = homeSide ? 22 : w - 22;
         score.y = nodeY;
         panel.addChild(score);
       }
@@ -416,12 +470,33 @@ export class ResultScene extends BaseScene {
     this.container.addChild(panel);
   }
 
-  private drawTimelineConnector(parent: Container, centerX: number, nodeY: number, homeSide: boolean, color: number) {
+  private timelineEvents() {
+    return this.matchEvents()
+      .filter((event) => event.title !== '全场比赛结束' && event.eventType !== 'fulltime')
+      .slice(0, 12);
+  }
+
+  private eventTimelineColor(event: BattleEvent, homeSide: boolean) {
+    if (this.isCardEvent(event)) return 0xffd632;
+    return homeSide ? HOME_ACCENT : OPPONENT_ACCENT;
+  }
+
+  private isCardEvent(event: BattleEvent) {
+    const tag = this.eventTag(event);
+    return tag === '犯规' || event.eventType === 'yellow' || event.eventType === 'red';
+  }
+
+  private eventTimelineIconColor(event: BattleEvent) {
+    if (this.isCardEvent(event)) return 0xffd632;
+    return palette.white;
+  }
+
+  private drawTimelineConnector(parent: Container, centerX: number, nodeY: number, homeSide: boolean, color: number, length = 50) {
     const connector = new Graphics();
-    const endX = homeSide ? centerX - 42 : centerX + 42;
+    const endX = homeSide ? centerX - length : centerX + length;
     connector.moveTo(centerX, nodeY);
     connector.lineTo(endX, nodeY);
-    connector.stroke({ color, alpha: 0.5, width: 2 });
+    connector.stroke({ color, alpha: 0.38, width: 1.5 });
     parent.addChild(connector);
   }
 
@@ -453,8 +528,10 @@ export class ResultScene extends BaseScene {
       if (assist) return `助攻：${playerDisplayName(assist)}`;
     }
     if (tag === '换人' && event.text.includes('下') && event.text.includes('上')) return event.text;
-    if (event.text.length > 24) return `${event.text.slice(0, 23)}...`;
-    return event.text;
+    const text = event.text.trim();
+    if (!text) return '';
+    if (text.length > 32) return `${text.slice(0, 31)}...`;
+    return text;
   }
 
   private isGoalEvent(event: BattleEvent) {
@@ -465,7 +542,7 @@ export class ResultScene extends BaseScene {
   }
 
   private drawActions() {
-    const y = Math.max(1178 + this.topLift() * 0.15, this.game.height - 112);
+    const y = Math.max(1206 + this.topLift() * 0.15, this.game.height - 112);
     const back = this.actionButton(248, 74, '返回大厅', 0x0b62d8, 0x2aa0ff, false);
     back.x = 82;
     back.y = y;
@@ -503,32 +580,100 @@ export class ResultScene extends BaseScene {
     parent.addChild(glow, bg, sprite);
   }
 
-  private drawStatRow(parent: Container, row: StatRow, y: number, w: number) {
-    const divider = new Graphics();
-    divider.rect(24, y + 30, w - 48, 1);
-    divider.fill({ color: 0x21466f, alpha: 0.6 });
+  private drawStatRow(parent: Container, row: StatRow, y: number, w: number, showDivider: boolean) {
+    const padX = 28;
+    const barX = padX;
+    const barW = w - padX * 2;
+    const barH = 12;
+    const valueY = y + 2;
+    const barY = y + 36;
+    const centerY = y + 14;
 
-    const leftValue = label(row.left, 30, 0x2e98ff, '900');
-    leftValue.x = 30;
-    leftValue.y = y - 15;
-    const rightValue = label(row.right, 30, 0xff5362, '900');
+    if (showDivider) {
+      const divider = new Graphics();
+      divider.rect(padX, y + 58, barW, 1);
+      divider.fill({ color: 0x15345a, alpha: 0.85 });
+      parent.addChild(divider);
+    }
+
+    const leftValue = label(row.left, 34, HOME_ACCENT, '900');
+    leftValue.x = padX;
+    leftValue.y = valueY;
+
+    const rightValue = label(row.right, 34, OPPONENT_ACCENT, '900');
     rightValue.anchor.set(1, 0);
-    rightValue.x = w - 30;
-    rightValue.y = y - 15;
+    rightValue.x = w - padX;
+    rightValue.y = valueY;
 
-    this.progressBar(parent, 118, y + 2, 176, 13, row.leftValue, row.leftValue + row.rightValue, 0x2f95ff);
-    this.progressBar(parent, w - 294, y + 2, 176, 13, row.rightValue, row.leftValue + row.rightValue, 0xff4f62);
+    const center = new Container();
+    center.x = w / 2;
+    center.y = centerY;
+    const icon = label(row.icon, 21, 0xe8f2ff, '900');
+    icon.anchor.set(1, 0.5);
+    icon.x = -6;
+    const name = label(row.name, 20, 0xd9e4f4, '700');
+    name.anchor.set(0, 0.5);
+    name.x = 6;
+    center.addChild(icon, name);
 
-    const icon = label(row.icon, 26, 0xdbe8ff, '900');
-    icon.anchor.set(0.5);
-    icon.x = w / 2 - 38;
-    icon.y = y + 10;
-    const name = label(row.name, 24, 0xd9e4f4, '900');
-    name.anchor.set(0.5);
-    name.x = w / 2 + 34;
-    name.y = y + 10;
+    this.drawComparisonBar(parent, barX, barY, barW, barH, row.leftValue, row.rightValue);
 
-    parent.addChild(divider, leftValue, rightValue, icon, name);
+    parent.addChild(leftValue, rightValue, center);
+  }
+
+  private drawComparisonBar(parent: Container, x: number, y: number, w: number, h: number, leftVal: number, rightVal: number) {
+    const total = Math.max(1, leftVal + rightVal);
+    const leftShare = leftVal / total;
+    const leftW = Math.max(h, w * leftShare);
+    const rightW = Math.max(h, w - leftW);
+    const leftPct = Math.round(leftShare * 100);
+    const rightPct = 100 - leftPct;
+    const radius = h / 2;
+
+    const track = new Graphics();
+    track.roundRect(x, y, w, h, radius);
+    track.fill({ color: 0x0a1e3a, alpha: 0.96 });
+    track.stroke({ color: 0x143258, alpha: 0.65, width: 1 });
+
+    const leftFill = new Graphics();
+    if (leftW >= w - 1) {
+      leftFill.roundRect(x, y, leftW, h, radius);
+    } else if (leftW <= radius * 2) {
+      leftFill.roundRect(x, y, leftW, h, radius);
+    } else {
+      leftFill.roundRect(x, y, leftW, h, radius);
+      leftFill.rect(x + leftW - radius, y, radius, h);
+    }
+    leftFill.fill({ color: HOME_ACCENT, alpha: 0.96 });
+
+    const rightFill = new Graphics();
+    const rightX = x + leftW;
+    if (rightW >= w - 1) {
+      rightFill.roundRect(rightX, y, rightW, h, radius);
+    } else if (rightW <= radius * 2) {
+      rightFill.roundRect(rightX, y, rightW, h, radius);
+    } else {
+      rightFill.rect(rightX, y, radius, h);
+      rightFill.roundRect(rightX, y, rightW, h, radius);
+    }
+    rightFill.fill({ color: OPPONENT_ACCENT, alpha: 0.96 });
+
+    parent.addChild(track, leftFill, rightFill);
+
+    if (leftW >= 34) {
+      const leftLabel = label(`${leftPct}%`, 11, 0xffffff, '900');
+      leftLabel.anchor.set(0.5);
+      leftLabel.x = x + leftW / 2;
+      leftLabel.y = y + h / 2 + 1;
+      parent.addChild(leftLabel);
+    }
+    if (rightW >= 34) {
+      const rightLabel = label(`${rightPct}%`, 11, 0xffffff, '900');
+      rightLabel.anchor.set(0.5);
+      rightLabel.x = rightX + rightW / 2;
+      rightLabel.y = y + h / 2 + 1;
+      parent.addChild(rightLabel);
+    }
   }
 
   private drawGoalList(x: number, y: number, w: number, h: number, iconText: string, titleText: string, color: number, rows: Array<{ time: string; name: string; player?: PlayerCardData }>) {
@@ -586,16 +731,6 @@ export class ResultScene extends BaseScene {
     c.y = y + 19;
     c.addChild(bg, text);
     return c;
-  }
-
-  private progressBar(parent: Container, x: number, y: number, w: number, h: number, value: number, total: number, color: number) {
-    const track = new Graphics();
-    track.roundRect(x, y, w, h, h / 2);
-    track.fill({ color: 0x213b5d, alpha: 0.9 });
-    const fill = new Graphics();
-    fill.roundRect(x, y, Math.max(h, (w * value) / Math.max(1, total)), h, h / 2);
-    fill.fill({ color, alpha: 1 });
-    parent.addChild(track, fill);
   }
 
   private tabHitArea(x: number, y: number, width: number, height: number, tab: 'stats' | 'events') {
@@ -669,14 +804,82 @@ export class ResultScene extends BaseScene {
   }
 
   private statsRows(): StatRow[] {
+    const derived = this.deriveMatchStats();
     return [
-      { icon: '⚽', name: '控球率', left: '62%', right: '38%', leftValue: 62, rightValue: 38 },
-      { icon: '▧', name: '射门', left: '14', right: '6', leftValue: 14, rightValue: 6 },
-      { icon: '◎', name: '射正', left: '8', right: '3', leftValue: 8, rightValue: 3 },
-      { icon: '⌁', name: '传球成功率', left: '89%', right: '78%', leftValue: 89, rightValue: 78 },
-      { icon: '⚑', name: '角球', left: '5', right: '2', leftValue: 5, rightValue: 2 },
-      { icon: '▰', name: '抢断', left: '12', right: '8', leftValue: 12, rightValue: 8 }
+      { icon: '⚽', name: '控球率', left: `${derived.possessionHome}%`, right: `${derived.possessionAway}%`, leftValue: derived.possessionHome, rightValue: derived.possessionAway },
+      { icon: '◎', name: '射门', left: String(derived.shotsHome), right: String(derived.shotsAway), leftValue: derived.shotsHome, rightValue: derived.shotsAway },
+      { icon: '◉', name: '射正', left: String(derived.onTargetHome), right: String(derived.onTargetAway), leftValue: derived.onTargetHome, rightValue: derived.onTargetAway },
+      { icon: '⌁', name: '传球成功率', left: `${derived.passHome}%`, right: `${derived.passAway}%`, leftValue: derived.passHome, rightValue: derived.passAway },
+      { icon: '⚑', name: '角球', left: String(derived.cornersHome), right: String(derived.cornersAway), leftValue: derived.cornersHome, rightValue: derived.cornersAway },
+      { icon: '◧', name: '抢断', left: String(derived.tacklesHome), right: String(derived.tacklesAway), leftValue: derived.tacklesHome, rightValue: derived.tacklesAway }
     ];
+  }
+
+  private deriveMatchStats() {
+    const { scoreA, scoreB, events } = this.game.battleResult;
+    const win = scoreA > scoreB;
+    const draw = scoreA === scoreB;
+    const possessionHome = draw ? 50 : win ? 58 + Math.min(8, scoreA * 2) : 42 - Math.min(8, scoreB * 2);
+    const possessionAway = 100 - possessionHome;
+
+    let shotsHome = 0;
+    let shotsAway = 0;
+    let onTargetHome = 0;
+    let onTargetAway = 0;
+    let cornersHome = 0;
+    let cornersAway = 0;
+    let tacklesHome = 0;
+    let tacklesAway = 0;
+
+    events.forEach((event) => {
+      const away = this.eventTeamSide(event) === 'away';
+      const tag = this.eventTag(event);
+      const shotLike = ['射门', '进球', '神仙球', '任意球', '扑救'].includes(tag);
+      const onTarget = ['进球', '神仙球', '扑救'].includes(tag) || (tag === '任意球' && /破门|入网|射正|被扑/.test(event.text));
+      if (shotLike) {
+        if (away) shotsAway += 1;
+        else shotsHome += 1;
+      }
+      if (onTarget) {
+        if (away) onTargetAway += 1;
+        else onTargetHome += 1;
+      }
+      if (tag === '角球') {
+        if (away) cornersAway += 1;
+        else cornersHome += 1;
+      }
+      if (tag === '抢断') {
+        if (away) tacklesAway += 1;
+        else tacklesHome += 1;
+      }
+    });
+
+    shotsHome = Math.max(scoreA * 2 + 4, shotsHome, scoreA + 3);
+    shotsAway = Math.max(scoreB * 2 + 3, shotsAway, scoreB + 2);
+    onTargetHome = Math.max(scoreA + 2, onTargetHome, Math.round(shotsHome * 0.55));
+    onTargetAway = Math.max(scoreB + 1, onTargetAway, Math.round(shotsAway * 0.45));
+    cornersHome = Math.max(2, cornersHome, scoreA + 1);
+    cornersAway = Math.max(1, cornersAway, scoreB);
+    tacklesHome = Math.max(6, tacklesHome, 8 + scoreA);
+    tacklesAway = Math.max(5, tacklesAway, 6 + scoreB);
+
+    const passHome = Math.min(94, 78 + possessionHome * 0.12 + scoreA * 2);
+    const passAway = Math.min(92, 72 + possessionAway * 0.1 + scoreB * 2);
+
+    return {
+      possessionHome,
+      possessionAway,
+      shotsHome,
+      shotsAway,
+      onTargetHome,
+      onTargetAway,
+      passHome: Math.round(passHome),
+      passAway: Math.round(passAway),
+      cornersHome,
+      cornersAway,
+      tacklesHome,
+      tacklesAway
+    };
   }
 
   private matchEvents() {
