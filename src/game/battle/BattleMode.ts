@@ -1,4 +1,4 @@
-import type { FormationData, LineupSlot } from '../types';
+import type { FormationData, LineupSlot, PlayerCardData } from '../types';
 
 export type BattleMode = 'ai' | 'douyinRealtime';
 
@@ -9,6 +9,7 @@ export interface BattleSource {
   opponentName: string;
   opponentFormation?: FormationData;
   opponentLineup?: LineupSlot[];
+  opponentSubstitutes?: Array<PlayerCardData | undefined>;
 }
 
 export const defaultBattleSource: BattleSource = {

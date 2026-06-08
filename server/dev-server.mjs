@@ -60,6 +60,10 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, await generateBattleMoment(await readJson(request)));
       return;
     }
+    if (request.method === 'POST' && url.pathname === '/api/battle/script') {
+      await streamBattleScript(response, await readJson(request));
+      return;
+    }
     if (request.method === 'POST' && url.pathname === '/api/shop/grant') {
       sendJson(response, 200, await grantShopReward(await readJson(request)));
       return;
@@ -231,6 +235,33 @@ async function recordMatch(body) {
 }
 
 async function generateBattleMoment(body) {
+  const events = await fetchBattleScriptEvents(body, 1);
+  return events[0] ?? fallbackBattleMoment('shot', 'home');
+}
+
+async function streamBattleScript(response, body) {
+  response.writeHead(200, {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive'
+  });
+
+  try {
+    await fetchBattleScriptEvents(body, Math.max(6, Math.min(14, Number(body.count ?? 10))), (event) => {
+      response.write(`data: ${JSON.stringify(event)}\n\n`);
+    });
+    response.write('data: [DONE]\n\n');
+  } catch (error) {
+    console.error('[battle-ai] script stream failed', error);
+    response.write(`data: ${JSON.stringify({ error: error.message ?? 'script_failed' })}\n\n`);
+  }
+  response.end();
+}
+
+async function fetchBattleScriptEvents(body, count = 10, onEvent) {
   if (!dashscopeApiKey) {
     const error = new Error('DASHSCOPE_API_KEY is not configured.');
     error.status = 503;
@@ -240,66 +271,172 @@ async function generateBattleMoment(body) {
   const minute = Math.max(1, Math.min(90, Number(body.minute ?? 1)));
   const scoreA = Number(body.scoreA ?? 0);
   const scoreB = Number(body.scoreB ?? 0);
-  const homePlayers = Array.isArray(body.homePlayers) ? body.homePlayers.slice(0, 8) : [];
-  const awayPlayers = Array.isArray(body.awayPlayers) ? body.awayPlayers.slice(0, 8) : [];
+  const homePlayers = normalizeSquadPlayers(body.homePlayers);
+  const awayPlayers = normalizeSquadPlayers(body.awayPlayers);
   const recentEvents = Array.isArray(body.recentEvents) ? body.recentEvents.slice(0, 5) : [];
   const allowedTypes = ['goal', 'shot', 'save', 'corner', 'yellow', 'red', 'injury', 'sub'];
+  const eventCount = Math.max(1, Math.min(14, Number(count ?? 10)));
 
   const prompt = [
-    '你是一个足球小游戏比赛事件导演。请生成下一条比赛事件，只返回 JSON。',
-    '要求：',
-    '- 事件要符合当前分钟和比分，不要重复 recentEvents 里刚发生的内容。',
-    '- actorName 必须优先从 homePlayers 或 awayPlayers 的 displayName 中选择；系统事件可用“裁判”“教练组”。',
-    '- relatedActorNames 是相关球员 displayName 数组，最多 3 个。',
-    '- detail 使用简短中文，35 字以内。',
-    '- score 只有进球时可为 "home" 或 "away"，其他为 null。',
+    '你是一个足球小游戏比赛事件导演。请连续生成比赛事件。',
+    '输出要求：',
+    `- 共 ${eventCount} 条事件，按时间顺序从近到远或递增分钟均可，minute 范围 ${minute}-90`,
+    '- 每行一个 JSON 对象，不要 Markdown，不要外层数组',
+    '- actorName 必须从 roster 的 displayName 中选择；系统事件可用“裁判”“教练组”',
+    '- relatedActorNames 最多 3 个；detail 35 字以内中文',
+    '- score 仅进球时为 "home" 或 "away"，否则 null',
+    '- roster 含 role=starter 首发与 role=bench 替补，换人与受伤可涉及替补',
     `- eventType 只能是：${allowedTypes.join(', ')}`,
-    'JSON schema: {"eventType":"shot","title":"射门","actorName":"小罗","relatedActorNames":["小罗"],"detail":"小罗禁区前沿起脚，门将飞身扑出。","mood":"good","score":null,"team":"home"}',
+    '每行 JSON 字段：{"minute":12,"eventType":"shot","actorName":"小罗","relatedActorNames":["小罗"],"detail":"...","mood":"good","score":null,"team":"home"}',
     `当前：${minute}'，比分 ${scoreA}:${scoreB}`,
-    `我方球员：${JSON.stringify(homePlayers)}`,
-    `对方球员：${JSON.stringify(awayPlayers)}`,
+    `我方 roster：${JSON.stringify(homePlayers)}`,
+    `对方 roster：${JSON.stringify(awayPlayers)}`,
     `最近事件：${JSON.stringify(recentEvents)}`
   ].join('\n');
 
-  const response = await fetch(`${bailianBaseUrl}/chat/completions`, {
+  const llmResponse = await fetch(`${bailianBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${dashscopeApiKey}`,
+      Authorization: `Bearer ${dashscopeApiKey}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       model: bailianModel,
       messages: [
-        { role: 'system', content: '你只输出合法 JSON，不要 Markdown。' },
+        { role: 'system', content: '你只输出 NDJSON，每行一个合法 JSON 对象，不要其他文字。' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.8,
-      max_tokens: 260
+      stream: true,
+      temperature: 0.85,
+      max_tokens: Math.min(1800, 180 * eventCount)
     })
   });
 
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = payload?.error?.message ?? payload?.message ?? `DashScope request failed: ${response.status}`;
+  if (!llmResponse.ok) {
+    const payload = await llmResponse.json().catch(() => ({}));
+    const message = payload?.error?.message ?? payload?.message ?? `DashScope request failed: ${llmResponse.status}`;
     throw new Error(message);
   }
 
-  const content = payload?.choices?.[0]?.message?.content;
-  const parsed = parseJsonObject(content);
-  const eventType = allowedTypes.includes(parsed.eventType) ? parsed.eventType : 'shot';
-  const mood = ['normal', 'good', 'bad'].includes(parsed.mood) ? parsed.mood : 'normal';
-  const score = parsed.score === 'home' || parsed.score === 'away' ? parsed.score : null;
-  const team = parsed.team === 'away' ? 'away' : 'home';
+  const events = [];
+  let content = '';
+  let fullContent = '';
+  for await (const delta of readDashscopeDeltaStream(llmResponse)) {
+    fullContent += delta;
+    content += delta;
+    const lines = content.split('\n');
+    content = lines.pop() ?? '';
+    for (const line of lines) {
+      const event = normalizeBattleMoment(parseJsonObject(line), allowedTypes);
+      if (!event) continue;
+      events.push(event);
+      if (onEvent) onEvent(event);
+    }
+  }
+  const tail = content.trim();
+  if (tail) {
+    const event = normalizeBattleMoment(parseJsonObject(tail), allowedTypes);
+    if (event && !events.some((item) => item.detail === event.detail && item.actorName === event.actorName && item.minute === event.minute)) {
+      events.push(event);
+      if (onEvent) onEvent(event);
+    }
+  }
+
+  if (!events.length) {
+    const parsed = parseJsonArray(fullContent || content || '');
+    for (const item of parsed) {
+      const event = normalizeBattleMoment(item, allowedTypes);
+      if (!event) continue;
+      if (events.some((existing) => existing.detail === event.detail && existing.actorName === event.actorName && existing.minute === event.minute)) continue;
+      events.push(event);
+      if (onEvent) onEvent(event);
+    }
+  }
+
+  if (!events.length) {
+    const fallback = fallbackBattleMoment('shot', 'home');
+    events.push(fallback);
+    if (onEvent) onEvent(fallback);
+  }
+
+  return events.slice(0, eventCount);
+}
+
+async function* readDashscopeDeltaStream(response) {
+  if (!response.body) return;
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for await (const chunk of response.body) {
+    buffer += decoder.decode(chunk, { stream: true });
+    const parts = buffer.split('\n');
+    buffer = parts.pop() ?? '';
+    for (const part of parts) {
+      const line = part.trim();
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try {
+        const json = JSON.parse(payload);
+        const delta = json?.choices?.[0]?.delta?.content;
+        if (delta) yield delta;
+      } catch {
+        // ignore malformed chunks
+      }
+    }
+  }
+}
+
+function normalizeSquadPlayers(players) {
+  if (!Array.isArray(players)) return [];
+  return players.slice(0, 24).map((player) => ({
+    id: String(player?.id ?? ''),
+    displayName: stringValue(player?.displayName, '球员'),
+    position: stringValue(player?.position, 'MF'),
+    rating: Number(player?.rating ?? 70),
+    role: player?.role === 'bench' ? 'bench' : 'starter'
+  }));
+}
+
+function normalizeBattleMoment(raw, allowedTypes) {
+  if (!raw || typeof raw !== 'object') return null;
+  const eventType = allowedTypes.includes(raw.eventType) ? raw.eventType : 'shot';
+  const mood = ['normal', 'good', 'bad'].includes(raw.mood) ? raw.mood : 'normal';
+  const score = raw.score === 'home' || raw.score === 'away' ? raw.score : null;
+  const team = raw.team === 'away' ? 'away' : 'home';
+  const minute = Math.max(1, Math.min(90, Number(raw.minute ?? 1)));
   return {
+    minute,
     eventType,
     title: titleForBattleEvent(eventType),
-    actorName: stringValue(parsed.actorName, team === 'home' ? '球员' : '对手'),
-    relatedActorNames: Array.isArray(parsed.relatedActorNames) ? parsed.relatedActorNames.slice(0, 3).map((name) => String(name)) : [],
-    detail: stringValue(parsed.detail, '双方在中场展开争夺。').slice(0, 60),
+    actorName: stringValue(raw.actorName, team === 'home' ? '球员' : '对手'),
+    relatedActorNames: Array.isArray(raw.relatedActorNames) ? raw.relatedActorNames.slice(0, 3).map((name) => String(name)) : [],
+    detail: stringValue(raw.detail, '双方在中场展开争夺。').slice(0, 60),
     mood,
     score,
     team
   };
+}
+
+function fallbackBattleMoment(eventType, team) {
+  return normalizeBattleMoment({ eventType, team, actorName: team === 'home' ? '球员' : '对手', detail: '双方在中场展开争夺。', mood: 'normal', score: null, minute: 1 }, ['goal', 'shot', 'save', 'corner', 'yellow', 'red', 'injury', 'sub']);
+}
+
+function parseJsonArray(content) {
+  const text = String(content ?? '').trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : Array.isArray(parsed?.events) ? parsed.events : [];
+  } catch {
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+    try {
+      const parsed = JSON.parse(match[0]);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
 }
 
 function titleForBattleEvent(eventType) {

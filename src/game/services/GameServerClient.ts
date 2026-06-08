@@ -31,6 +31,7 @@ export interface MatchOpponent {
 }
 
 export interface GeneratedBattleMoment {
+  minute?: number;
   eventType: string;
   title: string;
   actorName: string;
@@ -39,6 +40,16 @@ export interface GeneratedBattleMoment {
   mood: 'normal' | 'good' | 'bad';
   score: 'home' | 'away' | null;
   team: 'home' | 'away';
+}
+
+export interface BattleScriptPayload {
+  minute: number;
+  scoreA: number;
+  scoreB: number;
+  count?: number;
+  homePlayers: Array<{ id: string; displayName: string; position: string; rating: number; role: 'starter' | 'bench' }>;
+  awayPlayers: Array<{ id: string; displayName: string; position: string; rating: number; role: 'starter' | 'bench' }>;
+  recentEvents: Array<{ time: number; text: string; mood: string; eventType?: string; title?: string }>;
 }
 
 export class GameServerClient {
@@ -109,16 +120,40 @@ export class GameServerClient {
     });
   }
 
-  async generateBattleMoment(payload: {
-    minute: number;
-    scoreA: number;
-    scoreB: number;
-    homePlayers: Array<{ id: string; displayName: string; position: string; rating: number }>;
-    awayPlayers: Array<{ id: string; displayName: string; position: string; rating: number }>;
-    recentEvents: Array<{ time: number; text: string; mood: string; eventType?: string; title?: string }>;
-  }) {
+  async generateBattleMoment(payload: BattleScriptPayload) {
     if (!this.baseUrl) return undefined;
     return this.post<GeneratedBattleMoment>('/api/battle/moment', payload);
+  }
+
+  async streamBattleScript(payload: BattleScriptPayload, onEvent: (event: GeneratedBattleMoment) => void) {
+    if (!this.baseUrl) return false;
+    const response = await fetch(`${this.baseUrl}/api/battle/script`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok || !response.body) throw new Error(`Game server request failed: ${response.status}`);
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const reader = response.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() ?? '';
+      for (const part of parts) {
+        const line = part.split('\n').find((item) => item.startsWith('data:'));
+        if (!line) continue;
+        const payloadText = line.slice(5).trim();
+        if (!payloadText || payloadText === '[DONE]') continue;
+        const event = JSON.parse(payloadText) as GeneratedBattleMoment & { error?: string };
+        if (event.error) throw new Error(event.error);
+        onEvent(event);
+      }
+    }
+    return true;
   }
 
   async grantShopReward(payload: {

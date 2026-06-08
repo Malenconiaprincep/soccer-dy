@@ -783,12 +783,21 @@ export class GameApp {
       if (player) usedIds.add(player.id);
       return { ...slot, player };
     });
+    const benchPool = players
+      .filter((player) => !usedIds.has(player.id))
+      .sort((a, b) => Math.abs(a.rating - targetAverage) - Math.abs(b.rating - targetAverage));
+    const opponentSubstitutes = Array.from({ length: 5 }, (_, index) => {
+      const player = benchPool[index];
+      if (player) usedIds.add(player.id);
+      return player;
+    });
     this.battleSource = {
       mode: 'ai',
       opponentIsBot: true,
       opponentName: names[Math.floor(Math.random() * names.length)],
       opponentFormation: formation,
-      opponentLineup
+      opponentLineup,
+      opponentSubstitutes
     };
   }
 

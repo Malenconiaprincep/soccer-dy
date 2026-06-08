@@ -32,7 +32,7 @@ const EVENT_CARD_LAYOUT = {
   timeY: 0.5,
   textX: 0.32,
   titleY: 0.24,
-  detailY: 0.58,
+  detailY: 0.66,
   shadeX: 0.29,
   shadeY: 0.14,
   shadeW: 0.26,
@@ -60,6 +60,7 @@ interface BattleMoment {
   detail: string;
   mood: BattleEvent['mood'];
   score?: 'home' | 'away';
+  minute?: number;
   actor?: PlayerCardData;
   actorName?: string;
   actors?: PlayerCardData[];
@@ -97,9 +98,9 @@ export class BattleScene extends BaseScene {
   private possessionBar?: { x: number; y: number; width: number; height: number };
   private eventScrollY = 0;
   private eventDrag?: { pointerId: number; startY: number; startScrollY: number };
-  private generatedMoment?: BattleMoment;
-  private generatedMomentLoading = false;
-  private generatedMomentDisabled = false;
+  private momentQueue: BattleMoment[] = [];
+  private momentScriptLoading = false;
+  private momentScriptDisabled = false;
   private goalOverlay?: Container;
   private goalOverlayAge = 0;
   private moment: BattleMoment = {
@@ -119,9 +120,10 @@ export class BattleScene extends BaseScene {
 
   enter() {
     super.enter();
-    this.generatedMomentDisabled = false;
+    this.momentQueue = [];
+    this.momentScriptDisabled = false;
     this.game.sound.play('kickoff');
-    this.prefetchGeneratedMoment();
+    this.ensureBattleScriptBuffer(true);
   }
 
   update(deltaMs: number) {
@@ -133,7 +135,7 @@ export class BattleScene extends BaseScene {
     if (this.elapsed > this.nextEventAt) {
       this.pushEvent();
       this.nextEventAt += 2200 + Math.random() * 1400;
-      this.prefetchGeneratedMoment();
+      this.ensureBattleScriptBuffer();
     }
     if (this.elapsed > 26000 && !this.isBattleStayDebug()) {
       this.game.battleResult = { scoreA: this.scoreA, scoreB: this.scoreB, events: this.events };
@@ -478,9 +480,9 @@ export class BattleScene extends BaseScene {
     const c = new Container();
     let cursorX = 0;
     if (players.length) {
-      const avatarSize = Math.max(20, Math.min(30, cardHeight * 0.42));
+      const avatarSize = Math.max(28, Math.min(44, cardHeight * 0.52));
       players.slice(0, 3).forEach((player, index) => {
-        const avatar = this.eventPlayerAvatar(player, avatarSize, color);
+        const avatar = this.eventPlayerAvatar(player, avatarSize);
         avatar.x = cursorX + avatarSize / 2 + index * (avatarSize * 0.68);
         avatar.y = size * 0.58;
         c.addChild(avatar);
@@ -499,17 +501,17 @@ export class BattleScene extends BaseScene {
     return c;
   }
 
-  private eventPlayerAvatar(player: PlayerCardData, size: number, color: number) {
+  private eventPlayerAvatar(player: PlayerCardData, size: number) {
     const c = new Container();
-    const frame = new Graphics();
-    frame.circle(0, 0, size / 2);
-    frame.fill({ color: 0x071735, alpha: 0.96 });
-    frame.stroke({ color, alpha: 0.9, width: 3 });
     const face = new Sprite(Texture.from(player.portrait));
     face.anchor.set(0.5);
-    face.width = size - 6;
-    face.height = size - 6;
-    c.addChild(frame, face);
+    face.width = size;
+    face.height = size;
+    const mask = new Graphics();
+    mask.circle(0, 0, size / 2);
+    mask.fill(0xffffff);
+    c.addChild(mask, face);
+    c.mask = mask;
     return c;
   }
 
@@ -706,8 +708,7 @@ export class BattleScene extends BaseScene {
   }
 
   private pushEvent() {
-    const next = this.generatedMoment ?? this.createMoment();
-    this.generatedMoment = undefined;
+    const next = this.dequeueMoment() ?? this.createMoment();
     this.moment = next;
     if (next.score === 'home') this.scoreA += 1;
     if (next.score === 'away') this.scoreB += 1;
@@ -717,7 +718,7 @@ export class BattleScene extends BaseScene {
     else if (next.mood === 'good') this.game.sound.play('confirm');
     else this.game.sound.play('tap');
     this.events.unshift({
-      time: this.matchMinute(),
+      time: next.minute ?? this.matchMinute(),
       text: next.detail,
       scoreA: this.scoreA,
       scoreB: this.scoreB,
@@ -798,35 +799,69 @@ export class BattleScene extends BaseScene {
     }
   }
 
-  private prefetchGeneratedMoment() {
-    if (this.generatedMoment || this.generatedMomentLoading || this.generatedMomentDisabled || !this.shouldUseBattleAi()) return;
-    this.generatedMomentLoading = true;
-    void this.game.server.generateBattleMoment({
-      minute: this.matchMinute(),
-      scoreA: this.scoreA,
-      scoreB: this.scoreB,
-      homePlayers: this.playersForGeneration(this.game.lineup),
-      awayPlayers: this.playersForGeneration(this.opponentLineup()),
-      recentEvents: this.events.slice(0, 5).map((event) => ({ time: event.time, text: event.text, mood: event.mood, eventType: event.eventType, title: event.title }))
-    }).then((moment) => {
-      if (moment) this.generatedMoment = this.toBattleMoment(moment);
+  private ensureBattleScriptBuffer(force = false) {
+    if (!this.shouldUseBattleAi()) return;
+    if (this.momentScriptLoading || this.momentScriptDisabled) return;
+    if (!force && this.momentQueue.length >= 4) return;
+
+    this.momentScriptLoading = true;
+    void this.game.server.streamBattleScript(this.battleScriptPayload(), (moment) => {
+      this.momentQueue.push(this.toBattleMoment(moment));
+      this.momentQueue.sort((a, b) => (a.minute ?? 999) - (b.minute ?? 999));
     }).catch((error) => {
-      this.generatedMomentDisabled = true;
-      console.warn('[battle-ai] disabled, falling back to local moments', error);
+      this.momentScriptDisabled = true;
+      console.warn('[battle-ai] script stream failed, falling back to local moments', error);
     }).finally(() => {
-      this.generatedMomentLoading = false;
+      this.momentScriptLoading = false;
     });
   }
 
-  private playersForGeneration(lineup: LineupSlot[]) {
-    return lineup
+  private battleScriptPayload() {
+    return {
+      minute: this.matchMinute(),
+      scoreA: this.scoreA,
+      scoreB: this.scoreB,
+      count: 10,
+      homePlayers: this.squadForGeneration(this.game.lineup, this.game.substitutes),
+      awayPlayers: this.squadForGeneration(this.opponentLineup(), this.opponentSubstitutes()),
+      recentEvents: this.events.slice(0, 5).map((event) => ({
+        time: event.time,
+        text: event.text,
+        mood: event.mood,
+        eventType: event.eventType,
+        title: event.title
+      }))
+    };
+  }
+
+  private dequeueMoment() {
+    return this.momentQueue.shift();
+  }
+
+  private opponentSubstitutes() {
+    return this.game.battleSource.opponentSubstitutes ?? [];
+  }
+
+  private squadForGeneration(lineup: LineupSlot[], substitutes: Array<PlayerCardData | undefined>) {
+    const starters = lineup
       .map((slot) => slot.player ? {
         id: slot.player.id,
         displayName: playerDisplayName(slot.player),
         position: slot.position,
-        rating: slot.player.rating
+        rating: slot.player.rating,
+        role: 'starter' as const
       } : undefined)
-      .filter(Boolean) as Array<{ id: string; displayName: string; position: string; rating: number }>;
+      .filter(Boolean) as Array<{ id: string; displayName: string; position: string; rating: number; role: 'starter' | 'bench' }>;
+    const bench = substitutes
+      .filter(Boolean)
+      .map((player) => ({
+        id: player!.id,
+        displayName: playerDisplayName(player!),
+        position: player!.position,
+        rating: player!.rating,
+        role: 'bench' as const
+      }));
+    return [...starters, ...bench];
   }
 
   private toBattleMoment(moment: GeneratedBattleMoment): BattleMoment {
@@ -843,7 +878,8 @@ export class BattleScene extends BaseScene {
       actorName: playerDisplayName(moment.actorName),
       actors: actors.length ? actors : actor ? [actor] : [],
       actorNames: moment.relatedActorNames.map((name) => playerDisplayName(name)),
-      team: moment.team
+      team: moment.team,
+      minute: moment.minute
     };
   }
 
@@ -868,7 +904,7 @@ export class BattleScene extends BaseScene {
     const currentPlayerNames = this.moment.actorNames ?? [currentActor];
     const current = {
       eventType: this.moment.eventType ?? this.eventTypeForMoment(this.moment),
-      time: this.matchMinute(),
+      time: this.moment.minute ?? this.matchMinute(),
       title: this.cardTitle(),
       actor: currentActor,
       player: this.moment.actor,
@@ -897,8 +933,16 @@ export class BattleScene extends BaseScene {
       };
     });
     const newest = history[0];
-    if (newest && newest.time === current.time && newest.text === current.text) return history;
-    return [current, ...history];
+    if (newest && this.isSameEventEntry(newest, current)) return this.sortEventEntries(history);
+    return this.sortEventEntries([current, ...history]);
+  }
+
+  private sortEventEntries(entries: BattleEventEntry[]) {
+    return [...entries].sort((a, b) => b.time - a.time);
+  }
+
+  private isSameEventEntry(a: BattleEventEntry, b: BattleEventEntry) {
+    return a.text === b.text && a.actor === b.actor && a.eventType === b.eventType;
   }
 
   private debugBattleEntries(): BattleEventEntry[] {
@@ -985,7 +1029,9 @@ export class BattleScene extends BaseScene {
     if (!cleanName || cleanName.length > 8) return undefined;
     const players = [
       ...this.game.lineup.map((slot) => slot.player),
-      ...this.opponentLineup().map((slot) => slot.player)
+      ...this.game.substitutes,
+      ...this.opponentLineup().map((slot) => slot.player),
+      ...this.opponentSubstitutes()
     ].filter(Boolean) as PlayerCardData[];
     return players.find((player) => {
       const displayName = playerDisplayName(player);
@@ -1014,11 +1060,14 @@ export class BattleScene extends BaseScene {
   private eventTeam(entry: BattleEventEntry): 'home' | 'away' {
     if (entry.team) return entry.team;
     const players = entry.players?.length ? entry.players : entry.player ? [entry.player] : [];
-    if (players.some((player) => this.opponentLineup().some((slot) => slot.player?.id === player.id))) return 'away';
+    if (players.some((player) => this.opponentLineup().some((slot) => slot.player?.id === player.id) || this.opponentSubstitutes().some((bench) => bench?.id === player.id))) return 'away';
     const actor = entry.actor?.trim();
     if (actor) {
       for (const slot of this.opponentLineup()) {
         if (slot.player && playerDisplayName(slot.player) === actor) return 'away';
+      }
+      for (const bench of this.opponentSubstitutes()) {
+        if (bench && playerDisplayName(bench) === actor) return 'away';
       }
     }
     return 'home';
