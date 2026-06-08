@@ -73,6 +73,7 @@ export class GameServerClient {
     power: number;
     formationId: string;
     lineup: Array<{ slotId: string; playerId?: string; rating?: number }>;
+    botAfterMs?: number;
   }) {
     if (!this.baseUrl) return undefined;
     return this.post<{ status: 'waiting' | 'matched'; ticketId: string; opponent?: MatchOpponent; botAfterMs?: number }>('/api/matchmaking/join', payload);

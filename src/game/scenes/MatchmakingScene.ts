@@ -3,7 +3,7 @@ import { BaseScene } from './BaseScene';
 import { headerTitleSprite, imageBackButton, label, palette } from '../ui';
 
 export class MatchmakingScene extends BaseScene {
-  private static readonly MATCH_DURATION_MS = 60000;
+  private matchDurationMs = 15000;
   private elapsed = 0;
   private matched = false;
   private cancelled = false;
@@ -24,6 +24,7 @@ export class MatchmakingScene extends BaseScene {
 
   enter() {
     super.enter();
+    this.matchDurationMs = this.game.matchDurationMs();
     this.startMatchmaking();
   }
 
@@ -45,10 +46,11 @@ export class MatchmakingScene extends BaseScene {
     }
     if (this.centerPulse) this.centerPulse.scale.set(1 + Math.sin(t * 4.1) * 0.035);
     this.updateWaitValue();
-    if (!this.matched && this.elapsed >= MatchmakingScene.MATCH_DURATION_MS) this.finishWithFallback();
+    if (!this.matched && this.elapsed >= this.matchDurationMs) this.finishWithFallback();
   }
 
   resize() {
+    this.matchDurationMs = this.game.matchDurationMs();
     this.container.removeChildren();
     this.spinnerRoot = undefined;
     this.blueArc = undefined;
@@ -111,7 +113,8 @@ export class MatchmakingScene extends BaseScene {
     wait.anchor.set(0.5);
     wait.x = centerX - 42;
     wait.y = cancel.y + 132;
-    const waitValue = label('01:00', 27, 0x5eff6f, '900');
+    const initialSeconds = Math.ceil(this.matchDurationMs / 1000);
+    const waitValue = label(`${String(Math.floor(initialSeconds / 60)).padStart(2, '0')}:${String(initialSeconds % 60).padStart(2, '0')}`, 27, 0x5eff6f, '900');
     waitValue.anchor.set(0.5);
     waitValue.x = centerX + 122;
     waitValue.y = wait.y;
@@ -127,7 +130,7 @@ export class MatchmakingScene extends BaseScene {
 
   private updateWaitValue() {
     if (!this.waitValue) return;
-    const remainingMs = Math.max(0, MatchmakingScene.MATCH_DURATION_MS - this.elapsed);
+    const remainingMs = Math.max(0, this.matchDurationMs - this.elapsed);
     const remainingSeconds = Math.ceil(remainingMs / 1000);
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;

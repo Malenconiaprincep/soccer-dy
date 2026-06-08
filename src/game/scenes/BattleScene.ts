@@ -37,7 +37,6 @@ const PREPARATION_HINTS = [
 
 const FULL_TIME_EVENT_PAUSE_MS = 2400;
 const ENDING_UI_DELAY_MS = 800;
-const ENDING_AUTO_JUMP_MS = 6000;
 
 const EVENT_CARD_LAYOUT = {
   timeX: 0.228,
@@ -165,10 +164,7 @@ export class BattleScene extends BaseScene {
   private battlePhase: 'live' | 'ending' = 'live';
   private fullTimeEventPushed = false;
   private endingReadyAt = 0;
-  private endingAutoJumpAt = 0;
-  private endingUserReady = false;
   private endingOverlay?: Container;
-  private endingCountdownText?: ReturnType<typeof label>;
   private moment: BattleMoment = {
     type: 'attack',
     eventType: 'shot',
@@ -196,8 +192,6 @@ export class BattleScene extends BaseScene {
     this.battlePhase = 'live';
     this.fullTimeEventPushed = false;
     this.endingReadyAt = 0;
-    this.endingAutoJumpAt = 0;
-    this.endingUserReady = false;
     this.clearEndingOverlayRefs();
     this.game.ensureHomeSubstitutes();
     this.game.sound.play('kickoff');
@@ -228,14 +222,23 @@ export class BattleScene extends BaseScene {
         this.nextEventAt = this.elapsed + 500;
       }
     }
-    if (this.shouldFinishBattle()) {
-      this.goToResult();
-    }
+  }
+
+  private saveBattleResult() {
+    this.game.battleResult = { scoreA: this.scoreA, scoreB: this.scoreB, events: this.events };
   }
 
   private goToResult() {
-    this.game.battleResult = { scoreA: this.scoreA, scoreB: this.scoreB, events: this.events };
+    this.saveBattleResult();
     this.game.changeScene('result');
+  }
+
+  private continueAfterBattle() {
+    this.saveBattleResult();
+    const win = this.scoreA > this.scoreB;
+    this.game.awardMatchRewards(win);
+    void this.game.recordBattleResult();
+    this.game.changeScene('home');
   }
 
   resize() {
@@ -555,11 +558,12 @@ export class BattleScene extends BaseScene {
 
   private playEventCardEnter(card: Container, targetY: number) {
     const rowH = this.eventFeedState?.rowH ?? 96;
-    const offset = Math.max(28, rowH * 0.32);
+    const gap = this.eventFeedState?.gap ?? 8;
+    const offset = rowH + gap;
     card.y = targetY - offset;
     card.alpha = 0;
-    card.scale.set(0.96);
-    this.cardAnimations.push({ card, age: 0, duration: 480, fromY: targetY - offset, toY: targetY });
+    card.scale.set(1);
+    this.cardAnimations.push({ card, age: 0, duration: 420, fromY: targetY - offset, toY: targetY });
   }
 
   private updateCardAnimations(deltaMs: number) {
@@ -569,7 +573,6 @@ export class BattleScene extends BaseScene {
       const eased = 1 - Math.pow(1 - t, 3);
       anim.card.y = anim.fromY + (anim.toY - anim.fromY) * eased;
       anim.card.alpha = eased;
-      anim.card.scale.set(0.96 + 0.04 * eased);
       return anim.age < anim.duration;
     });
   }
@@ -1275,13 +1278,24 @@ export class BattleScene extends BaseScene {
     if (this.rightScoreText) this.rightScoreText.text = String(this.scoreB);
   }
 
+  private scoringTeamFromGenerated(moment: GeneratedBattleMoment): 'home' | 'away' | undefined {
+    if (moment.eventType === 'goal' || moment.eventType === 'wondergoal') {
+      return moment.score === 'home' || moment.score === 'away' ? moment.score : moment.team;
+    }
+    if (moment.eventType === 'freekick' && (moment.score === 'home' || moment.score === 'away')) {
+      return moment.score;
+    }
+    return undefined;
+  }
+
   private resolveScoringTeam(moment: BattleMoment): 'home' | 'away' | undefined {
-    if (moment.score === 'home' || moment.score === 'away') return moment.score;
     const rawType = moment.eventType;
     const isGoal = moment.type === 'goal'
       || rawType === 'goal'
-      || rawType === 'wondergoal';
+      || rawType === 'wondergoal'
+      || (rawType === 'freekick' && (moment.score === 'home' || moment.score === 'away'));
     if (!isGoal) return undefined;
+    if (moment.score === 'home' || moment.score === 'away') return moment.score;
     return moment.team === 'away' ? 'away' : 'home';
   }
 
@@ -1290,8 +1304,7 @@ export class BattleScene extends BaseScene {
     const actors = sanitized.relatedActorNames
       .map((name) => this.findPlayerByName(name))
       .filter(Boolean) as PlayerCardData[];
-    const score = sanitized.score
-      ?? ((sanitized.eventType === 'goal' || sanitized.eventType === 'wondergoal') ? sanitized.team : undefined);
+    const score = this.scoringTeamFromGenerated(sanitized);
     const actor = this.findPlayerByName(sanitized.actorName) ?? actors[0];
     const preservedType = sanitized.eventType === 'freekick' || sanitized.eventType === 'wondergoal'
       ? sanitized.eventType
@@ -1641,7 +1654,7 @@ export class BattleScene extends BaseScene {
       return { type: 'counter', eventType: 'sub', title: '换人', detail: '教练做出换人调整。', mood: 'normal', team: 'home' };
     }
     if (roll < 0.86) return { type: 'counter', eventType: 'injury', title: '受伤', detail: `${this.playerName(scorer)} 拼抢后倒地，队医进场检查。`, mood: 'bad', actor: scorer, team: 'home' };
-    if (roll < 0.94) return { type: 'counter', eventType: 'red', title: '红牌', detail: `${this.playerName(awayScorer)} 犯规动作过大，被主裁直接罚下。`, mood: 'bad', score: 'away', actor: awayScorer, team: 'away' };
+    if (roll < 0.94) return { type: 'counter', eventType: 'red', title: '红牌', detail: `${this.playerName(awayScorer)} 犯规动作过大，被主裁直接罚下。`, mood: 'bad', actor: awayScorer, team: 'away' };
     return { type: 'shot', eventType: 'shot', title: '射门', detail: `${this.playerName(creator)} 连续传导，耐心寻找最后一传。`, mood: 'normal', actor: creator, team: 'home' };
   }
 
@@ -1775,11 +1788,8 @@ export class BattleScene extends BaseScene {
     if (this.endingReadyAt === 0) {
       if (this.elapsed < this.eventPushPausedUntil + ENDING_UI_DELAY_MS) return;
       this.endingReadyAt = this.elapsed;
-      this.endingAutoJumpAt = this.elapsed + ENDING_AUTO_JUMP_MS;
       this.showEndingOverlay();
     }
-
-    this.updateEndingOverlay();
   }
 
   private pushFullTimeEvent() {
@@ -1870,53 +1880,33 @@ export class BattleScene extends BaseScene {
     if (this.endingOverlay) return;
 
     const overlay = new Container();
-    const layout = this.battleLayout();
-    const bannerW = Math.min(this.game.width - 48, 520);
-    const bannerH = 54;
-    const bannerX = (this.game.width - bannerW) / 2;
-    const bannerY = layout.momentumY - 8;
-
-    const banner = new Graphics();
-    banner.roundRect(bannerX, bannerY, bannerW, bannerH, 12);
-    banner.fill({ color: 0x071936, alpha: 0.92 });
-    banner.stroke({ color: 0x3dff8f, alpha: 0.88, width: 2 });
-    const bannerText = label('全场比赛结束 · 终场哨响', 22, 0x9dffd0, '900');
-    bannerText.anchor.set(0.5);
-    bannerText.x = bannerX + bannerW / 2;
-    bannerText.y = bannerY + bannerH / 2;
-
-    const btnW = Math.min(300, this.game.width - 64);
+    const btnW = Math.min(248, (this.game.width - 82) / 2);
     const btnH = 66;
-    const button = this.actionButton(btnW, btnH, '查看统计 →', 0x0b62d8, 0x2aa0ff, false);
-    button.x = (this.game.width - btnW) / 2;
-    button.y = this.game.height - btnH - 48 - this.game.contentTopOffset * 0.2;
-    button.on('pointertap', () => {
-      this.game.sound.play('tap');
-      this.endingUserReady = true;
+    const btnY = this.game.height - btnH - 48 - this.game.contentTopOffset * 0.2;
+    const continueBtn = this.actionButton(btnW, btnH, '继续游戏', 0x0b62d8, 0x2aa0ff, false);
+    continueBtn.x = 41;
+    continueBtn.y = btnY;
+    continueBtn.on('pointertap', () => {
+      this.game.sound.play('confirm');
+      this.continueAfterBattle();
     });
 
-    const countdown = label('', 18, 0xbfd4ef, '700');
-    countdown.anchor.set(0.5);
-    countdown.x = this.game.width / 2;
-    countdown.y = button.y + btnH + 28;
-    this.endingCountdownText = countdown;
+    const summaryBtn = this.actionButton(btnW, btnH, '查看赛后总结', 0xffc341, 0xfff0a2, true);
+    summaryBtn.x = this.game.width - 41 - btnW;
+    summaryBtn.y = btnY;
+    summaryBtn.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.goToResult();
+    });
 
-    overlay.addChild(banner, bannerText, button, countdown);
+    overlay.addChild(continueBtn, summaryBtn);
     this.container.addChild(overlay);
     this.endingOverlay = overlay;
-    this.updateEndingOverlay();
 
     if (this.possessionHintText) {
-      this.possessionHintText.text = '比赛已结束，可查看最终统计';
+      this.possessionHintText.text = '比赛已结束，可查看总结或继续游戏';
       this.possessionHintText.style.fill = 0x7dffb8;
     }
-  }
-
-  private updateEndingOverlay() {
-    if (!this.endingCountdownText || this.endingReadyAt === 0) return;
-    const remainingMs = Math.max(0, this.endingAutoJumpAt - this.elapsed);
-    const seconds = Math.ceil(remainingMs / 1000);
-    this.endingCountdownText.text = seconds > 0 ? `${seconds} 秒后自动进入统计` : '正在进入统计...';
   }
 
   private clearEndingOverlayRefs() {
@@ -1924,7 +1914,6 @@ export class BattleScene extends BaseScene {
       this.endingOverlay.destroy({ children: true });
     }
     this.endingOverlay = undefined;
-    this.endingCountdownText = undefined;
   }
 
   private actionButton(width: number, height: number, text: string, fill: number, stroke: number, gold: boolean) {
@@ -1949,9 +1938,4 @@ export class BattleScene extends BaseScene {
     return button;
   }
 
-  private shouldFinishBattle() {
-    if (this.battlePhase !== 'ending') return false;
-    if (!this.fullTimeEventPushed || this.endingReadyAt === 0) return false;
-    return this.endingUserReady || this.elapsed >= this.endingAutoJumpAt;
-  }
 }

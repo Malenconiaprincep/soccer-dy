@@ -6,6 +6,9 @@ import { playerDisplayName } from '../playerNames';
 
 const HOME_ACCENT = 0x2f8cff;
 const OPPONENT_ACCENT = 0xff465d;
+const RESULT_PANEL_X = 22;
+const STATS_PANEL_Y = 310;
+const STATS_BLOCK_GAP = 36;
 
 interface StatRow {
   icon: string;
@@ -18,7 +21,6 @@ interface StatRow {
 
 export class ResultScene extends BaseScene {
   private rewardsGranted = false;
-  private activeTab: 'stats' | 'events' = 'stats';
 
   enter() {
     super.enter();
@@ -38,14 +40,9 @@ export class ResultScene extends BaseScene {
     this.drawShade();
     this.drawHeader();
     this.drawScoreSummary();
-    this.drawTabs();
-    if (this.activeTab === 'stats') {
-      this.drawStatsPanel();
-      this.drawMvpPanel();
-      this.drawReportTimeline();
-    } else {
-      this.drawEventsPanel();
-    }
+    this.drawStatsPanel();
+    this.drawMvpPanel();
+    this.drawReportTimeline();
     this.drawActions();
   }
 
@@ -157,59 +154,54 @@ export class ResultScene extends BaseScene {
     return c;
   }
 
-  private drawTabs() {
-    const y = 316 + this.topLift();
-    const x = 22;
+  private statsBlockLayout() {
     const w = this.game.width - 44;
-    const tabH = 62;
-    const bg = new Graphics();
-    bg.roundRect(x, y, w, tabH, 14);
-    bg.fill({ color: 0x07172d, alpha: 0.86 });
-    bg.stroke({ color: 0x185caa, alpha: 0.55, width: 2 });
+    const y = STATS_PANEL_Y + this.topLift();
+    const headerH = 48;
+    const rowH = 88;
+    const rowStart = headerH + 16;
+    const h = rowStart + this.statsRows().length * rowH + 24;
+    return { x: RESULT_PANEL_X, y, w, h, rowH, rowStart };
+  }
 
-    const active = new Graphics();
-    active.roundRect(this.activeTab === 'stats' ? x : x + w / 2, y, w / 2, tabH, 12);
-    active.fill({ color: 0x0a56c7, alpha: 0.92 });
-    active.stroke({ color: 0x3aa2ff, alpha: 0.95, width: 2 });
+  private mvpBlockLayout() {
+    const stats = this.statsBlockLayout();
+    const h = 144;
+    return { x: stats.x, y: stats.y + stats.h + STATS_BLOCK_GAP, w: stats.w, h };
+  }
 
-    const stats = label('统计信息', 27, this.activeTab === 'stats' ? palette.white : 0xb8c7dd, '900');
-    stats.anchor.set(0.5);
-    stats.x = x + w * 0.25;
-    stats.y = y + tabH / 2;
-    const events = label('比赛事件', 27, this.activeTab === 'events' ? palette.white : 0xb8c7dd, '900');
-    events.anchor.set(0.5);
-    events.x = x + w * 0.75;
-    events.y = y + tabH / 2;
-
-    const statsHit = this.tabHitArea(x, y, w / 2, tabH, 'stats');
-    const eventsHit = this.tabHitArea(x + w / 2, y, w / 2, tabH, 'events');
-    this.container.addChild(bg, active, stats, events, statsHit, eventsHit);
+  private keyEventsBlockLayout(eventCount: number) {
+    const mvp = this.mvpBlockLayout();
+    const cardH = 76;
+    const rowH = 88;
+    const headerH = 56;
+    const h = headerH + Math.max(cardH, eventCount * rowH) + 20;
+    return { x: mvp.x, y: mvp.y + mvp.h + STATS_BLOCK_GAP, w: mvp.w, h, cardH, rowH, headerH };
   }
 
   private drawStatsPanel() {
+    const layout = this.statsBlockLayout();
     const panel = new Container();
-    panel.x = 22;
-    panel.y = 392 + this.topLift();
-    const w = this.game.width - 44;
+    panel.x = layout.x;
+    panel.y = layout.y;
     const rows = this.statsRows();
-    const rowH = 62;
-    const startY = 24;
-    const h = startY + rows.length * rowH + 18;
-    panel.addChild(this.panelBg(w, h, 0x041229, 0x238ce9, 0.92, 16));
+    panel.addChild(this.panelBg(layout.w, layout.h, 0x041229, 0x238ce9, 0.92, 16));
+    this.drawSectionTitle(panel, layout.w / 2, 26, '数据统计', layout.w);
 
     rows.forEach((row, index) => {
-      this.drawStatRow(panel, row, startY + index * rowH, w, index < rows.length - 1);
+      this.drawStatRow(panel, row, layout.rowStart + index * layout.rowH, layout.w, index < rows.length - 1);
     });
     this.container.addChild(panel);
   }
 
   private drawMvpPanel() {
+    const layout = this.mvpBlockLayout();
     const panel = new Container();
-    panel.x = 22;
-    panel.y = 824 + this.topLift();
-    const w = this.game.width - 44;
-    const h = 144;
-    panel.addChild(this.panelBg(w, h, 0x061b32, 0x238ce9, 0.82, 14));
+    panel.x = layout.x;
+    panel.y = layout.y;
+    const w = layout.w;
+    const h = layout.h;
+    panel.addChild(this.panelBg(w, h, 0x061b32, 0xffc341, 0.88, 14));
 
     const player = this.starPlayer(this.game.lineup.map((slot) => slot.player));
     const mvpBlock = new Graphics();
@@ -284,75 +276,15 @@ export class ResultScene extends BaseScene {
   }
 
   private drawReportTimeline() {
-    const panel = new Container();
-    panel.x = 22;
-    panel.y = 984 + this.topLift();
-    const w = this.game.width - 44;
     const events = this.reportEvents();
-    const rowH = 62;
-    const headerH = 52;
-    const h = headerH + events.length * rowH + 24;
-    panel.addChild(this.panelBg(w, h, 0x041229, 0x238ce9, 0.88, 14));
+    const layout = this.keyEventsBlockLayout(events.length);
+    const panel = new Container();
+    panel.x = layout.x;
+    panel.y = layout.y;
+    panel.addChild(this.panelBg(layout.w, layout.h, 0x041229, 0x238ce9, 0.88, 14));
 
-    this.drawSectionTitle(panel, w / 2, 26, '关键事件', w);
-
-    const centerX = w / 2;
-    const startY = headerH + 8;
-    const axis = new Graphics();
-    axis.rect(centerX - 1, startY, 2, Math.max(rowH, events.length * rowH - 8));
-    axis.fill({ color: 0x3aa2ff, alpha: 0.42 });
-    panel.addChild(axis);
-
-    events.forEach((event, index) => {
-      const y = startY + index * rowH;
-      const nodeY = y + rowH / 2 - 2;
-      const homeSide = this.eventTeamSide(event) === 'home';
-      const color = this.eventTimelineColor(event, homeSide);
-      const iconOffset = 50;
-      const textGap = 74;
-      const maxTextW = centerX - textGap - 16;
-
-      this.drawTimelineConnector(panel, centerX, nodeY, homeSide, color, iconOffset - 4);
-
-      const dot = new Graphics();
-      dot.circle(centerX, nodeY, 15);
-      dot.fill({ color: 0x06152d, alpha: 1 });
-      dot.stroke({ color, alpha: 0.96, width: 2.5 });
-      const time = label(`${event.time}'`, 13, color, '900');
-      time.anchor.set(0.5);
-      time.x = centerX;
-      time.y = nodeY - 1;
-
-      const icon = label(this.eventTimelineIcon(event), 17, this.eventTimelineIconColor(event), '900');
-      icon.anchor.set(0.5);
-      icon.x = homeSide ? centerX - iconOffset : centerX + iconOffset;
-      icon.y = nodeY;
-
-      const headline = label(`${this.eventActorName(event)} ${this.eventTag(event)}`, 19, palette.white, '900');
-      const detail = label(this.eventTimelineDetail(event), 15, 0xa8bdd9, '700');
-      const textEdge = homeSide ? centerX - textGap : centerX + textGap;
-
-      if (homeSide) {
-        headline.anchor.set(1, 0);
-        headline.x = textEdge;
-        headline.y = nodeY - 16;
-        detail.anchor.set(1, 0);
-        detail.x = textEdge;
-        detail.y = nodeY + 4;
-      } else {
-        headline.anchor.set(0, 0);
-        headline.x = textEdge;
-        headline.y = nodeY - 16;
-        detail.anchor.set(0, 0);
-        detail.x = textEdge;
-        detail.y = nodeY + 4;
-      }
-      if (headline.width > maxTextW) headline.scale.x = maxTextW / headline.width;
-      if (detail.width > maxTextW) detail.scale.x = maxTextW / detail.width;
-
-      panel.addChild(dot, time, icon, headline, detail);
-    });
-
+    this.drawSectionTitle(panel, layout.w / 2, 28, '关键事件', layout.w);
+    this.drawTimelineEventList(panel, events, layout.w, layout.headerH + 8, layout.cardH, layout.rowH, 290);
     this.container.addChild(panel);
   }
 
@@ -383,99 +315,6 @@ export class ResultScene extends BaseScene {
     parent.addChild(leftLine, rightLine, leftDot, rightDot, title);
   }
 
-  private drawEventsPanel() {
-    const panel = new Container();
-    panel.x = 22;
-    panel.y = 392 + this.topLift();
-    const w = this.game.width - 44;
-    const h = 760;
-    panel.addChild(this.panelBg(w, h, 0x041229, 0x238ce9, 0.92, 16));
-
-    const title = label('比赛事件', 28, palette.white, '900');
-    title.x = 28;
-    title.y = 24;
-    panel.addChild(title);
-
-    const events = this.timelineEvents();
-    const centerX = w / 2;
-    const rowH = 74;
-    const startY = 70;
-    const axisHeight = Math.max(rowH, events.length * rowH - 10);
-
-    const axis = new Graphics();
-    axis.rect(centerX - 1, startY, 2, axisHeight);
-    axis.fill({ color: 0x3aa2ff, alpha: 0.42 });
-    panel.addChild(axis);
-
-    events.forEach((event, index) => {
-      const y = startY + index * rowH;
-      const nodeY = y + rowH / 2 - 2;
-      const homeSide = this.eventTeamSide(event) === 'home';
-      const color = this.eventTimelineColor(event, homeSide);
-      const iconOffset = 56;
-      const textGap = 82;
-      const maxTextW = centerX - textGap - 18;
-
-      this.drawTimelineConnector(panel, centerX, nodeY, homeSide, color, iconOffset - 6);
-
-      const dot = new Graphics();
-      dot.circle(centerX, nodeY, 18);
-      dot.fill({ color: 0x06152d, alpha: 1 });
-      dot.stroke({ color, alpha: 0.96, width: 2.5 });
-      const time = label(`${event.time}'`, 14, color, '900');
-      time.anchor.set(0.5);
-      time.x = centerX;
-      time.y = nodeY - 1;
-
-      const icon = label(this.eventTimelineIcon(event), 19, this.eventTimelineIconColor(event), '900');
-      icon.anchor.set(0.5);
-      icon.x = homeSide ? centerX - iconOffset : centerX + iconOffset;
-      icon.y = nodeY;
-
-      const actor = this.eventActorName(event);
-      const tag = this.eventTag(event);
-      const headline = label(`${actor} ${tag}`, 21, palette.white, '900');
-      const detail = label(this.eventTimelineDetail(event), 16, 0xa8bdd9, '700');
-      const textEdge = homeSide ? centerX - textGap : centerX + textGap;
-
-      if (homeSide) {
-        headline.anchor.set(1, 0);
-        headline.x = textEdge;
-        headline.y = nodeY - 18;
-        detail.anchor.set(1, 0);
-        detail.x = textEdge;
-        detail.y = nodeY + 5;
-      } else {
-        headline.anchor.set(0, 0);
-        headline.x = textEdge;
-        headline.y = nodeY - 18;
-        detail.anchor.set(0, 0);
-        detail.x = textEdge;
-        detail.y = nodeY + 5;
-      }
-      if (headline.width > maxTextW) headline.scale.x = maxTextW / headline.width;
-      if (detail.width > maxTextW) detail.scale.x = maxTextW / detail.width;
-
-      panel.addChild(dot, time, icon, headline, detail);
-
-      if (this.isGoalEvent(event)) {
-        const score = label(`${event.scoreA}:${event.scoreB}`, 24, color, '900');
-        score.anchor.set(homeSide ? 0 : 1, 0.5);
-        score.x = homeSide ? 22 : w - 22;
-        score.y = nodeY;
-        panel.addChild(score);
-      }
-    });
-
-    this.container.addChild(panel);
-  }
-
-  private timelineEvents() {
-    return this.matchEvents()
-      .filter((event) => event.title !== '全场比赛结束' && event.eventType !== 'fulltime')
-      .slice(0, 12);
-  }
-
   private eventTimelineColor(event: BattleEvent, homeSide: boolean) {
     if (this.isCardEvent(event)) return 0xffd632;
     return homeSide ? HOME_ACCENT : OPPONENT_ACCENT;
@@ -486,9 +325,146 @@ export class ResultScene extends BaseScene {
     return tag === '犯规' || event.eventType === 'yellow' || event.eventType === 'red';
   }
 
-  private eventTimelineIconColor(event: BattleEvent) {
-    if (this.isCardEvent(event)) return 0xffd632;
-    return palette.white;
+  private drawTimelineEventList(
+    parent: Container,
+    events: BattleEvent[],
+    panelW: number,
+    startY: number,
+    cardH: number,
+    rowH: number,
+    maxCardW: number
+  ) {
+    if (!events.length) return;
+
+    const centerX = panelW / 2;
+    const cardGap = 18;
+    const cardW = Math.min(maxCardW, centerX - cardGap - 24);
+    const firstNodeY = startY + cardH / 2;
+    const lastNodeY = startY + (events.length - 1) * rowH + cardH / 2;
+
+    if (events.length > 1) {
+      const axis = new Graphics();
+      axis.moveTo(centerX, firstNodeY);
+      axis.lineTo(centerX, lastNodeY);
+      axis.stroke({ color: 0x3aa2ff, alpha: 0.5, width: 2 });
+      parent.addChild(axis);
+    }
+
+    events.forEach((event, index) => {
+      const cardY = startY + index * rowH;
+      const nodeY = cardY + cardH / 2;
+      const homeSide = this.eventTeamSide(event) === 'home';
+      const color = this.eventTimelineColor(event, homeSide);
+      const cardX = homeSide ? centerX - cardGap - cardW : centerX + cardGap;
+      const cardEdgeX = homeSide ? cardX + cardW : cardX;
+
+      this.drawTimelineConnector(parent, centerX, nodeY, homeSide, color, cardGap);
+      this.drawTimelineNode(parent, centerX, nodeY, color);
+      this.drawTimelineConnectorDot(parent, cardEdgeX, nodeY, color);
+      this.drawTimelineEventCard(parent, event, cardX, cardY, cardW, cardH, color);
+    });
+  }
+
+  private drawTimelineEventCard(
+    parent: Container,
+    event: BattleEvent,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    accent: number
+  ) {
+    const card = new Container();
+    card.x = x;
+    card.y = y;
+
+    const bg = new Graphics();
+    bg.roundRect(0, 0, w, h, 10);
+    bg.fill({ color: 0x061630, alpha: 0.94 });
+    bg.stroke({ color: accent, alpha: 0.9, width: 2.5 });
+
+    const icon = this.drawTimelineCardIcon(event, 12, 20, accent);
+    card.addChild(bg, icon);
+
+    const textX = 50;
+    const maxTextW = w - textX - 12;
+    const timeLabel = label(`${event.time}'`, 24, accent, '900');
+    timeLabel.x = textX;
+    timeLabel.y = 12;
+
+    let actorName = this.eventActorName(event);
+    const tag = this.eventTag(event);
+    let actorLabel = label(actorName, 24, palette.white, '900');
+    actorLabel.x = textX + timeLabel.width + 8;
+    actorLabel.y = 12;
+
+    const tagLabel = label(tag, 24, accent, '900');
+    tagLabel.x = actorLabel.x + actorLabel.width + 8;
+    tagLabel.y = 12;
+
+    let headlineW = tagLabel.x + tagLabel.width - textX;
+    while (headlineW > maxTextW && actorName.length > 2) {
+      actorName = `${actorName.slice(0, actorName.length - 2)}...`;
+      actorLabel.text = actorName;
+      tagLabel.x = actorLabel.x + actorLabel.width + 8;
+      headlineW = tagLabel.x + tagLabel.width - textX;
+    }
+    if (headlineW > maxTextW && tagLabel.width > 40) {
+      tagLabel.scale.x = Math.max(0.72, (maxTextW - (timeLabel.width + actorLabel.width + 16)) / tagLabel.width);
+    }
+
+    const subtext = this.eventTimelineDetail(event) || this.cardEventSubtext(event);
+    const detail = label(subtext, 19, 0x9eb4d0, '700');
+    detail.x = textX;
+    detail.y = 46;
+    if (detail.width > maxTextW) detail.scale.x = maxTextW / detail.width;
+
+    card.addChild(timeLabel, actorLabel, tagLabel, detail);
+    parent.addChild(card);
+  }
+
+  private drawTimelineCardIcon(event: BattleEvent, x: number, y: number, accent: number) {
+    const iconWrap = new Container();
+    iconWrap.x = x;
+    iconWrap.y = y;
+
+    if (this.isCardEvent(event)) {
+      const cardColor = event.eventType === 'red' || event.eventType === 'red_card' ? 0xff465d : 0xffd632;
+      const cardIcon = new Graphics();
+      cardIcon.roundRect(0, 0, 20, 28, 3);
+      cardIcon.fill({ color: cardColor, alpha: 1 });
+      iconWrap.addChild(cardIcon);
+      return iconWrap;
+    }
+
+    const icon = label(this.eventTimelineIcon(event), 30, accent, '900');
+    icon.y = 2;
+    iconWrap.addChild(icon);
+    return iconWrap;
+  }
+
+  private drawTimelineNode(parent: Container, centerX: number, nodeY: number, color: number) {
+    const dot = new Graphics();
+    dot.circle(centerX, nodeY, 6);
+    dot.fill({ color: 0x06152d, alpha: 1 });
+    dot.stroke({ color, alpha: 0.95, width: 2.5 });
+    parent.addChild(dot);
+  }
+
+  private drawTimelineConnectorDot(parent: Container, x: number, nodeY: number, color: number) {
+    const dot = new Graphics();
+    dot.circle(x, nodeY, 3.5);
+    dot.fill({ color, alpha: 0.92 });
+    parent.addChild(dot);
+  }
+
+  private cardEventSubtext(event: BattleEvent) {
+    if (event.eventType === 'yellow' || event.eventType === 'yellow_card') return '吃到黄牌';
+    if (event.eventType === 'red' || event.eventType === 'red_card') return '被罚下场';
+    if (this.eventTag(event) === '换人') return event.text || '教练组换人调整';
+    if (this.eventTag(event) === '角球') return event.text || '获得角球机会';
+    if (this.eventTag(event) === '扑救') return event.text || '完成关键扑救';
+    return event.text;
   }
 
   private drawTimelineConnector(parent: Container, centerX: number, nodeY: number, homeSide: boolean, color: number, length = 50) {
@@ -496,7 +472,7 @@ export class ResultScene extends BaseScene {
     const endX = homeSide ? centerX - length : centerX + length;
     connector.moveTo(centerX, nodeY);
     connector.lineTo(endX, nodeY);
-    connector.stroke({ color, alpha: 0.38, width: 1.5 });
+    connector.stroke({ color, alpha: 0.55, width: 2 });
     parent.addChild(connector);
   }
 
@@ -535,7 +511,6 @@ export class ResultScene extends BaseScene {
   }
 
   private isGoalEvent(event: BattleEvent) {
-    if (event.scoreA === undefined || event.scoreB === undefined) return false;
     if (event.eventType === 'goal' || event.eventType === 'wondergoal') return true;
     if (event.eventType === 'freekick' && /破门|入网|直挂|死角|轰|得分/.test(event.text)) return true;
     return this.eventTag(event) === '进球';
@@ -584,96 +559,108 @@ export class ResultScene extends BaseScene {
     const padX = 28;
     const barX = padX;
     const barW = w - padX * 2;
-    const barH = 12;
-    const valueY = y + 2;
-    const barY = y + 36;
-    const centerY = y + 14;
+    const barH = 32;
+    const titleY = y + 14;
+    const barY = y + 38;
+
+    const icon = label(row.icon, 28, 0xe8f2ff, '900');
+    icon.anchor.set(0, 0.5);
+    const name = label(row.name, 26, 0xd9e4f4, '700');
+    name.anchor.set(0, 0.5);
+    const titleGap = 10;
+    name.x = icon.width + titleGap;
+    const title = new Container();
+    title.x = (w - (name.x + name.width)) / 2;
+    title.y = titleY;
+    title.addChild(icon, name);
 
     if (showDivider) {
       const divider = new Graphics();
-      divider.rect(padX, y + 58, barW, 1);
-      divider.fill({ color: 0x15345a, alpha: 0.85 });
+      divider.rect(padX, y + barY + barH + 14, barW, 1);
+      divider.fill({ color: 0x15345a, alpha: 0.45 });
       parent.addChild(divider);
     }
 
-    const leftValue = label(row.left, 34, HOME_ACCENT, '900');
-    leftValue.x = padX;
-    leftValue.y = valueY;
-
-    const rightValue = label(row.right, 34, OPPONENT_ACCENT, '900');
-    rightValue.anchor.set(1, 0);
-    rightValue.x = w - padX;
-    rightValue.y = valueY;
-
-    const center = new Container();
-    center.x = w / 2;
-    center.y = centerY;
-    const icon = label(row.icon, 21, 0xe8f2ff, '900');
-    icon.anchor.set(1, 0.5);
-    icon.x = -6;
-    const name = label(row.name, 20, 0xd9e4f4, '700');
-    name.anchor.set(0, 0.5);
-    name.x = 6;
-    center.addChild(icon, name);
-
-    this.drawComparisonBar(parent, barX, barY, barW, barH, row.leftValue, row.rightValue);
-
-    parent.addChild(leftValue, rightValue, center);
+    this.drawComparisonBar(parent, barX, barY, barW, barH, row.leftValue, row.rightValue, row.left, row.right);
+    parent.addChild(title);
   }
 
-  private drawComparisonBar(parent: Container, x: number, y: number, w: number, h: number, leftVal: number, rightVal: number) {
+  private drawComparisonBar(
+    parent: Container,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    leftVal: number,
+    rightVal: number,
+    leftText: string,
+    rightText: string
+  ) {
     const total = Math.max(1, leftVal + rightVal);
     const leftShare = leftVal / total;
-    const leftW = Math.max(h, w * leftShare);
-    const rightW = Math.max(h, w - leftW);
-    const leftPct = Math.round(leftShare * 100);
-    const rightPct = 100 - leftPct;
-    const radius = h / 2;
+    const iw = Math.max(2, Math.round(w));
+    const ih = Math.max(2, Math.round(h));
+    const splitX = Math.round(iw * leftShare);
+    const leftW = Math.max(0, Math.min(iw, splitX));
+    const rightW = iw - leftW;
+    const radius = ih / 2;
+    const seamOverlap = leftW > 0 && rightW > 0 ? 1 : 0;
+
+    const bar = new Container();
+    bar.x = Math.round(x);
+    bar.y = Math.round(y);
 
     const track = new Graphics();
-    track.roundRect(x, y, w, h, radius);
+    track.roundRect(0, 0, iw, ih, radius);
     track.fill({ color: 0x0a1e3a, alpha: 0.96 });
-    track.stroke({ color: 0x143258, alpha: 0.65, width: 1 });
 
     const leftFill = new Graphics();
-    if (leftW >= w - 1) {
-      leftFill.roundRect(x, y, leftW, h, radius);
+    if (rightW <= 0) {
+      leftFill.roundRect(0, 0, iw, ih, radius);
     } else if (leftW <= radius * 2) {
-      leftFill.roundRect(x, y, leftW, h, radius);
+      leftFill.roundRect(0, 0, leftW + seamOverlap, ih, radius);
     } else {
-      leftFill.roundRect(x, y, leftW, h, radius);
-      leftFill.rect(x + leftW - radius, y, radius, h);
+      leftFill.roundRect(0, 0, leftW, ih, radius);
+      leftFill.rect(leftW - radius, 0, radius + seamOverlap, ih);
     }
     leftFill.fill({ color: HOME_ACCENT, alpha: 0.96 });
 
     const rightFill = new Graphics();
-    const rightX = x + leftW;
-    if (rightW >= w - 1) {
-      rightFill.roundRect(rightX, y, rightW, h, radius);
+    if (leftW <= 0) {
+      rightFill.roundRect(0, 0, iw, ih, radius);
     } else if (rightW <= radius * 2) {
-      rightFill.roundRect(rightX, y, rightW, h, radius);
+      rightFill.roundRect(leftW, 0, rightW, ih, radius);
     } else {
-      rightFill.rect(rightX, y, radius, h);
-      rightFill.roundRect(rightX, y, rightW, h, radius);
+      rightFill.rect(leftW, 0, radius, ih);
+      rightFill.roundRect(leftW, 0, rightW, ih, radius);
     }
     rightFill.fill({ color: OPPONENT_ACCENT, alpha: 0.96 });
 
-    parent.addChild(track, leftFill, rightFill);
+    const border = new Graphics();
+    border.roundRect(0, 0, iw, ih, radius);
+    border.stroke({ color: 0x1a3d66, alpha: 0.78, width: 1 });
 
-    if (leftW >= 34) {
-      const leftLabel = label(`${leftPct}%`, 11, 0xffffff, '900');
-      leftLabel.anchor.set(0.5);
-      leftLabel.x = x + leftW / 2;
-      leftLabel.y = y + h / 2 + 1;
-      parent.addChild(leftLabel);
-    }
-    if (rightW >= 34) {
-      const rightLabel = label(`${rightPct}%`, 11, 0xffffff, '900');
-      rightLabel.anchor.set(0.5);
-      rightLabel.x = rightX + rightW / 2;
-      rightLabel.y = y + h / 2 + 1;
-      parent.addChild(rightLabel);
-    }
+    bar.addChild(track, leftFill, rightFill, border);
+
+    const textSize = Math.max(22, Math.round(ih * 0.68));
+    const edgePad = Math.max(14, radius + 4);
+    const textShadow = { color: 0x000000, blur: 3, distance: 1, alpha: 0.85, angle: Math.PI / 2 };
+
+    const leftLabel = label(leftText, textSize, 0xffffff, '900');
+    leftLabel.anchor.set(0, 0.5);
+    leftLabel.x = edgePad;
+    leftLabel.y = ih / 2;
+    leftLabel.style.dropShadow = textShadow;
+    bar.addChild(leftLabel);
+
+    const rightLabel = label(rightText, textSize, 0xffffff, '900');
+    rightLabel.anchor.set(1, 0.5);
+    rightLabel.x = iw - edgePad;
+    rightLabel.y = ih / 2;
+    rightLabel.style.dropShadow = textShadow;
+    bar.addChild(rightLabel);
+
+    parent.addChild(bar);
   }
 
   private drawGoalList(x: number, y: number, w: number, h: number, iconText: string, titleText: string, color: number, rows: Array<{ time: string; name: string; player?: PlayerCardData }>) {
@@ -731,21 +718,6 @@ export class ResultScene extends BaseScene {
     c.y = y + 19;
     c.addChild(bg, text);
     return c;
-  }
-
-  private tabHitArea(x: number, y: number, width: number, height: number, tab: 'stats' | 'events') {
-    const hit = new Graphics();
-    hit.roundRect(x, y, width, height, 12);
-    hit.fill({ color: 0xffffff, alpha: 0.001 });
-    hit.eventMode = 'static';
-    hit.cursor = 'pointer';
-    hit.on('pointertap', () => {
-      if (this.activeTab === tab) return;
-      this.game.sound.play('tap');
-      this.activeTab = tab;
-      this.resize();
-    });
-    return hit;
   }
 
   private actionButton(width: number, height: number, text: string, fill: number, stroke: number, gold: boolean) {
@@ -894,17 +866,48 @@ export class ResultScene extends BaseScene {
   }
 
   private reportEvents() {
-    const events = [...this.matchEvents()]
-      .filter((event) => this.isReportEvent(event))
-      .sort((a, b) => a.time - b.time)
-      .slice(0, 4);
-    if (events.length) return events;
-    return this.matchEvents().sort((a, b) => a.time - b.time).slice(0, 4);
+    const events = this.matchEvents().filter(
+      (event) => event.title !== '全场比赛结束' && event.eventType !== 'fulltime'
+    );
+    const picked = this.pickKeyReportEvents(events);
+    if (picked.length) return picked;
+    return this.pickKeyReportEvents(this.matchEvents());
   }
 
-  private isReportEvent(event: BattleEvent) {
+  private pickKeyReportEvents(events: BattleEvent[]) {
+    const sorted = [...events].sort((a, b) => a.time - b.time);
+    const scoring = this.scoringEvents(sorted);
+    const scoringSet = new Set(scoring);
+    const others = sorted.filter(
+      (event) => !scoringSet.has(event) && this.isNotableReportEvent(event)
+    );
+    const maxOthers = Math.max(0, 8 - scoring.length);
+    return [...scoring, ...others.slice(0, maxOthers)];
+  }
+
+  private scoringEvents(events: BattleEvent[]) {
+    let previousA = 0;
+    let previousB = 0;
+    const result: BattleEvent[] = [];
+    events.forEach((event) => {
+      const scoreA = event.scoreA ?? 0;
+      const scoreB = event.scoreB ?? 0;
+      if (scoreA > previousA || scoreB > previousB) {
+        result.push(event);
+      }
+      previousA = scoreA;
+      previousB = scoreB;
+    });
+    return result;
+  }
+
+  private isNotableReportEvent(event: BattleEvent) {
     const type = event.eventType ?? '';
-    return ['goal', 'wondergoal', 'freekick', 'yellow', 'red', 'yellow_card', 'red_card', 'corner', 'save', 'shot', 'injury', 'sub', 'substitution'].includes(type) || this.eventTag(event) !== '事件';
+    if (['yellow', 'red', 'yellow_card', 'red_card', 'injury', 'sub', 'substitution', 'wondergoal'].includes(type)) {
+      return true;
+    }
+    const tag = this.eventTag(event);
+    return tag === '犯规' || tag === '换人' || tag === '受伤' || tag === '神仙球';
   }
 
   private eventTag(event: BattleEvent) {
@@ -918,7 +921,7 @@ export class ResultScene extends BaseScene {
     if (event.eventType === 'shot') return '射门';
     if (event.eventType === 'injury') return '受伤';
     if (event.eventType === 'sub' || event.eventType === 'substitution') return '换人';
-    if (event.text.includes('破门') || event.text.includes('扳回')) return '进球';
+    if (event.text.includes('破门') || event.text.includes('扳回') || event.text.includes('进球')) return '进球';
     if (event.text.includes('拦截') || event.text.includes('抢断')) return '抢断';
     if (event.text.includes('犯规')) return '犯规';
     if (event.text.includes('角球')) return '角球';
@@ -987,10 +990,12 @@ export class ResultScene extends BaseScene {
     let previousB = 0;
     const result: BattleEvent[] = [];
     events.forEach((event) => {
-      if (mine && event.scoreA > previousA) result.push(event);
-      if (!mine && event.scoreB > previousB) result.push(event);
-      previousA = event.scoreA;
-      previousB = event.scoreB;
+      const scoreA = event.scoreA ?? 0;
+      const scoreB = event.scoreB ?? 0;
+      if (mine && scoreA > previousA) result.push(event);
+      if (!mine && scoreB > previousB) result.push(event);
+      previousA = scoreA;
+      previousB = scoreB;
     });
     return result;
   }

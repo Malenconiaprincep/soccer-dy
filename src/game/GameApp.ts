@@ -15,10 +15,11 @@ import type { BattleEvent, FormationData, LineupSlot, PlayerCardData, Position, 
 import { PlayerStorage } from './storage/PlayerStorage';
 import { GameServerClient, type MatchOpponent } from './services/GameServerClient';
 import { defaultShopConfig, type ShopConfig } from '../shopConfig';
+import { DEV_MATCH_DURATION_KEY, resolveMatchDurationMs } from './matchmakingConfig';
 
 const DESIGN_WIDTH = 720;
 const DESIGN_HEIGHT = 1280;
-const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean; VITE_WEB_TEST_AS_DOUYIN?: string } }).env ?? {};
+const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean; VITE_WEB_TEST_AS_DOUYIN?: string; VITE_MATCH_DURATION_MS?: string } }).env ?? {};
 const SCENES: SceneName[] = ['loading', 'home', 'formation', 'blindBox', 'matchmaking', 'matchup', 'battle', 'result'];
 const DEV_SCENE_KEY = 'soccer.dev.defaultScene';
 const DEV_HOLD_LOADING_KEY = 'soccer.dev.holdLoading';
@@ -380,6 +381,26 @@ export class GameApp {
     battleAi.checked = globalThis.localStorage?.getItem(DEV_BATTLE_AI_KEY) === '1';
     battleAiLabel.append(battleAi, '比赛走大模型');
 
+    const matchWaitLabel = document.createElement('label');
+    matchWaitLabel.style.display = 'grid';
+    matchWaitLabel.style.gridTemplateColumns = '72px 1fr';
+    matchWaitLabel.style.alignItems = 'center';
+    matchWaitLabel.style.gap = '6px';
+    matchWaitLabel.textContent = '匹配秒数';
+    const matchWait = document.createElement('input');
+    matchWait.type = 'number';
+    matchWait.min = '3';
+    matchWait.max = '120';
+    matchWait.step = '1';
+    matchWait.value = String(Math.round(this.matchDurationMs() / 1000));
+    matchWait.style.height = '30px';
+    matchWait.style.borderRadius = '6px';
+    matchWait.style.border = '1px solid #2f8cff';
+    matchWait.style.background = '#071936';
+    matchWait.style.color = '#fff';
+    matchWait.style.padding = '0 8px';
+    matchWaitLabel.appendChild(matchWait);
+
     const actions = document.createElement('div');
     actions.style.display = 'grid';
     actions.style.gridTemplateColumns = '1fr 1fr';
@@ -393,7 +414,7 @@ export class GameApp {
     hint.textContent = '?scene=battle&battleAi=1 可直开大模型比赛';
     hint.style.color = '#9fdcff';
     hint.style.lineHeight = '1.35';
-    const bodyItems = [select, holdLabel, signDayLabel, battleEventsLabel, battleStayLabel, battleAiLabel, actions, hint];
+    const bodyItems = [select, holdLabel, signDayLabel, matchWaitLabel, battleEventsLabel, battleStayLabel, battleAiLabel, actions, hint];
     let collapsedState = globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) === '1';
     let dragMoved = false;
 
@@ -427,6 +448,7 @@ export class GameApp {
       globalThis.localStorage?.setItem(DEV_BATTLE_EVENTS_KEY, battleEvents.checked ? '1' : '0');
       globalThis.localStorage?.setItem(DEV_BATTLE_STAY_KEY, battleStay.checked ? '1' : '0');
       globalThis.localStorage?.setItem(DEV_BATTLE_AI_KEY, battleAi.checked ? '1' : '0');
+      globalThis.localStorage?.setItem(DEV_MATCH_DURATION_KEY, matchWait.value || '15');
       save.textContent = '已保存';
       window.setTimeout(() => {
         save.textContent = '设默认';
@@ -450,6 +472,11 @@ export class GameApp {
     battleAi.onchange = () => {
       globalThis.localStorage?.setItem(DEV_BATTLE_AI_KEY, battleAi.checked ? '1' : '0');
       if (this.scene instanceof BattleScene) this.changeScene('battle');
+    };
+    matchWait.onchange = () => {
+      const seconds = Math.max(3, Math.min(120, Number(matchWait.value) || 15));
+      matchWait.value = String(seconds);
+      globalThis.localStorage?.setItem(DEV_MATCH_DURATION_KEY, String(seconds));
     };
     toggle.onclick = () => {
       if (dragMoved) return;
@@ -770,6 +797,10 @@ export class GameApp {
     return this.lineup.reduce((sum, slot) => sum + (slot.player?.rating ?? 0), 0);
   }
 
+  matchDurationMs() {
+    return resolveMatchDurationMs();
+  }
+
   ensureHomeSubstitutes() {
     const usedIds = new Set([
       ...this.lineup.flatMap((slot) => (slot.player ? [slot.player.id] : [])),
@@ -825,6 +856,7 @@ export class GameApp {
       return true;
     }
 
+    const matchDurationMs = this.matchDurationMs();
     const ticket = await this.server.joinMatch({
       userId: this.user.userId,
       nickname: this.user.nickname,
@@ -835,7 +867,8 @@ export class GameApp {
         slotId: slot.id,
         playerId: slot.player?.id,
         rating: slot.player?.rating
-      }))
+      })),
+      ...(runtimeEnv.DEV ? { botAfterMs: matchDurationMs } : {})
     });
     if (!ticket) {
       this.prepareOpponent();
@@ -847,7 +880,9 @@ export class GameApp {
     }
 
     const ticketId = ticket.ticketId;
-    for (let attempt = 0; attempt < 24; attempt += 1) {
+    const waitMs = ticket.botAfterMs ?? matchDurationMs;
+    const maxAttempts = Math.ceil(waitMs / 1000) + 8;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       await this.wait(1000);
       const result = await this.server.pollMatch(ticketId);
       if (result?.status === 'matched' && result.opponent) {

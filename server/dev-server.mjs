@@ -13,7 +13,7 @@ const douyinAppSecret = env.DOUYIN_APP_SECRET;
 const dashscopeApiKey = env.DASHSCOPE_API_KEY;
 const bailianModel = env.BAILIAN_MODEL ?? 'qwen-turbo';
 const bailianBaseUrl = env.BAILIAN_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-const botAfterMs = Number(env.MATCH_BOT_AFTER_MS ?? 12000);
+const botAfterMs = Number(env.MATCH_BOT_AFTER_MS ?? 15000);
 const ticketTtlMs = Number(env.MATCH_TICKET_TTL_MS ?? 45000);
 const queue = new Map();
 const shopConfigPath = resolve(process.cwd(), 'server/shop-config.local.json');
@@ -164,7 +164,7 @@ async function joinMatch(body) {
   }
 
   queue.set(ticket.ticketId, ticket);
-  return { status: 'waiting', ticketId: ticket.ticketId, botAfterMs };
+  return { status: 'waiting', ticketId: ticket.ticketId, botAfterMs: ticket.botAfterMs };
 }
 
 async function pollMatch(ticketId) {
@@ -174,12 +174,12 @@ async function pollMatch(ticketId) {
     queue.delete(ticketId);
     return { status: 'matched', ticketId, opponent: ticket.matched };
   }
-  if (Date.now() - ticket.createdAt >= botAfterMs) {
+  if (Date.now() - ticket.createdAt >= ticket.botAfterMs) {
     const opponent = await createBotOpponent(ticket);
     queue.delete(ticketId);
     return { status: 'matched', ticketId, opponent };
   }
-  return { status: 'waiting', ticketId, botAfterMs };
+  return { status: 'waiting', ticketId, botAfterMs: ticket.botAfterMs };
 }
 
 async function recordMatch(body) {
@@ -495,9 +495,12 @@ function normalizeBattleMoment(raw, allowedTypes, homePlayers = [], awayPlayers 
   const eventType = allowedTypes.includes(raw.eventType) ? raw.eventType : 'shot';
   const mood = ['normal', 'good', 'bad'].includes(raw.mood) ? raw.mood : 'normal';
   const team = raw.team === 'away' ? 'away' : 'home';
-  const score = raw.score === 'home' || raw.score === 'away'
-    ? raw.score
-    : (eventType === 'goal' || eventType === 'wondergoal' ? team : null);
+  let score = null;
+  if (eventType === 'goal' || eventType === 'wondergoal') {
+    score = raw.score === 'home' || raw.score === 'away' ? raw.score : team;
+  } else if (eventType === 'freekick' && (raw.score === 'home' || raw.score === 'away')) {
+    score = raw.score;
+  }
   const minute = Math.max(1, Math.min(90, Number(raw.minute ?? 1)));
   const relatedActorNames = Array.isArray(raw.relatedActorNames) ? raw.relatedActorNames.slice(0, 3).map((name) => String(name)) : [];
   const names = rosterNames(homePlayers, awayPlayers);
@@ -592,6 +595,12 @@ async function grantShopReward(body) {
   return { ok: true, itemId: stringValue(body.itemId, 'unknown') };
 }
 
+function resolveBotAfterMs(body) {
+  const custom = Number(body.botAfterMs);
+  if (Number.isFinite(custom) && custom > 0) return Math.round(custom);
+  return botAfterMs;
+}
+
 function createTicket(body) {
   return {
     ticketId: randomUUID(),
@@ -602,6 +611,7 @@ function createTicket(body) {
     formationId: stringValue(body.formationId, '433'),
     lineup: Array.isArray(body.lineup) ? body.lineup : [],
     createdAt: Date.now(),
+    botAfterMs: resolveBotAfterMs(body),
     matched: null
   };
 }
