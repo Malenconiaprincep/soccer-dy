@@ -82,9 +82,40 @@ interface BattleEventEntry {
   team?: 'home' | 'away';
 }
 
+interface EventFeedState {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  cardX: number;
+  cardY: number;
+  cardW: number;
+  viewportW: number;
+  viewportH: number;
+  gap: number;
+  rowH: number;
+  debugAll: boolean;
+  viewport: Container;
+  cardLayer: Container;
+  viewportMask: Graphics;
+  scroll?: Graphics;
+  track?: Graphics;
+  maxScroll: number;
+}
+
+interface EventCardAnimation {
+  card: Container;
+  age: number;
+  duration: number;
+  fromY: number;
+  toY: number;
+}
+
 export class BattleScene extends BaseScene {
   private elapsed = 0;
+  private lastPushElapsed = 0;
   private nextEventAt = 700;
+  private readonly eventGapMs = 2800;
   private scoreA = 0;
   private scoreB = 0;
   private events: BattleEvent[] = [];
@@ -101,6 +132,9 @@ export class BattleScene extends BaseScene {
   private momentQueue: BattleMoment[] = [];
   private momentScriptLoading = false;
   private momentScriptDisabled = false;
+  private eventFeedState?: EventFeedState;
+  private cardAnimations: EventCardAnimation[] = [];
+  private eventPushPausedUntil = 0;
   private goalOverlay?: Container;
   private goalOverlayAge = 0;
   private moment: BattleMoment = {
@@ -122,6 +156,10 @@ export class BattleScene extends BaseScene {
     super.enter();
     this.momentQueue = [];
     this.momentScriptDisabled = false;
+    this.lastPushElapsed = 0;
+    this.eventPushPausedUntil = 0;
+    this.cardAnimations = [];
+    this.eventFeedState = undefined;
     this.game.sound.play('kickoff');
     this.ensureBattleScriptBuffer(true);
   }
@@ -129,15 +167,22 @@ export class BattleScene extends BaseScene {
   update(deltaMs: number) {
     this.elapsed += deltaMs;
     if (this.timeText) this.timeText.text = this.clockText();
+    this.updateCardAnimations(deltaMs);
     this.updateGoalAnimation(deltaMs);
     if (this.isBattleProcessDebug()) return;
     this.updatePossessionPanel();
     if (this.elapsed > this.nextEventAt) {
-      this.pushEvent();
-      this.nextEventAt += 2200 + Math.random() * 1400;
-      this.ensureBattleScriptBuffer();
+      if (this.elapsed < this.eventPushPausedUntil) {
+        this.nextEventAt = this.eventPushPausedUntil;
+      } else if (this.canPushNextEvent()) {
+        this.pushEvent();
+        this.nextEventAt += 2200 + Math.random() * 1400;
+        this.ensureBattleScriptBuffer();
+      } else {
+        this.nextEventAt = this.elapsed + 500;
+      }
     }
-    if (this.elapsed > 26000 && !this.isBattleStayDebug()) {
+    if (this.shouldFinishBattle()) {
       this.game.battleResult = { scoreA: this.scoreA, scoreB: this.scoreB, events: this.events };
       this.game.changeScene('result');
     }
@@ -145,6 +190,8 @@ export class BattleScene extends BaseScene {
 
   resize() {
     this.container.removeChildren();
+    this.eventFeedState = undefined;
+    this.cardAnimations = [];
     this.possessionLeftText = undefined;
     this.possessionRightText = undefined;
     this.possessionHintText = undefined;
@@ -310,16 +357,29 @@ export class BattleScene extends BaseScene {
     const cardLayer = new Container();
     cardLayer.y = -this.eventScrollY;
 
-    entries.forEach((entry, index) => {
-      const col = debugAll ? index % debugColumns : 0;
-      const row = debugAll ? Math.floor(index / debugColumns) : index;
-      const debugCardW = (cardW - gap) / debugColumns;
-      const rowX = debugAll ? col * (debugCardW + gap) : 0;
-      const rowY = row * (rowH + gap);
-      cardLayer.addChild(this.eventCard(entry, rowX, rowY, debugAll ? debugCardW : cardW, rowH, debugAll));
-    });
     viewport.addChild(cardLayer);
     this.container.addChild(viewport);
+
+    this.eventFeedState = {
+      x,
+      y,
+      w,
+      h,
+      cardX,
+      cardY,
+      cardW,
+      viewportW,
+      viewportH,
+      gap,
+      rowH,
+      debugAll,
+      viewport,
+      cardLayer,
+      viewportMask,
+      maxScroll
+    };
+
+    this.populateEventCards(false);
 
     if (maxScroll > 0) {
       const track = new Graphics();
@@ -331,13 +391,23 @@ export class BattleScene extends BaseScene {
       scroll.roundRect(x + w - 19, thumbY, 8, thumbH, 4);
       scroll.fill({ color: 0x1ee47e, alpha: 0.9 });
       this.container.addChild(track, scroll);
+      this.eventFeedState.track = track;
+      this.eventFeedState.scroll = scroll;
 
       const applyScroll = (next: number) => {
-        this.eventScrollY = Math.max(0, Math.min(next, maxScroll));
+        const feed = this.eventFeedState;
+        if (!feed) return;
+        const rows = this.eventEntries().length;
+        const liveContentH = Math.max(feed.viewportH, rows * (feed.rowH + feed.gap) - feed.gap);
+        const liveMaxScroll = Math.max(0, liveContentH - feed.viewportH);
+        feed.maxScroll = liveMaxScroll;
+        this.eventScrollY = Math.max(0, Math.min(next, liveMaxScroll));
         cardLayer.y = -this.eventScrollY;
-        const nextThumbY = y + 76 + (this.eventScrollY / maxScroll) * (h - 120 - thumbH);
+        if (liveMaxScroll <= 0) return;
+        const liveThumbH = Math.max(54, (feed.viewportH / liveContentH) * (h - 120));
+        const nextThumbY = y + 76 + (this.eventScrollY / liveMaxScroll) * (h - 120 - liveThumbH);
         scroll.clear();
-        scroll.roundRect(x + w - 19, nextThumbY, 8, thumbH, 4);
+        scroll.roundRect(x + w - 19, nextThumbY, 8, liveThumbH, 4);
         scroll.fill({ color: 0x1ee47e, alpha: 0.9 });
       };
 
@@ -359,6 +429,106 @@ export class BattleScene extends BaseScene {
       viewport.on('pointerupoutside', endDrag);
       viewport.on('pointercancel', endDrag);
     }
+  }
+
+  private refreshEventFeed(animateTop = false) {
+    if (!this.eventFeedState) {
+      this.drawEventFeed();
+      if (animateTop) this.populateEventCards(true);
+      return;
+    }
+    if (animateTop) this.eventScrollY = 0;
+    this.populateEventCards(animateTop);
+    this.updateEventFeedScroll();
+  }
+
+  private prependEventCard(entry: BattleEventEntry) {
+    const state = this.eventFeedState;
+    if (!state) {
+      this.refreshEventFeed(true);
+      return;
+    }
+
+    if (state.cardLayer.children.length > this.events.length) {
+      this.populateEventCards(false);
+      return;
+    }
+    if (state.cardLayer.children.length >= this.events.length) return;
+
+    const shiftY = state.rowH + state.gap;
+    state.cardLayer.children.forEach((child) => {
+      child.y += shiftY;
+    });
+
+    const cardW = state.debugAll ? (state.cardW - state.gap) : state.cardW;
+    const card = this.eventCard(entry, 0, 0, cardW, state.rowH, state.debugAll);
+    state.cardLayer.addChildAt(card, 0);
+    this.playEventCardEnter(card, 0);
+    this.eventScrollY = 0;
+    state.cardLayer.y = 0;
+    this.updateEventFeedScroll();
+  }
+
+  private populateEventCards(animateTop: boolean) {
+    const state = this.eventFeedState;
+    if (!state) return;
+
+    const entries = this.eventEntries();
+    state.cardLayer.removeChildren();
+    this.cardAnimations = this.cardAnimations.filter((anim) => anim.card.parent === state.cardLayer);
+
+    entries.forEach((entry, index) => {
+      const col = state.debugAll ? index % 1 : 0;
+      const row = state.debugAll ? Math.floor(index / 1) : index;
+      const debugCardW = (state.cardW - state.gap) / 1;
+      const rowX = state.debugAll ? col * (debugCardW + state.gap) : 0;
+      const rowY = row * (state.rowH + state.gap);
+      const card = this.eventCard(entry, rowX, rowY, state.debugAll ? debugCardW : state.cardW, state.rowH, state.debugAll);
+      state.cardLayer.addChild(card);
+      if (animateTop && index === 0) this.playEventCardEnter(card, rowY);
+    });
+
+    state.cardLayer.y = -this.eventScrollY;
+  }
+
+  private updateEventFeedScroll() {
+    const state = this.eventFeedState;
+    if (!state) return;
+
+    const rows = this.eventEntries().length;
+    const contentH = Math.max(state.viewportH, rows * (state.rowH + state.gap) - state.gap);
+    const maxScroll = Math.max(0, contentH - state.viewportH);
+    state.maxScroll = maxScroll;
+    this.eventScrollY = Math.max(0, Math.min(this.eventScrollY, maxScroll));
+    state.cardLayer.y = -this.eventScrollY;
+
+    if (!state.scroll || !state.track || maxScroll <= 0) return;
+    const thumbH = Math.max(54, (state.viewportH / contentH) * (state.h - 120));
+    const thumbY = state.y + 76 + (this.eventScrollY / maxScroll) * (state.h - 120 - thumbH);
+    state.scroll.clear();
+    state.scroll.roundRect(state.x + state.w - 19, thumbY, 8, thumbH, 4);
+    state.scroll.fill({ color: 0x1ee47e, alpha: 0.9 });
+  }
+
+  private playEventCardEnter(card: Container, targetY: number) {
+    const rowH = this.eventFeedState?.rowH ?? 96;
+    const offset = Math.max(28, rowH * 0.32);
+    card.y = targetY - offset;
+    card.alpha = 0;
+    card.scale.set(0.96);
+    this.cardAnimations.push({ card, age: 0, duration: 480, fromY: targetY - offset, toY: targetY });
+  }
+
+  private updateCardAnimations(deltaMs: number) {
+    this.cardAnimations = this.cardAnimations.filter((anim) => {
+      anim.age += deltaMs;
+      const t = Math.min(1, anim.age / anim.duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      anim.card.y = anim.fromY + (anim.toY - anim.fromY) * eased;
+      anim.card.alpha = eased;
+      anim.card.scale.set(0.96 + 0.04 * eased);
+      return anim.age < anim.duration;
+    });
   }
 
   private eventCard(entry: BattleEventEntry, x: number, y: number, width: number, height: number, showType = false) {
@@ -709,15 +879,7 @@ export class BattleScene extends BaseScene {
 
   private pushEvent() {
     const next = this.dequeueMoment() ?? this.createMoment();
-    this.moment = next;
-    if (next.score === 'home') this.scoreA += 1;
-    if (next.score === 'away') this.scoreB += 1;
-    const isGoal = next.type === 'goal' || !!next.score;
-    if (isGoal) this.game.sound.play('goal');
-    else if (next.mood === 'bad') this.game.sound.play('danger');
-    else if (next.mood === 'good') this.game.sound.play('confirm');
-    else this.game.sound.play('tap');
-    this.events.unshift({
+    const newEvent: BattleEvent = {
       time: next.minute ?? this.matchMinute(),
       text: next.detail,
       scoreA: this.scoreA,
@@ -728,10 +890,31 @@ export class BattleScene extends BaseScene {
       actor: next.actorName ?? this.playerName(next.actor),
       relatedActors: next.actorNames ?? (next.actors?.map((player) => this.playerName(player)) ?? (next.actor ? [this.playerName(next.actor)] : [])),
       team: next.team
-    });
+    };
+    if (this.events[0] && this.isSameBattleEvent(newEvent, this.events[0])) return;
+
+    this.moment = next;
+    if (next.score === 'home') this.scoreA += 1;
+    if (next.score === 'away') this.scoreB += 1;
+    newEvent.scoreA = this.scoreA;
+    newEvent.scoreB = this.scoreB;
+    const isGoal = next.type === 'goal' || !!next.score;
+    if (isGoal) this.game.sound.play('goal');
+    else if (next.mood === 'bad') this.game.sound.play('danger');
+    else if (next.mood === 'good') this.game.sound.play('confirm');
+    else this.game.sound.play('tap');
+    this.events.unshift(newEvent);
     if (this.scoreText) this.scoreText.text = `${this.scoreA} : ${this.scoreB}`;
-    this.resize();
-    if (isGoal) this.playGoalAnimation(next.score ?? 'home');
+    this.lastPushElapsed = this.elapsed;
+    const entry = this.momentToEventEntry(next);
+    if (this.eventFeedState) this.prependEventCard(entry);
+    else this.refreshEventFeed(true);
+    if (isGoal) {
+      this.playGoalAnimation(next.score ?? 'home');
+      const goalPauseMs = 1400 + 2800;
+      this.eventPushPausedUntil = this.elapsed + goalPauseMs;
+      this.nextEventAt = this.eventPushPausedUntil;
+    }
   }
 
   private playGoalAnimation(team: 'home' | 'away') {
@@ -865,22 +1048,33 @@ export class BattleScene extends BaseScene {
   }
 
   private toBattleMoment(moment: GeneratedBattleMoment): BattleMoment {
-    const actor = this.findPlayerByName(moment.actorName);
-    const actors = moment.relatedActorNames.map((name) => this.findPlayerByName(name)).filter(Boolean) as PlayerCardData[];
+    const sanitized = this.sanitizeGeneratedMoment(moment);
+    const actor = this.findPlayerByName(sanitized.actorName);
+    const actors = sanitized.relatedActorNames.map((name) => this.findPlayerByName(name)).filter(Boolean) as PlayerCardData[];
     return {
-      type: this.momentTypeFromGenerated(moment.eventType),
-      eventType: this.safeEventType(moment.eventType),
-      title: moment.title,
-      detail: moment.detail,
-      mood: moment.mood,
-      score: moment.score ?? undefined,
+      type: this.momentTypeFromGenerated(sanitized.eventType),
+      eventType: this.safeEventType(sanitized.eventType),
+      title: sanitized.title,
+      detail: sanitized.detail,
+      mood: sanitized.mood,
+      score: sanitized.score ?? undefined,
       actor,
-      actorName: playerDisplayName(moment.actorName),
+      actorName: playerDisplayName(sanitized.actorName),
       actors: actors.length ? actors : actor ? [actor] : [],
-      actorNames: moment.relatedActorNames.map((name) => playerDisplayName(name)),
-      team: moment.team,
-      minute: moment.minute
+      actorNames: sanitized.relatedActorNames.map((name) => playerDisplayName(name)),
+      team: sanitized.team,
+      minute: sanitized.minute
     };
+  }
+
+  private sanitizeGeneratedMoment(moment: GeneratedBattleMoment): GeneratedBattleMoment {
+    const cardEvents = new Set(['yellow', 'red']);
+    const actorName = moment.actorName?.trim() ?? '';
+    const isSystemActor = actorName === '裁判' || actorName === '教练组' || actorName.includes('裁判');
+    if (!cardEvents.has(moment.eventType) || !isSystemActor) return moment;
+    const relatedPlayer = moment.relatedActorNames.find((name) => name !== '裁判' && name !== '教练组' && !name.includes('裁判'));
+    if (!relatedPlayer) return moment;
+    return { ...moment, actorName: relatedPlayer };
   }
 
   private safeEventType(eventType?: string): GameEventCardKey | undefined {
@@ -900,41 +1094,43 @@ export class BattleScene extends BaseScene {
 
   private eventEntries() {
     if (this.isBattleProcessDebug()) return this.debugBattleEntries();
-    const currentActor = this.moment.actorName ?? this.playerName(this.moment.actor);
-    const currentPlayerNames = this.moment.actorNames ?? [currentActor];
-    const current = {
-      eventType: this.moment.eventType ?? this.eventTypeForMoment(this.moment),
-      time: this.moment.minute ?? this.matchMinute(),
-      title: this.cardTitle(),
-      actor: currentActor,
-      player: this.moment.actor,
-      players: this.moment.actors ?? this.findPlayersByNames(currentPlayerNames),
-      text: this.moment.detail,
-      mood: this.moment.mood,
+    return this.sortEventEntries(this.events.map((event) => this.battleEventToEntry(event)));
+  }
+
+  private battleEventToEntry(event: BattleEvent): BattleEventEntry {
+    const actor = event.actor ?? this.eventActor(event.text);
+    const relatedActors = event.relatedActors?.length ? event.relatedActors : [actor];
+    return {
+      eventType: this.safeEventType(event.eventType),
+      time: event.time,
+      title: this.eventTitle(event),
+      actor,
+      player: this.findPlayerByName(actor),
+      players: this.findPlayersByNames(relatedActors),
+      text: event.text,
+      mood: event.mood,
+      scoreA: event.scoreA,
+      scoreB: event.scoreB,
+      team: event.team
+    };
+  }
+
+  private momentToEventEntry(moment: BattleMoment): BattleEventEntry {
+    const actor = moment.actorName ?? this.playerName(moment.actor);
+    const relatedActors = moment.actorNames ?? (moment.actors?.map((player) => this.playerName(player)) ?? (moment.actor ? [this.playerName(moment.actor)] : []));
+    return {
+      eventType: this.safeEventType(moment.eventType ?? this.eventTypeForMoment(moment)),
+      time: moment.minute ?? this.matchMinute(),
+      title: moment.title,
+      actor,
+      player: moment.actor,
+      players: moment.actors ?? this.findPlayersByNames(relatedActors),
+      text: moment.detail,
+      mood: moment.mood,
       scoreA: this.scoreA,
       scoreB: this.scoreB,
-      team: this.moment.team
+      team: moment.team
     };
-    const history = this.events.map((event) => {
-      const actor = event.actor ?? this.eventActor(event.text);
-      const relatedActors = event.relatedActors?.length ? event.relatedActors : [actor];
-      return {
-        eventType: this.safeEventType(event.eventType),
-        time: event.time,
-        title: this.eventTitle(event),
-        actor,
-        player: this.findPlayerByName(actor),
-        players: this.findPlayersByNames(relatedActors),
-        text: event.text,
-        mood: event.mood,
-        scoreA: event.scoreA,
-        scoreB: event.scoreB,
-        team: event.team
-      };
-    });
-    const newest = history[0];
-    if (newest && this.isSameEventEntry(newest, current)) return this.sortEventEntries(history);
-    return this.sortEventEntries([current, ...history]);
   }
 
   private sortEventEntries(entries: BattleEventEntry[]) {
@@ -942,7 +1138,19 @@ export class BattleScene extends BaseScene {
   }
 
   private isSameEventEntry(a: BattleEventEntry, b: BattleEventEntry) {
-    return a.text === b.text && a.actor === b.actor && a.eventType === b.eventType;
+    const typeA = this.normalizeEventType(a.eventType);
+    const typeB = this.normalizeEventType(b.eventType);
+    const actorA = a.actor ? playerDisplayName(a.actor) : '';
+    const actorB = b.actor ? playerDisplayName(b.actor) : '';
+    return a.time === b.time && a.text === b.text && actorA === actorB && typeA === typeB;
+  }
+
+  private isSameBattleEvent(a: BattleEvent, b: BattleEvent) {
+    const typeA = this.normalizeEventType(a.eventType);
+    const typeB = this.normalizeEventType(b.eventType);
+    const actorA = a.actor ? playerDisplayName(a.actor) : '';
+    const actorB = b.actor ? playerDisplayName(b.actor) : '';
+    return a.time === b.time && a.text === b.text && actorA === actorB && typeA === typeB;
   }
 
   private debugBattleEntries(): BattleEventEntry[] {
@@ -1214,13 +1422,49 @@ export class BattleScene extends BaseScene {
   }
 
   private matchMinute() {
+    if (this.shouldUseBattleAi()) return this.matchClockMinute();
     return Math.max(1, Math.min(90, Math.round((this.elapsed / 26000) * 90)));
   }
 
+  private matchClockMinute() {
+    return Math.max(1, Math.min(90, this.moment.minute ?? this.events[0]?.time ?? 1));
+  }
+
   private clockText() {
-    const totalSeconds = Math.max(0, Math.min(90 * 60, Math.floor((this.elapsed / 26000) * 90 * 60)));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = String(totalSeconds % 60).padStart(2, '0');
-    return `${minutes}:${seconds}`;
+    if (!this.shouldUseBattleAi()) {
+      const totalSeconds = Math.max(0, Math.min(90 * 60, Math.floor((this.elapsed / 26000) * 90 * 60)));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = String(totalSeconds % 60).padStart(2, '0');
+      return `${minutes}:${seconds}`;
+    }
+
+    const current = this.matchClockMinute();
+    const next = this.momentQueue[0]?.minute;
+    if (!next || next <= current) {
+      const tick = Math.floor((this.elapsed - this.lastPushElapsed) / 1000) % 60;
+      return `${current}:${String(tick).padStart(2, '0')}`;
+    }
+
+    const progress = Math.min(1, (this.elapsed - this.lastPushElapsed) / this.eventGapMs);
+    const minute = Math.max(current, Math.min(next, Math.floor(current + (next - current) * progress)));
+    const second = Math.floor(progress * 60) % 60;
+    return `${minute}:${String(second).padStart(2, '0')}`;
+  }
+
+  private canPushNextEvent() {
+    if (!this.shouldUseBattleAi()) return true;
+    if (this.momentQueue.length > 0) return true;
+    if (this.momentScriptLoading) return false;
+    return this.momentScriptDisabled;
+  }
+
+  private shouldFinishBattle() {
+    if (this.isBattleStayDebug()) return false;
+    if (this.shouldUseBattleAi()) {
+      if (this.momentScriptLoading || this.momentQueue.length > 0) return false;
+      if (this.events.length < 3) return false;
+      return !this.canPushNextEvent();
+    }
+    return this.elapsed > 26000;
   }
 }

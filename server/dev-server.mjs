@@ -282,7 +282,9 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
     '输出要求：',
     `- 共 ${eventCount} 条事件，按时间顺序从近到远或递增分钟均可，minute 范围 ${minute}-90`,
     '- 每行一个 JSON 对象，不要 Markdown，不要外层数组',
-    '- actorName 必须从 roster 的 displayName 中选择；系统事件可用“裁判”“教练组”',
+    '- actorName 必须是 roster 中吃到牌/进球/射门的球员 displayName',
+    '- 黄牌/红牌/受伤/射门/进球的 actorName 禁止用“裁判”“教练组”；裁判仅可在 detail 里描述动作',
+    '- 换人事件 actorName 可用“教练组”；扑救可用 roster 中的门将或后卫',
     '- relatedActorNames 最多 3 个；detail 35 字以内中文',
     '- score 仅进球时为 "home" 或 "away"，否则 null',
     '- roster 含 role=starter 首发与 role=bench 替补，换人与受伤可涉及替补',
@@ -327,7 +329,7 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
     const lines = content.split('\n');
     content = lines.pop() ?? '';
     for (const line of lines) {
-      const event = normalizeBattleMoment(parseJsonObject(line), allowedTypes);
+      const event = normalizeBattleMoment(parseJsonObject(line), allowedTypes, homePlayers, awayPlayers);
       if (!event) continue;
       events.push(event);
       if (onEvent) onEvent(event);
@@ -335,7 +337,7 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
   }
   const tail = content.trim();
   if (tail) {
-    const event = normalizeBattleMoment(parseJsonObject(tail), allowedTypes);
+    const event = normalizeBattleMoment(parseJsonObject(tail), allowedTypes, homePlayers, awayPlayers);
     if (event && !events.some((item) => item.detail === event.detail && item.actorName === event.actorName && item.minute === event.minute)) {
       events.push(event);
       if (onEvent) onEvent(event);
@@ -345,7 +347,7 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
   if (!events.length) {
     const parsed = parseJsonArray(fullContent || content || '');
     for (const item of parsed) {
-      const event = normalizeBattleMoment(item, allowedTypes);
+      const event = normalizeBattleMoment(item, allowedTypes, homePlayers, awayPlayers);
       if (!event) continue;
       if (events.some((existing) => existing.detail === event.detail && existing.actorName === event.actorName && existing.minute === event.minute)) continue;
       events.push(event);
@@ -397,19 +399,45 @@ function normalizeSquadPlayers(players) {
   }));
 }
 
-function normalizeBattleMoment(raw, allowedTypes) {
+function isSystemActor(name) {
+  const text = String(name ?? '').trim();
+  return text === '裁判' || text === '教练组' || text.includes('主裁') || text.includes('裁判');
+}
+
+function rosterNames(homePlayers, awayPlayers) {
+  return new Set([...homePlayers, ...awayPlayers].map((player) => player.displayName));
+}
+
+function pickRosterActor(team, homePlayers, awayPlayers) {
+  const pool = team === 'away' ? awayPlayers : homePlayers;
+  const candidate = pool.find((player) => player.role === 'starter') ?? pool[0];
+  return candidate?.displayName;
+}
+
+function normalizeBattleMoment(raw, allowedTypes, homePlayers = [], awayPlayers = []) {
   if (!raw || typeof raw !== 'object') return null;
   const eventType = allowedTypes.includes(raw.eventType) ? raw.eventType : 'shot';
   const mood = ['normal', 'good', 'bad'].includes(raw.mood) ? raw.mood : 'normal';
   const score = raw.score === 'home' || raw.score === 'away' ? raw.score : null;
   const team = raw.team === 'away' ? 'away' : 'home';
   const minute = Math.max(1, Math.min(90, Number(raw.minute ?? 1)));
+  const relatedActorNames = Array.isArray(raw.relatedActorNames) ? raw.relatedActorNames.slice(0, 3).map((name) => String(name)) : [];
+  const names = rosterNames(homePlayers, awayPlayers);
+  let actorName = stringValue(raw.actorName, team === 'home' ? '球员' : '对手');
+  const playerOnlyEvents = new Set(['goal', 'shot', 'save', 'corner', 'yellow', 'red', 'injury']);
+  if (playerOnlyEvents.has(eventType) && (isSystemActor(actorName) || !names.has(actorName))) {
+    const relatedPlayer = relatedActorNames.find((name) => names.has(name) && !isSystemActor(name));
+    actorName = relatedPlayer ?? pickRosterActor(team, homePlayers, awayPlayers) ?? actorName;
+  }
+  if (eventType === 'sub' && isSystemActor(actorName)) {
+    actorName = '教练组';
+  }
   return {
     minute,
     eventType,
     title: titleForBattleEvent(eventType),
-    actorName: stringValue(raw.actorName, team === 'home' ? '球员' : '对手'),
-    relatedActorNames: Array.isArray(raw.relatedActorNames) ? raw.relatedActorNames.slice(0, 3).map((name) => String(name)) : [],
+    actorName,
+    relatedActorNames,
     detail: stringValue(raw.detail, '双方在中场展开争夺。').slice(0, 60),
     mood,
     score,
