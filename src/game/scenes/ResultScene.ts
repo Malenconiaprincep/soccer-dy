@@ -4,6 +4,9 @@ import { headerTitleSprite, label, palette } from '../ui';
 import type { BattleEvent, PlayerCardData } from '../types';
 import { playerDisplayName } from '../playerNames';
 
+const HOME_ACCENT = 0x2f8cff;
+const OPPONENT_ACCENT = 0xff465d;
+
 interface StatRow {
   icon: string;
   name: string;
@@ -78,23 +81,49 @@ export class ResultScene extends BaseScene {
     soft.fill({ color: 0x020817, alpha: 0.18 });
     panel.addChild(soft);
 
-    const myStar = this.starPlayer(this.game.lineup.map((slot) => slot.player));
-    const rivalStar = this.starPlayer((this.game.battleSource.opponentLineup ?? []).map((slot) => slot.player));
-    this.drawTeamBlock(panel, myStar, 8, 16, true);
-    this.drawTeamBlock(panel, rivalStar, w - 222, 16, false);
+    const logoSize = 96;
+    const logoCenterY = 52;
+    const leftX = 86;
+    const rightX = w - 86;
+
+    const leftLogo = this.teamLogo(logoSize, HOME_ACCENT, 0x16e2ff, '蓝');
+    leftLogo.x = leftX;
+    leftLogo.y = logoCenterY;
+    const leftTitle = label('我方球队', 27, palette.white, '900');
+    leftTitle.anchor.set(0.5);
+    leftTitle.x = leftX;
+    leftTitle.y = logoCenterY + logoSize / 2 + 26;
+    const leftClub = label('蓝焰俱乐部', 19, 0x2ee6d6, '900');
+    leftClub.anchor.set(0.5);
+    leftClub.x = leftX;
+    leftClub.y = leftTitle.y + 34;
+
+    const rightLogo = this.teamLogo(logoSize, OPPONENT_ACCENT, 0xff5d68, 'AI');
+    rightLogo.x = rightX;
+    rightLogo.y = logoCenterY;
+    const rightTitle = label('对手球队', 27, palette.white, '900');
+    rightTitle.anchor.set(0.5);
+    rightTitle.x = rightX;
+    rightTitle.y = leftTitle.y;
+    const rightClub = label(this.game.battleSource.opponentName, 19, 0xfff1a8, '900');
+    rightClub.anchor.set(0.5);
+    rightClub.x = rightX;
+    rightClub.y = leftClub.y;
+
+    panel.addChild(leftLogo, leftTitle, leftClub, rightLogo, rightTitle, rightClub);
 
     const centerX = w / 2;
-    const leftScore = label(String(scoreA), 86, 0x3698ff, '900');
+    const leftScore = label(String(scoreA), 84, 0x2f8cff, '900');
     leftScore.anchor.set(1, 0.5);
-    leftScore.x = centerX - 36;
+    leftScore.x = centerX - 38;
     leftScore.y = 82;
-    const colon = label(':', 66, palette.white, '900');
+    const colon = label(':', 68, palette.white, '900');
     colon.anchor.set(0.5);
     colon.x = centerX;
     colon.y = 80;
-    const rightScore = label(String(scoreB), 86, 0xff5d68, '900');
+    const rightScore = label(String(scoreB), 84, 0xff5d68, '900');
     rightScore.anchor.set(0, 0.5);
-    rightScore.x = centerX + 36;
+    rightScore.x = centerX + 38;
     rightScore.y = 82;
 
     const end = this.matchEndBadge(154, 42);
@@ -103,6 +132,29 @@ export class ResultScene extends BaseScene {
 
     panel.addChild(leftScore, colon, rightScore, end);
     this.container.addChild(panel);
+  }
+
+  private teamLogo(size: number, accent: number, secondary: number, mark: string) {
+    const c = new Container();
+    const frame = new Graphics();
+    frame.roundRect(-size / 2, -size / 2, size, size, 18);
+    frame.fill({ color: 0x071735, alpha: 0.96 });
+    frame.stroke({ color: accent, alpha: 0.96, width: 5 });
+    const glow = new Graphics();
+    glow.roundRect(-size / 2 + 8, -size / 2 + 8, size - 16, size - 16, 14);
+    glow.stroke({ color: secondary, alpha: 0.35, width: 2 });
+    const shield = new Graphics();
+    shield.poly([0, -size * 0.3, size * 0.28, -size * 0.18, size * 0.2, size * 0.22, 0, size * 0.34, -size * 0.2, size * 0.22, -size * 0.28, -size * 0.18]);
+    shield.fill({ color: accent, alpha: 0.92 });
+    shield.stroke({ color: 0xffffff, alpha: 0.65, width: 2 });
+    const stripe = new Graphics();
+    stripe.poly([-size * 0.2, -size * 0.08, size * 0.18, -size * 0.2, size * 0.12, -size * 0.05, -size * 0.22, size * 0.08]);
+    stripe.fill({ color: secondary, alpha: 0.95 });
+    const text = label(mark, mark.length > 1 ? 24 : 34, 0xffffff, '900');
+    text.anchor.set(0.5);
+    text.y = size * 0.02;
+    c.addChild(frame, glow, shield, stripe, text);
+    return c;
   }
 
   private drawTabs() {
@@ -294,51 +346,122 @@ export class ResultScene extends BaseScene {
     title.y = 22;
     panel.addChild(title);
 
-    const events = this.matchEvents().slice(0, 10);
-    const line = new Graphics();
-    line.rect(80, 82, 3, Math.max(0, events.length * 62 - 30));
-    line.fill({ color: 0x1f67b9, alpha: 0.52 });
-    panel.addChild(line);
+    const events = this.matchEvents().slice(0, 12);
+    const centerX = w / 2;
+    const rowH = 68;
+    const startY = 78;
+    const axisBottom = startY + Math.max(0, events.length * rowH - 18);
+
+    const axis = new Graphics();
+    axis.rect(centerX - 1, startY, 2, axisBottom - startY);
+    axis.fill({ color: 0x1d67b5, alpha: 0.72 });
+    panel.addChild(axis);
 
     events.forEach((event, index) => {
-      const y = 74 + index * 62;
-      const color = event.mood === 'bad' ? 0xff5362 : event.mood === 'good' ? 0x2f95ff : 0xffd35d;
+      const y = startY + index * rowH;
+      const homeSide = this.eventTeamSide(event) === 'home';
+      const color = homeSide ? HOME_ACCENT : OPPONENT_ACCENT;
+      const nodeY = y + 26;
+
+      this.drawTimelineConnector(panel, centerX, nodeY, homeSide, color);
+
       const dot = new Graphics();
-      dot.circle(81, y + 15, 18);
+      dot.circle(centerX, nodeY, 16);
       dot.fill({ color: 0x071329, alpha: 1 });
       dot.stroke({ color, alpha: 0.96, width: 3 });
-      const icon = label(this.eventIcon(event), 18, color, '900');
+      const time = label(`${event.time}'`, 15, color, '900');
+      time.anchor.set(0.5);
+      time.x = centerX;
+      time.y = nodeY - 1;
+
+      const icon = label(this.eventTimelineIcon(event), 20, color, '900');
       icon.anchor.set(0.5);
-      icon.x = 81;
-      icon.y = y + 15;
+      icon.x = homeSide ? centerX - 58 : centerX + 58;
+      icon.y = nodeY;
 
-      const time = label(`${event.time}'`, 25, color, '900');
-      time.anchor.set(1, 0);
-      time.x = 58;
-      time.y = y + 2;
+      const actor = this.eventActorName(event);
+      const tag = this.eventTag(event);
+      const headline = label(`${actor} ${tag}`, 20, palette.white, '900');
+      headline.y = y + 8;
+      const detail = label(this.eventTimelineDetail(event), 16, 0xbfd4ef, '700');
+      detail.y = y + 34;
 
-      const tag = label(this.eventTag(event), 18, color, '900');
-      tag.x = 118;
-      tag.y = y;
-      const text = label(event.text, 21, 0xdbe7ff, '700');
-      text.x = 118;
-      text.y = y + 28;
+      const textEdge = centerX - 78;
+      const maxTextWidth = centerX - 118;
+      if (homeSide) {
+        headline.anchor.set(1, 0);
+        headline.x = textEdge;
+        detail.anchor.set(1, 0);
+        detail.x = textEdge;
+      } else {
+        headline.anchor.set(0, 0);
+        headline.x = centerX + 78;
+        detail.anchor.set(0, 0);
+        detail.x = centerX + 78;
+      }
+      if (headline.width > maxTextWidth) headline.scale.x = maxTextWidth / headline.width;
+      if (detail.width > maxTextWidth) detail.scale.x = maxTextWidth / detail.width;
 
-      if (event.scoreA !== undefined && event.scoreB !== undefined && (event.text.includes('破门') || event.text.includes('扳回'))) {
-        const score = label(`${event.scoreA}:${event.scoreB}`, 24, color, '900');
-        score.anchor.set(1, 0);
-        score.x = w - 34;
-        score.y = y + 14;
+      panel.addChild(dot, time, icon, headline, detail);
+
+      if (this.isGoalEvent(event)) {
+        const score = label(`${event.scoreA}:${event.scoreB}`, 22, color, '900');
+        score.anchor.set(homeSide ? 1 : 0, 0.5);
+        score.x = homeSide ? 28 : w - 28;
+        score.y = nodeY;
         panel.addChild(score);
       }
-
-      const divider = new Graphics();
-      divider.rect(116, y + 57, w - 150, 1);
-      divider.fill({ color: 0x21466f, alpha: 0.45 });
-      panel.addChild(dot, icon, time, tag, text, divider);
     });
 
     this.container.addChild(panel);
+  }
+
+  private drawTimelineConnector(parent: Container, centerX: number, nodeY: number, homeSide: boolean, color: number) {
+    const connector = new Graphics();
+    const endX = homeSide ? centerX - 42 : centerX + 42;
+    connector.moveTo(centerX, nodeY);
+    connector.lineTo(endX, nodeY);
+    connector.stroke({ color, alpha: 0.5, width: 2 });
+    parent.addChild(connector);
+  }
+
+  private eventTeamSide(event: BattleEvent): 'home' | 'away' {
+    if (event.team === 'away') return 'away';
+    if (event.team === 'home') return 'home';
+    if (event.mood === 'bad' && /对手|扳回|反击|对方/.test(event.text)) return 'away';
+    return 'home';
+  }
+
+  private eventTimelineIcon(event: BattleEvent) {
+    const tag = this.eventTag(event);
+    if (tag === '神仙球') return '✨';
+    if (tag === '任意球') return '🎯';
+    if (tag === '进球') return '⚽';
+    if (tag === '犯规') return '▮';
+    if (tag === '角球') return '⚑';
+    if (tag === '扑救') return '🧤';
+    if (tag === '射门') return '↗';
+    if (tag === '换人') return '⇄';
+    if (tag === '受伤') return '✚';
+    return '•';
+  }
+
+  private eventTimelineDetail(event: BattleEvent) {
+    const tag = this.eventTag(event);
+    if (tag === '进球' || tag === '神仙球') {
+      const assist = event.relatedActors?.find((name) => playerDisplayName(name) !== this.eventActorName(event));
+      if (assist) return `助攻：${playerDisplayName(assist)}`;
+    }
+    if (tag === '换人' && event.text.includes('下') && event.text.includes('上')) return event.text;
+    if (event.text.length > 24) return `${event.text.slice(0, 23)}...`;
+    return event.text;
+  }
+
+  private isGoalEvent(event: BattleEvent) {
+    if (event.scoreA === undefined || event.scoreB === undefined) return false;
+    if (event.eventType === 'goal' || event.eventType === 'wondergoal') return true;
+    if (event.eventType === 'freekick' && /破门|入网|直挂|死角|轰|得分/.test(event.text)) return true;
+    return this.eventTag(event) === '进球';
   }
 
   private drawActions() {
@@ -361,45 +484,6 @@ export class ResultScene extends BaseScene {
     });
 
     this.container.addChild(back, next);
-  }
-
-  private drawTeamBlock(parent: Container, player: PlayerCardData | undefined, x: number, y: number, mine: boolean) {
-    const avatarX = mine ? x : x + 86;
-    const textX = mine ? x + 112 : x + 72;
-    if (player) this.drawFramedAvatar(parent, player, avatarX, y, mine ? 0x24a6ff : 0xffc64d);
-
-    const team = label(mine ? '我方球队' : '对手球队', 27, palette.white, '900');
-    team.x = textX;
-    team.y = y + 18;
-    const club = label(mine ? '蓝焰俱乐部' : this.game.battleSource.opponentName, 20, mine ? 0x20d9ff : 0xff575f, '900');
-    club.x = textX;
-    club.y = y + 56;
-    const role = label(`实力值 ${this.teamPower(mine)}`, 17, mine ? 0x11e3c6 : 0xdbe7ff, '900');
-    role.x = textX;
-    role.y = y + 92;
-    if (!mine) {
-      team.anchor.set(1, 0);
-      club.anchor.set(1, 0);
-      role.anchor.set(1, 0);
-    }
-    parent.addChild(team, club, role);
-  }
-
-  private drawFramedAvatar(parent: Container, player: PlayerCardData, x: number, y: number, color: number) {
-    const size = 94;
-    const frame = new Graphics();
-    frame.roundRect(x, y, size, size, 12);
-    frame.fill({ color: 0x071329, alpha: 0.88 });
-    frame.stroke({ color, alpha: 0.96, width: 4 });
-
-    const sprite = new Sprite(Texture.from(player.portrait));
-    sprite.x = x + 9;
-    sprite.y = y + 9;
-    sprite.width = size - 18;
-    sprite.height = size - 18;
-
-    const rating = this.ratingChip(player.rating, x - 9, y + 4);
-    parent.addChild(frame, sprite, rating);
   }
 
   private drawRoundAvatar(parent: Container, player: PlayerCardData, x: number, y: number, size: number, color: number) {
@@ -617,10 +701,12 @@ export class ResultScene extends BaseScene {
 
   private isReportEvent(event: BattleEvent) {
     const type = event.eventType ?? '';
-    return ['goal', 'yellow', 'red', 'yellow_card', 'red_card', 'corner', 'save', 'shot', 'injury', 'sub', 'substitution'].includes(type) || this.eventTag(event) !== '事件';
+    return ['goal', 'wondergoal', 'freekick', 'yellow', 'red', 'yellow_card', 'red_card', 'corner', 'save', 'shot', 'injury', 'sub', 'substitution'].includes(type) || this.eventTag(event) !== '事件';
   }
 
   private eventTag(event: BattleEvent) {
+    if (event.eventType === 'wondergoal') return '神仙球';
+    if (event.eventType === 'freekick') return '任意球';
     if (event.eventType === 'goal') return '进球';
     if (event.eventType === 'yellow' || event.eventType === 'yellow_card') return '犯规';
     if (event.eventType === 'red' || event.eventType === 'red_card') return '犯规';
@@ -715,12 +801,6 @@ export class ResultScene extends BaseScene {
 
   private starPlayer(players: Array<PlayerCardData | undefined>) {
     return players.filter(Boolean).sort((a, b) => (b?.rating ?? 0) - (a?.rating ?? 0))[0];
-  }
-
-  private teamPower(mine: boolean) {
-    const lineup = mine ? this.game.lineup : this.game.battleSource.opponentLineup ?? [];
-    const players = lineup.map((slot) => slot.player).filter(Boolean) as PlayerCardData[];
-    return players.reduce((sum, player) => sum + player.rating, 0);
   }
 
   private topLift() {

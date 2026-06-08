@@ -47,8 +47,8 @@ export interface BattleScriptPayload {
   scoreA: number;
   scoreB: number;
   count?: number;
-  homePlayers: Array<{ id: string; displayName: string; position: string; rating: number; role: 'starter' | 'bench' }>;
-  awayPlayers: Array<{ id: string; displayName: string; position: string; rating: number; role: 'starter' | 'bench' }>;
+  homePlayers: Array<{ id: string; displayName: string; position: string; rating: number; role: 'starter' | 'bench'; skill?: string }>;
+  awayPlayers: Array<{ id: string; displayName: string; position: string; rating: number; role: 'starter' | 'bench'; skill?: string }>;
   recentEvents: Array<{ time: number; text: string; mood: string; eventType?: string; title?: string }>;
 }
 

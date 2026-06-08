@@ -3,6 +3,7 @@ import { BaseScene } from './BaseScene';
 import type { BattleEvent, LineupSlot, PlayerCardData, Position } from '../types';
 import { playerDisplayName } from '../playerNames';
 import type { GeneratedBattleMoment } from '../services/GameServerClient';
+import { spreadEventMinutes } from '../battle/spreadEventMinutes';
 import { headerTitleSprite, label, palette } from '../ui';
 
 type MomentType = 'kickoff' | 'attack' | 'shot' | 'post' | 'corner' | 'save' | 'goal' | 'counter';
@@ -27,6 +28,17 @@ const GAME_EVENT_CARD_FRAMES: Record<GameEventCardKey, { x: number; y: number; w
 const OPPONENT_ACCENT = 0xff465d;
 const HOME_ACCENT = 0x2f8cff;
 
+const PREPARATION_HINTS = [
+  'AI 正在编排比赛剧本...',
+  '裁判检查场地与装备...',
+  '双方球员热身完毕...',
+  '正在同步实时战报...'
+];
+
+const FULL_TIME_EVENT_PAUSE_MS = 2400;
+const ENDING_UI_DELAY_MS = 800;
+const ENDING_AUTO_JUMP_MS = 6000;
+
 const EVENT_CARD_LAYOUT = {
   timeX: 0.228,
   timeY: 0.5,
@@ -43,6 +55,10 @@ const GAME_EVENT_TYPE_ALIASES: Record<string, GameEventCardKey> = {
   yellow_card: 'yellow',
   red_card: 'red',
   substitution: 'sub',
+  freekick: 'shot',
+  free_kick: 'shot',
+  wondergoal: 'goal',
+  wonder_goal: 'goal',
   attack: 'shot',
   pass: 'shot',
   assist: 'shot',
@@ -55,7 +71,7 @@ const GAME_EVENT_TYPE_ALIASES: Record<string, GameEventCardKey> = {
 
 interface BattleMoment {
   type: MomentType;
-  eventType?: GameEventCardKey;
+  eventType?: GameEventCardKey | 'freekick' | 'wondergoal';
   title: string;
   detail: string;
   mood: BattleEvent['mood'];
@@ -134,11 +150,25 @@ export class BattleScene extends BaseScene {
   private momentScriptLoading = false;
   private momentScriptDisabled = false;
   private momentScriptFetched = false;
+  private preparationOverlay?: Container;
+  private preparationSpinnerRoot?: Container;
+  private preparationArc?: Container;
+  private preparationHint?: ReturnType<typeof label>;
+  private preparationTitle?: ReturnType<typeof label>;
+  private preparationBar?: Graphics;
+  private preparationElapsed = 0;
   private eventFeedState?: EventFeedState;
   private cardAnimations: EventCardAnimation[] = [];
   private eventPushPausedUntil = 0;
   private goalOverlay?: Container;
   private goalOverlayAge = 0;
+  private battlePhase: 'live' | 'ending' = 'live';
+  private fullTimeEventPushed = false;
+  private endingReadyAt = 0;
+  private endingAutoJumpAt = 0;
+  private endingUserReady = false;
+  private endingOverlay?: Container;
+  private endingCountdownText?: ReturnType<typeof label>;
   private moment: BattleMoment = {
     type: 'attack',
     eventType: 'shot',
@@ -163,6 +193,12 @@ export class BattleScene extends BaseScene {
     this.eventPushPausedUntil = 0;
     this.cardAnimations = [];
     this.eventFeedState = undefined;
+    this.battlePhase = 'live';
+    this.fullTimeEventPushed = false;
+    this.endingReadyAt = 0;
+    this.endingAutoJumpAt = 0;
+    this.endingUserReady = false;
+    this.clearEndingOverlayRefs();
     this.game.ensureHomeSubstitutes();
     this.game.sound.play('kickoff');
     this.ensureBattleScriptBuffer(true);
@@ -173,8 +209,15 @@ export class BattleScene extends BaseScene {
     if (this.timeText) this.timeText.text = this.clockText();
     this.updateCardAnimations(deltaMs);
     this.updateGoalAnimation(deltaMs);
+    this.updatePreparationOverlay(deltaMs);
     if (this.isBattleProcessDebug()) return;
     this.updatePossessionPanel();
+    if (this.battlePhase === 'live' && this.isLiveBattleComplete()) {
+      this.beginBattleEnding();
+    }
+    if (this.battlePhase === 'ending') {
+      this.updateEndingPhase();
+    }
     if (this.elapsed > this.nextEventAt) {
       if (this.elapsed < this.eventPushPausedUntil) {
         this.nextEventAt = this.eventPushPausedUntil;
@@ -186,12 +229,20 @@ export class BattleScene extends BaseScene {
       }
     }
     if (this.shouldFinishBattle()) {
-      this.game.battleResult = { scoreA: this.scoreA, scoreB: this.scoreB, events: this.events };
-      this.game.changeScene('result');
+      this.goToResult();
     }
   }
 
+  private goToResult() {
+    this.game.battleResult = { scoreA: this.scoreA, scoreB: this.scoreB, events: this.events };
+    this.game.changeScene('result');
+  }
+
   resize() {
+    const preparing = this.momentScriptLoading;
+    const endingUiVisible = this.battlePhase === 'ending' && this.endingReadyAt > 0;
+    this.clearPreparationOverlayRefs();
+    this.clearEndingOverlayRefs();
     this.container.removeChildren();
     this.eventFeedState = undefined;
     this.cardAnimations = [];
@@ -202,6 +253,8 @@ export class BattleScene extends BaseScene {
     this.possessionBall = undefined;
     this.possessionBar = undefined;
     this.build();
+    if (preparing) this.showPreparationOverlay();
+    if (endingUiVisible) this.showEndingOverlay();
   }
 
   private drawBackground() {
@@ -522,6 +575,9 @@ export class BattleScene extends BaseScene {
   }
 
   private eventCard(entry: BattleEventEntry, x: number, y: number, width: number, height: number, showType = false) {
+    if (entry.title === '全场比赛结束') {
+      return this.fullTimeEventCard(x, y, width, height, entry);
+    }
     const c = new Container();
     c.x = x;
     c.y = y;
@@ -1004,16 +1060,163 @@ export class BattleScene extends BaseScene {
     if (!force && this.momentScriptFetched) return;
 
     this.momentScriptLoading = true;
+    this.showPreparationOverlay();
+    const startMinute = this.matchMinute();
+    const pending: BattleMoment[] = [];
     void this.game.server.streamBattleScript(this.battleScriptPayload(), (moment) => {
-      this.momentQueue.push(this.toBattleMoment(moment));
-      this.momentQueue.sort((a, b) => (a.minute ?? 999) - (b.minute ?? 999));
+      pending.push(this.toBattleMoment(moment));
     }).catch((error) => {
       this.momentScriptDisabled = true;
       console.warn('[battle-ai] script stream failed, falling back to local moments', error);
     }).finally(() => {
+      this.momentQueue.push(...spreadEventMinutes(pending, startMinute));
+      this.momentQueue.sort((a, b) => (a.minute ?? 999) - (b.minute ?? 999));
       this.momentScriptLoading = false;
       this.momentScriptFetched = true;
+      this.hidePreparationOverlay();
     });
+  }
+
+  private showPreparationOverlay() {
+    if (!this.shouldUseBattleAi() || this.preparationOverlay) return;
+
+    const layout = this.battleLayout();
+    const x = 22;
+    const y = layout.eventY;
+    const w = this.game.width - 44;
+    const h = layout.eventHeight;
+    const overlay = new Container();
+    overlay.x = x;
+    overlay.y = y;
+
+    const bg = new Graphics();
+    bg.roundRect(0, 0, w, h, 16);
+    bg.fill({ color: 0x041229, alpha: 0.94 });
+    bg.stroke({ color: 0x2f8cff, alpha: 0.58, width: 2 });
+    const shine = new Graphics();
+    shine.rect(28, 0, Math.min(180, w * 0.34), 4);
+    shine.fill({ color: 0x28d8ff, alpha: 0.48 });
+
+    const centerX = w / 2;
+    const centerY = h * 0.4;
+    const spinner = this.preparationSpinner(Math.min(68, w * 0.13));
+    spinner.x = centerX;
+    spinner.y = centerY;
+
+    const title = label('比赛准备中', 31, palette.white, '900');
+    title.anchor.set(0.5);
+    title.x = centerX;
+    title.y = centerY + 92;
+    this.preparationTitle = title;
+
+    const hint = label(PREPARATION_HINTS[0], 20, 0x9fd4ff, '700');
+    hint.anchor.set(0.5);
+    hint.x = centerX;
+    hint.y = title.y + 42;
+    this.preparationHint = hint;
+
+    const barW = Math.min(280, w - 80);
+    const barX = (w - barW) / 2;
+    const barY = hint.y + 38;
+    const barTrack = new Graphics();
+    barTrack.roundRect(barX, barY, barW, 8, 4);
+    barTrack.fill({ color: 0x0a2a52, alpha: 0.92 });
+    barTrack.stroke({ color: 0x1d6fd4, alpha: 0.45, width: 1 });
+    const bar = new Graphics();
+    bar.roundRect(barX, barY, barW * 0.34, 8, 4);
+    bar.fill({ color: 0x28d8ff, alpha: 0.92 });
+    this.preparationBar = bar;
+
+    overlay.addChild(bg, shine, spinner, title, hint, barTrack, bar);
+    overlay.eventMode = 'static';
+    overlay.hitArea = new Rectangle(0, 0, w, h);
+    this.container.addChild(overlay);
+    this.preparationOverlay = overlay;
+    this.preparationElapsed = 0;
+  }
+
+  private hidePreparationOverlay() {
+    if (!this.preparationOverlay) return;
+    this.container.removeChild(this.preparationOverlay);
+    this.preparationOverlay.destroy({ children: true });
+    this.clearPreparationOverlayRefs();
+  }
+
+  private clearPreparationOverlayRefs() {
+    this.preparationOverlay = undefined;
+    this.preparationSpinnerRoot = undefined;
+    this.preparationArc = undefined;
+    this.preparationHint = undefined;
+    this.preparationTitle = undefined;
+    this.preparationBar = undefined;
+    this.preparationElapsed = 0;
+  }
+
+  private updatePreparationOverlay(deltaMs: number) {
+    if (!this.preparationOverlay) return;
+    this.preparationElapsed += deltaMs;
+    const t = this.preparationElapsed * 0.001;
+    if (this.preparationSpinnerRoot) {
+      this.preparationSpinnerRoot.scale.set(1 + Math.sin(t * 2.4) * 0.014);
+    }
+    if (this.preparationArc) {
+      this.preparationArc.rotation += deltaMs * 0.0042;
+    }
+    if (this.preparationTitle) {
+      const dots = '.'.repeat((Math.floor(this.preparationElapsed / 420) % 3) + 1);
+      this.preparationTitle.text = `比赛准备中${dots}`;
+    }
+    if (this.preparationHint) {
+      const hintIndex = Math.floor(this.preparationElapsed / 2600) % PREPARATION_HINTS.length;
+      this.preparationHint.text = PREPARATION_HINTS[hintIndex];
+    }
+    if (this.preparationBar) {
+      const layout = this.battleLayout();
+      const w = this.game.width - 44;
+      const h = layout.eventHeight;
+      const barW = Math.min(280, w - 80);
+      const barX = (w - barW) / 2;
+      const barY = (this.preparationHint?.y ?? h * 0.58) + 38;
+      const sweep = (Math.sin(t * 2.8) + 1) / 2;
+      const fillW = barW * 0.34;
+      const maxX = barX + barW - fillW;
+      this.preparationBar.clear();
+      this.preparationBar.roundRect(barX + sweep * (maxX - barX), barY, fillW, 8, 4);
+      this.preparationBar.fill({ color: 0x28d8ff, alpha: 0.92 });
+    }
+  }
+
+  private preparationSpinner(radius: number) {
+    const root = new Container();
+    this.preparationSpinnerRoot = root;
+
+    const arcLayer = new Container();
+    this.preparationArc = arcLayer;
+    this.preparationArcGlow(arcLayer, radius + 18, -Math.PI * 0.08, Math.PI * 0.52, HOME_ACCENT, 8, 0.92);
+    this.preparationArcGlow(arcLayer, radius + 18, Math.PI * 0.38, Math.PI * 0.28, OPPONENT_ACCENT, 7, 0.88);
+    this.preparationArcGlow(arcLayer, radius - 6, 0, Math.PI * 2, 0x1d8fff, 2, 0.42);
+
+    const center = new Graphics();
+    center.circle(0, 0, 34);
+    center.fill({ color: 0x071936, alpha: 0.95 });
+    center.circle(0, 0, 34);
+    center.stroke({ color: 0x28d8ff, alpha: 0.9, width: 3 });
+    const icon = label('⚽', 28, 0xffe45a, '900');
+    icon.anchor.set(0.5);
+
+    root.addChild(arcLayer, center, icon);
+    return root;
+  }
+
+  private preparationArcGlow(target: Container, radius: number, start: number, span: number, color: number, width: number, alpha: number) {
+    const end = start + span;
+    const halo = new Graphics();
+    halo.arc(0, 0, radius, start, end);
+    halo.stroke({ color, alpha: alpha * 0.22, width: width + 10 });
+    const core = new Graphics();
+    core.arc(0, 0, radius, start, end);
+    core.stroke({ color, alpha, width });
+    target.addChild(halo, core);
   }
 
   private battleScriptPayload() {
@@ -1022,7 +1225,7 @@ export class BattleScene extends BaseScene {
       minute: this.matchMinute(),
       scoreA: this.scoreA,
       scoreB: this.scoreB,
-      count: 18,
+      count: 20,
       homePlayers: this.squadForGeneration(this.game.lineup, this.game.substitutes),
       awayPlayers: this.squadForGeneration(this.opponentLineup(), this.opponentSubstitutes()),
       recentEvents: this.events.slice(0, 5).map((event) => ({
@@ -1050,9 +1253,10 @@ export class BattleScene extends BaseScene {
         displayName: playerDisplayName(slot.player),
         position: slot.position,
         rating: slot.player.rating,
+        skill: slot.player.skill,
         role: 'starter' as const
       } : undefined)
-      .filter(Boolean) as Array<{ id: string; displayName: string; position: string; rating: number; role: 'starter' | 'bench' }>;
+      .filter(Boolean) as Array<{ id: string; displayName: string; position: string; rating: number; skill: string; role: 'starter' | 'bench' }>;
     const bench = substitutes
       .filter(Boolean)
       .map((player) => ({
@@ -1060,6 +1264,7 @@ export class BattleScene extends BaseScene {
         displayName: playerDisplayName(player!),
         position: player!.position,
         rating: player!.rating,
+        skill: player!.skill,
         role: 'bench' as const
       }));
     return [...starters, ...bench];
@@ -1072,7 +1277,10 @@ export class BattleScene extends BaseScene {
 
   private resolveScoringTeam(moment: BattleMoment): 'home' | 'away' | undefined {
     if (moment.score === 'home' || moment.score === 'away') return moment.score;
-    const isGoal = moment.type === 'goal' || moment.eventType === 'goal';
+    const rawType = moment.eventType;
+    const isGoal = moment.type === 'goal'
+      || rawType === 'goal'
+      || rawType === 'wondergoal';
     if (!isGoal) return undefined;
     return moment.team === 'away' ? 'away' : 'home';
   }
@@ -1082,11 +1290,15 @@ export class BattleScene extends BaseScene {
     const actors = sanitized.relatedActorNames
       .map((name) => this.findPlayerByName(name))
       .filter(Boolean) as PlayerCardData[];
-    const score = sanitized.score ?? (sanitized.eventType === 'goal' ? sanitized.team : undefined);
+    const score = sanitized.score
+      ?? ((sanitized.eventType === 'goal' || sanitized.eventType === 'wondergoal') ? sanitized.team : undefined);
     const actor = this.findPlayerByName(sanitized.actorName) ?? actors[0];
+    const preservedType = sanitized.eventType === 'freekick' || sanitized.eventType === 'wondergoal'
+      ? sanitized.eventType
+      : this.safeEventType(sanitized.eventType);
     return {
       type: this.momentTypeFromGenerated(sanitized.eventType),
-      eventType: this.safeEventType(sanitized.eventType),
+      eventType: preservedType,
       title: sanitized.title,
       detail: sanitized.detail,
       mood: sanitized.mood,
@@ -1116,6 +1328,7 @@ export class BattleScene extends BaseScene {
   }
 
   private momentTypeFromGenerated(eventType: string): MomentType {
+    if (eventType === 'wondergoal' || eventType === 'goal') return 'goal';
     const type = this.normalizeEventType(eventType);
     if (type === 'goal') return 'goal';
     if (type === 'shot') return 'shot';
@@ -1498,6 +1711,9 @@ export class BattleScene extends BaseScene {
   }
 
   private clockText() {
+    if (this.battlePhase === 'ending' && this.fullTimeEventPushed) {
+      return '90:00';
+    }
     if (!this.shouldUseBattleAi()) {
       const totalSeconds = Math.max(0, Math.min(90 * 60, Math.floor((this.elapsed / 26000) * 90 * 60)));
       const minutes = Math.floor(totalSeconds / 60);
@@ -1519,19 +1735,223 @@ export class BattleScene extends BaseScene {
   }
 
   private canPushNextEvent() {
+    if (this.battlePhase !== 'live') return false;
     if (!this.shouldUseBattleAi()) return true;
     if (this.momentQueue.length > 0) return true;
     if (this.momentScriptLoading) return false;
     return this.momentScriptDisabled;
   }
 
-  private shouldFinishBattle() {
+  private isLiveBattleComplete() {
     if (this.isBattleStayDebug()) return false;
     if (this.shouldUseBattleAi()) {
       if (this.momentScriptLoading || this.momentQueue.length > 0) return false;
       if (this.events.length < 3) return false;
-      return !this.canPushNextEvent();
+      return !this.momentScriptDisabled;
     }
     return this.elapsed > 26000;
+  }
+
+  private beginBattleEnding() {
+    if (this.battlePhase !== 'live') return;
+    this.battlePhase = 'ending';
+  }
+
+  private isBattleSettled() {
+    if (this.goalOverlay) return false;
+    if (this.elapsed < this.eventPushPausedUntil) return false;
+    if (this.cardAnimations.length > 0) return false;
+    return true;
+  }
+
+  private updateEndingPhase() {
+    if (!this.isBattleSettled()) return;
+
+    if (!this.fullTimeEventPushed) {
+      this.pushFullTimeEvent();
+      return;
+    }
+
+    if (this.endingReadyAt === 0) {
+      if (this.elapsed < this.eventPushPausedUntil + ENDING_UI_DELAY_MS) return;
+      this.endingReadyAt = this.elapsed;
+      this.endingAutoJumpAt = this.elapsed + ENDING_AUTO_JUMP_MS;
+      this.showEndingOverlay();
+    }
+
+    this.updateEndingOverlay();
+  }
+
+  private pushFullTimeEvent() {
+    if (this.fullTimeEventPushed) return;
+
+    const newEvent: BattleEvent = {
+      time: 90,
+      text: `最终比分 ${this.scoreA} : ${this.scoreB}`,
+      scoreA: this.scoreA,
+      scoreB: this.scoreB,
+      mood: 'good',
+      eventType: 'fulltime',
+      title: '全场比赛结束',
+      actor: '裁判'
+    };
+    if (this.events[0] && this.isSameBattleEvent(newEvent, this.events[0])) {
+      this.fullTimeEventPushed = true;
+      return;
+    }
+
+    this.fullTimeEventPushed = true;
+    this.game.sound.play('confirm');
+    this.events.unshift(newEvent);
+    this.lastPushElapsed = this.elapsed;
+    this.eventPushPausedUntil = this.elapsed + FULL_TIME_EVENT_PAUSE_MS;
+    this.nextEventAt = this.eventPushPausedUntil;
+
+    const entry = this.battleEventToEntry(newEvent);
+    const entries = this.eventEntries();
+    const animateIndex = entries.findIndex((item) => this.isSameEventEntry(item, entry));
+    if (this.eventFeedState) {
+      if (animateIndex === 0 && this.eventScrollY < 8) this.eventScrollY = 0;
+      this.syncEventCards(entries, animateIndex);
+      this.ensureEventFeedScrollbar();
+    } else {
+      this.refreshEventFeed(true);
+    }
+  }
+
+  private fullTimeEventCard(x: number, y: number, width: number, height: number, entry: BattleEventEntry) {
+    const c = new Container();
+    c.x = x;
+    c.y = y;
+
+    const cardMask = new Graphics();
+    cardMask.roundRect(0, 0, width, height, Math.max(8, height * 0.14));
+    cardMask.fill(0xffffff);
+    c.addChild(cardMask);
+    c.mask = cardMask;
+
+    const bg = new Graphics();
+    bg.roundRect(0, 0, width, height, Math.max(8, height * 0.14));
+    bg.fill({ color: 0x0a2f1f, alpha: 0.96 });
+    bg.stroke({ color: 0x3dff8f, alpha: 0.92, width: 2.5 });
+    const shine = new Graphics();
+    shine.rect(width * 0.04, 0, width * 0.42, height * 0.08);
+    shine.fill({ color: 0x7dffb8, alpha: 0.28 });
+    bg.addChild(shine);
+
+    const stripe = new Graphics();
+    stripe.rect(width * 0.72, height * 0.12, width * 0.22, height * 0.76);
+    stripe.fill({ color: 0x1cff9a, alpha: 0.08 });
+    bg.addChild(stripe);
+
+    const time = label(`${entry.time}'`, Math.round(height * 0.26), 0x7dffb8, '900');
+    time.anchor.set(0.5);
+    time.x = width * 0.12;
+    time.y = height * 0.5;
+
+    const icon = label('🏁', Math.round(height * 0.34), 0xffe45a, '900');
+    icon.anchor.set(0.5);
+    icon.x = width * 0.24;
+    icon.y = height * 0.5;
+
+    const title = label('全场比赛结束', Math.round(height * 0.24), palette.white, '900');
+    title.x = width * 0.32;
+    title.y = height * 0.24;
+
+    const detail = label(entry.text, Math.round(height * 0.18), 0xd8ffe9, '700');
+    detail.x = width * 0.32;
+    detail.y = height * 0.62;
+
+    c.addChild(bg, time, icon, title, detail);
+    return c;
+  }
+
+  private showEndingOverlay() {
+    if (this.endingOverlay) return;
+
+    const overlay = new Container();
+    const layout = this.battleLayout();
+    const bannerW = Math.min(this.game.width - 48, 520);
+    const bannerH = 54;
+    const bannerX = (this.game.width - bannerW) / 2;
+    const bannerY = layout.momentumY - 8;
+
+    const banner = new Graphics();
+    banner.roundRect(bannerX, bannerY, bannerW, bannerH, 12);
+    banner.fill({ color: 0x071936, alpha: 0.92 });
+    banner.stroke({ color: 0x3dff8f, alpha: 0.88, width: 2 });
+    const bannerText = label('全场比赛结束 · 终场哨响', 22, 0x9dffd0, '900');
+    bannerText.anchor.set(0.5);
+    bannerText.x = bannerX + bannerW / 2;
+    bannerText.y = bannerY + bannerH / 2;
+
+    const btnW = Math.min(300, this.game.width - 64);
+    const btnH = 66;
+    const button = this.actionButton(btnW, btnH, '查看统计 →', 0x0b62d8, 0x2aa0ff, false);
+    button.x = (this.game.width - btnW) / 2;
+    button.y = this.game.height - btnH - 48 - this.game.contentTopOffset * 0.2;
+    button.on('pointertap', () => {
+      this.game.sound.play('tap');
+      this.endingUserReady = true;
+    });
+
+    const countdown = label('', 18, 0xbfd4ef, '700');
+    countdown.anchor.set(0.5);
+    countdown.x = this.game.width / 2;
+    countdown.y = button.y + btnH + 28;
+    this.endingCountdownText = countdown;
+
+    overlay.addChild(banner, bannerText, button, countdown);
+    this.container.addChild(overlay);
+    this.endingOverlay = overlay;
+    this.updateEndingOverlay();
+
+    if (this.possessionHintText) {
+      this.possessionHintText.text = '比赛已结束，可查看最终统计';
+      this.possessionHintText.style.fill = 0x7dffb8;
+    }
+  }
+
+  private updateEndingOverlay() {
+    if (!this.endingCountdownText || this.endingReadyAt === 0) return;
+    const remainingMs = Math.max(0, this.endingAutoJumpAt - this.elapsed);
+    const seconds = Math.ceil(remainingMs / 1000);
+    this.endingCountdownText.text = seconds > 0 ? `${seconds} 秒后自动进入统计` : '正在进入统计...';
+  }
+
+  private clearEndingOverlayRefs() {
+    if (this.endingOverlay) {
+      this.endingOverlay.destroy({ children: true });
+    }
+    this.endingOverlay = undefined;
+    this.endingCountdownText = undefined;
+  }
+
+  private actionButton(width: number, height: number, text: string, fill: number, stroke: number, gold: boolean) {
+    const button = new Container();
+    const glow = new Graphics();
+    glow.roundRect(-8, -8, width + 16, height + 16, 12);
+    glow.fill({ color: fill, alpha: 0.22 });
+    const bg = new Graphics();
+    bg.roundRect(0, 0, width, height, 8);
+    bg.fill({ color: fill, alpha: 0.96 });
+    bg.stroke({ color: stroke, alpha: 0.95, width: 3 });
+    const top = new Graphics();
+    top.roundRect(8, 8, width - 16, height * 0.34, 8);
+    top.fill({ color: 0xffffff, alpha: gold ? 0.22 : 0.1 });
+    const title = label(text, 28, gold ? 0x452600 : palette.white, '900');
+    title.anchor.set(0.5);
+    title.x = width / 2;
+    title.y = height / 2 + 1;
+    button.addChild(glow, bg, top, title);
+    button.eventMode = 'static';
+    button.cursor = 'pointer';
+    return button;
+  }
+
+  private shouldFinishBattle() {
+    if (this.battlePhase !== 'ending') return false;
+    if (!this.fullTimeEventPushed || this.endingReadyAt === 0) return false;
+    return this.endingUserReady || this.elapsed >= this.endingAutoJumpAt;
   }
 }

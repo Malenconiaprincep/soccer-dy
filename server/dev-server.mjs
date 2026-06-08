@@ -275,25 +275,28 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
   const homePlayers = normalizeSquadPlayers(body.homePlayers);
   const awayPlayers = normalizeSquadPlayers(body.awayPlayers);
   const recentEvents = Array.isArray(body.recentEvents) ? body.recentEvents.slice(0, 5) : [];
-  const allowedTypes = ['goal', 'shot', 'save', 'corner', 'yellow', 'red', 'injury', 'sub'];
+  const allowedTypes = ['goal', 'shot', 'save', 'corner', 'yellow', 'red', 'injury', 'sub', 'freekick', 'wondergoal'];
   const eventCount = Math.max(1, Math.min(20, Number(count ?? 14)));
 
   const prompt = [
     '你是一个足球小游戏比赛事件导演。请连续生成比赛事件。',
     '输出要求：',
-    `- 共 ${eventCount} 条事件，minute 严格递增，覆盖 ${minute}-90 分钟全场比赛`,
-    `- 最后一条事件的 minute 必须在 85-90 之间，不要全部挤在前 30 分钟`,
+    `- 共 ${eventCount} 条事件，minute 严格递增即可，间隔不必均匀（我们会重分配到全场）`,
+    `- 最后一条会映射到 85-90 分钟；模型 minute 仅表示先后顺序`,
     '- 每行一个 JSON 对象，不要 Markdown，不要外层数组',
-    '- actorName 必须是 roster 中吃到牌/进球/射门的球员 displayName',
-    '- 黄牌/红牌/受伤/射门/进球的 actorName 禁止用“裁判”“教练组”；裁判仅可在 detail 里描述动作',
+    '- roster 每位球员含 skill 字段（个人特长，如"弧线劲射""冷静单刀"），写作时必须结合该球员 skill 设计动作',
+    '- 至少 1 条 wondergoal（神仙球）：倒挂金钩/凌空抽射/超远重炮/彩虹过人后破门等，detail 要体现该球员 skill，score 必填 home 或 away',
+    '- 可含 1-2 条 freekick（任意球）：禁区前沿或边路定位球；直接破门则 score 填 home/away，被扑出改 eventType=save，打飞则 score=null',
+    '- actorName 必须是 roster 中主罚/进球/射门球员的 displayName',
+    '- 黄牌/红牌/受伤/射门/进球/任意球/神仙球的 actorName 禁止用“裁判”“教练组”；裁判仅可在 detail 里描述动作',
     '- 换人 sub：relatedActorNames 必须为 [被换下的球员, 被换上的球员] 共 2 人，前者 role=starter 后者 role=bench',
     '- 换人 detail 必须写“XX 下，YY 上”，XX/YY 为 relatedActorNames 中的 displayName',
     '- 换人 actorName 可用“教练组”；扑救可用 roster 中的门将或后卫',
     '- relatedActorNames 最多 3 个；非换人 detail 35 字以内中文',
-    '- score 仅进球时为 "home" 或 "away"，否则 null',
+    '- score 仅进球/神仙球/任意球破门时为 "home" 或 "away"，否则 null',
     '- roster 含 role=starter 首发与 role=bench 替补，换人与受伤可涉及替补',
     `- eventType 只能是：${allowedTypes.join(', ')}`,
-    '每行 JSON 字段：{"minute":12,"eventType":"sub","actorName":"教练组","relatedActorNames":["萨利巴","拉莫斯"],"detail":"萨利巴 下，拉莫斯 上","mood":"normal","score":null,"team":"home"}',
+    '每行 JSON 字段：{"minute":12,"eventType":"wondergoal","actorName":"迪巴拉","relatedActorNames":["迪巴拉"],"detail":"迪巴拉禁区外左脚弧线神仙球直挂死角","mood":"good","score":"home","team":"home"}',
     `当前：${minute}'，比分 ${scoreA}:${scoreB}`,
     `我方 roster：${JSON.stringify(homePlayers)}`,
     `对方 roster：${JSON.stringify(awayPlayers)}`,
@@ -314,7 +317,7 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
       ],
       stream: true,
       temperature: 0.85,
-      max_tokens: Math.min(2400, 200 * eventCount)
+      max_tokens: Math.min(4096, 220 * eventCount)
     })
   });
 
@@ -371,12 +374,36 @@ function spreadEventMinutes(events, startMinute = 1, endMinute = 90) {
   if (!events.length) return [];
   const sorted = [...events].sort((a, b) => a.minute - b.minute);
   if (sorted.length === 1) {
-    return [{ ...sorted[0], minute: Math.max(startMinute, Math.min(endMinute, sorted[0].minute)) }];
+    return [{ ...sorted[0], minute: Math.min(90, Math.max(85, endMinute - 1)) }];
   }
-  const span = Math.max(1, endMinute - startMinute);
+
+  const count = sorted.length;
+  const minGap = 2;
+  const maxGap = 13;
+  const targetEnd = endMinute - Math.floor(Math.random() * 4);
+  const available = Math.max(minGap * (count - 1), targetEnd - startMinute);
+  const weights = Array.from({ length: count - 1 }, () => minGap + Math.random() * (maxGap - minGap));
+  const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+  const scale = available / Math.max(1, weightSum);
+  const minutes = [startMinute];
+
+  for (let index = 0; index < count - 1; index += 1) {
+    const slotsLeft = count - 1 - index;
+    const minRequired = minutes[minutes.length - 1] + minGap;
+    const maxAllowed = targetEnd - slotsLeft * minGap;
+    const gap = Math.max(minGap, Math.round(weights[index] * scale));
+    minutes.push(Math.max(minRequired, Math.min(maxAllowed, minutes[minutes.length - 1] + gap)));
+  }
+
+  minutes[minutes.length - 1] = Math.min(90, Math.max(85, targetEnd));
+  for (let index = 1; index < minutes.length; index += 1) {
+    minutes[index] = Math.max(minutes[index], minutes[index - 1] + minGap);
+  }
+  minutes[minutes.length - 1] = Math.min(90, Math.max(minutes[minutes.length - 1], 85));
+
   return sorted.map((event, index) => ({
     ...event,
-    minute: Math.max(startMinute, Math.min(endMinute, Math.round(startMinute + (index / (sorted.length - 1)) * span)))
+    minute: minutes[index]
   }));
 }
 
@@ -411,6 +438,7 @@ function normalizeSquadPlayers(players) {
     displayName: stringValue(player?.displayName, '球员'),
     position: stringValue(player?.position, 'MF'),
     rating: Number(player?.rating ?? 70),
+    skill: stringValue(player?.skill, '全面型'),
     role: player?.role === 'bench' ? 'bench' : 'starter'
   }));
 }
@@ -469,7 +497,7 @@ function normalizeBattleMoment(raw, allowedTypes, homePlayers = [], awayPlayers 
   const team = raw.team === 'away' ? 'away' : 'home';
   const score = raw.score === 'home' || raw.score === 'away'
     ? raw.score
-    : (eventType === 'goal' ? team : null);
+    : (eventType === 'goal' || eventType === 'wondergoal' ? team : null);
   const minute = Math.max(1, Math.min(90, Number(raw.minute ?? 1)));
   const relatedActorNames = Array.isArray(raw.relatedActorNames) ? raw.relatedActorNames.slice(0, 3).map((name) => String(name)) : [];
   const names = rosterNames(homePlayers, awayPlayers);
@@ -488,7 +516,7 @@ function normalizeBattleMoment(raw, allowedTypes, homePlayers = [], awayPlayers 
     };
   }
   let actorName = stringValue(raw.actorName, team === 'home' ? '球员' : '对手');
-  const playerOnlyEvents = new Set(['goal', 'shot', 'save', 'corner', 'yellow', 'red', 'injury']);
+  const playerOnlyEvents = new Set(['goal', 'shot', 'save', 'corner', 'yellow', 'red', 'injury', 'freekick', 'wondergoal']);
   if (playerOnlyEvents.has(eventType) && (isSystemActor(actorName) || !names.has(actorName))) {
     const relatedPlayer = relatedActorNames.find((name) => names.has(name) && !isSystemActor(name));
     actorName = relatedPlayer ?? pickRosterActor(team, homePlayers, awayPlayers) ?? actorName;
@@ -534,6 +562,8 @@ function parseJsonArray(content) {
 function titleForBattleEvent(eventType) {
   const titles = {
     goal: '进球',
+    wondergoal: '神仙球',
+    freekick: '任意球',
     shot: '射门',
     save: '扑救',
     corner: '角球',
