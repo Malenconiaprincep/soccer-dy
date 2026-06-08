@@ -6,66 +6,27 @@ import type { GeneratedBattleMoment } from '../services/GameServerClient';
 import { headerTitleSprite, label, palette } from '../ui';
 
 type MomentType = 'kickoff' | 'attack' | 'shot' | 'post' | 'corner' | 'save' | 'goal' | 'counter';
-type GameEventCardKey =
-  | 'goal'
-  | 'shot'
-  | 'attack'
-  | 'save'
-  | 'goal_confirm'
-  | 'corner'
-  | 'duel'
-  | 'assist'
-  | 'pass'
-  | 'tackle'
-  | 'dribble'
-  | 'whistle'
-  | 'yellow_card'
-  | 'red_card'
-  | 'offside'
-  | 'substitution'
-  | 'jersey_change'
-  | 'injury'
-  | 'player_injury'
-  | 'tactic'
-  | 'timer'
-  | 'half_time'
-  | 'kick_off'
-  | 'match_end';
+type GameEventCardKey = 'shot' | 'goal' | 'save' | 'corner' | 'yellow' | 'red' | 'injury' | 'sub';
 
 const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
 const DEV_BATTLE_EVENTS_KEY = 'soccer.dev.battleEventsAll';
 const DEV_BATTLE_STAY_KEY = 'soccer.dev.battleStay';
 const GAME_EVENTS = '/assets/ui/gameevents.png';
-const GAME_EVENT_CARD_ASPECT = 508 / 72;
+const GAME_EVENT_SHEET = { x: 25, width: 675, rowHeight: 110 };
+const GAME_EVENT_CARD_ASPECT = GAME_EVENT_SHEET.width / GAME_EVENT_SHEET.rowHeight;
 const GAME_EVENT_CARD_FRAMES: Record<GameEventCardKey, { x: number; y: number; width: number; height: number }> = {
-  goal: { x: 15, y: 16, width: 508, height: 72 },
-  shot: { x: 15, y: 96, width: 508, height: 72 },
-  attack: { x: 15, y: 176, width: 508, height: 72 },
-  save: { x: 15, y: 256, width: 508, height: 72 },
-  goal_confirm: { x: 15, y: 336, width: 508, height: 72 },
-  corner: { x: 15, y: 416, width: 508, height: 72 },
-  duel: { x: 15, y: 496, width: 508, height: 72 },
-  assist: { x: 15, y: 576, width: 508, height: 72 },
-  pass: { x: 15, y: 656, width: 508, height: 72 },
-  tackle: { x: 15, y: 736, width: 508, height: 72 },
-  dribble: { x: 15, y: 816, width: 508, height: 56 },
-  whistle: { x: 15, y: 872, width: 508, height: 60 },
-  yellow_card: { x: 550, y: 16, width: 515, height: 72 },
-  red_card: { x: 550, y: 96, width: 515, height: 72 },
-  offside: { x: 550, y: 176, width: 515, height: 72 },
-  substitution: { x: 550, y: 256, width: 515, height: 72 },
-  jersey_change: { x: 550, y: 336, width: 515, height: 72 },
-  injury: { x: 550, y: 416, width: 515, height: 72 },
-  player_injury: { x: 550, y: 496, width: 515, height: 72 },
-  tactic: { x: 550, y: 576, width: 515, height: 72 },
-  timer: { x: 550, y: 656, width: 515, height: 72 },
-  half_time: { x: 550, y: 736, width: 515, height: 72 },
-  kick_off: { x: 550, y: 793, width: 515, height: 72 },
-  match_end: { x: 550, y: 872, width: 515, height: 60 }
+  shot: { x: 25, y: 44, width: 675, height: 110 },
+  goal: { x: 25, y: 165, width: 675, height: 110 },
+  save: { x: 25, y: 286, width: 675, height: 110 },
+  corner: { x: 25, y: 407, width: 675, height: 109 },
+  yellow: { x: 25, y: 528, width: 675, height: 109 },
+  red: { x: 25, y: 648, width: 675, height: 110 },
+  injury: { x: 25, y: 769, width: 675, height: 110 },
+  sub: { x: 25, y: 889, width: 675, height: 111 }
 };
 
 const EVENT_CARD_LAYOUT = {
-  timeX: 0.265,
+  timeX: 0.228,
   timeY: 0.5,
   textX: 0.32,
   titleY: 0.24,
@@ -75,6 +36,20 @@ const EVENT_CARD_LAYOUT = {
   shadeW: 0.26,
   shadeH: 0.72
 } as const;
+
+const GAME_EVENT_TYPE_ALIASES: Record<string, GameEventCardKey> = {
+  yellow_card: 'yellow',
+  red_card: 'red',
+  substitution: 'sub',
+  attack: 'shot',
+  pass: 'shot',
+  assist: 'shot',
+  tackle: 'shot',
+  duel: 'shot',
+  dribble: 'shot',
+  offside: 'shot',
+  whistle: 'shot'
+};
 
 interface BattleMoment {
   type: MomentType;
@@ -125,7 +100,8 @@ export class BattleScene extends BaseScene {
   private goalOverlay?: Container;
   private goalOverlayAge = 0;
   private moment: BattleMoment = {
-    type: 'kickoff',
+    type: 'attack',
+    eventType: 'shot',
     title: '比赛开始',
     detail: '双方进入试探阶段，教练正在观察对手站位。',
     mood: 'normal'
@@ -301,13 +277,13 @@ export class BattleScene extends BaseScene {
     const cardW = w - 36;
     const viewportW = cardW;
     const viewportH = h - 36;
-    const gap = debugAll ? 14 : 10;
+    const gap = debugAll ? 16 : 10;
     const debugColumns = 1;
     const debugRows = Math.ceil(entries.length / debugColumns);
-    const aspectRowH = Math.round(cardW / GAME_EVENT_CARD_ASPECT);
+    const aspectRowH = Math.ceil(cardW / GAME_EVENT_CARD_ASPECT);
     const rowH = debugAll
-      ? Math.min(80, Math.max(68, aspectRowH))
-      : Math.min(96, Math.max(78, Math.min(aspectRowH, (h - 34) / 5.6)));
+      ? aspectRowH
+      : Math.max(96, Math.min(aspectRowH, Math.round((h - 34) / 4.2)));
     const rows = debugAll ? debugRows : entries.length;
     const contentH = Math.max(viewportH, rows * (rowH + gap) - gap);
     const maxScroll = Math.max(0, contentH - viewportH);
@@ -383,11 +359,23 @@ export class BattleScene extends BaseScene {
     const c = new Container();
     c.x = x;
     c.y = y;
-    const typeKey = entry.eventType ?? this.eventCardKey(entry.title, entry.mood);
+    const typeKey = this.normalizeEventType(entry.eventType ?? this.eventCardKey(entry.title, entry.mood));
     const frameRect = GAME_EVENT_CARD_FRAMES[typeKey];
+
+    const cardMask = new Graphics();
+    cardMask.roundRect(0, 0, width, height, Math.max(8, height * 0.14));
+    cardMask.fill(0xffffff);
+    c.addChild(cardMask);
+    c.mask = cardMask;
+
     const base = Texture.from(GAME_EVENTS);
-    const bg = new Sprite(new Texture({ source: base.source, frame: new Rectangle(frameRect.x, frameRect.y, frameRect.width, frameRect.height) }));
-    this.fitEventCardSprite(bg, frameRect.width, frameRect.height, width, height);
+    const bg = new Sprite(
+      new Texture({
+        source: base.source,
+        frame: this.eventCardTextureFrame(frameRect)
+      })
+    );
+    this.fitEventCardSprite(bg, width, height);
     c.addChild(bg);
 
     const textShade = new Graphics();
@@ -403,10 +391,7 @@ export class BattleScene extends BaseScene {
     c.addChild(textShade);
 
     const accent = this.entryColor(entry.mood);
-    const timeSize = entry.eventType === 'kick_off' || entry.eventType === 'half_time'
-      ? Math.round(height * 0.24)
-      : Math.round(height * 0.26);
-    const time = label(`${entry.time}'`, timeSize, entry.mood === 'normal' ? 0xffd632 : accent, '900');
+    const time = label(`${entry.time}'`, Math.round(height * 0.26), entry.mood === 'normal' ? 0xffd632 : accent, '900');
     time.anchor.set(0.5);
     time.x = width * layout.timeX;
     time.y = height * layout.timeY;
@@ -447,27 +432,28 @@ export class BattleScene extends BaseScene {
       c.addChild(badge, typeText, frameText);
     }
 
-    const cardMask = new Graphics();
-    cardMask.roundRect(0, 0, width, height, Math.max(8, height * 0.14));
-    cardMask.fill(0xffffff);
-    c.addChild(cardMask);
-    c.mask = cardMask;
     return c;
   }
 
-  private fitEventCardSprite(sprite: Sprite, frameW: number, frameH: number, cardW: number, cardH: number) {
-    const scale = cardW / frameW;
-    sprite.width = cardW;
-    sprite.height = frameH * scale;
-    sprite.x = 0;
-    sprite.y = (cardH - sprite.height) / 2;
+  private eventCardTextureFrame(frameRect: { x: number; y: number; width: number; height: number }) {
+    return new Rectangle(frameRect.x, frameRect.y, frameRect.width, frameRect.height);
   }
 
-  private eventCardLayout(entry: BattleEventEntry) {
-    if (entry.eventType === 'kick_off' || entry.eventType === 'half_time') {
-      return { ...EVENT_CARD_LAYOUT, textX: 0.34, shadeX: 0.31 };
-    }
+  private fitEventCardSprite(sprite: Sprite, cardW: number, cardH: number) {
+    sprite.width = cardW;
+    sprite.height = cardH;
+    sprite.x = 0;
+    sprite.y = 0;
+  }
+
+  private eventCardLayout(_entry: BattleEventEntry) {
     return EVENT_CARD_LAYOUT;
+  }
+
+  private normalizeEventType(eventType?: string): GameEventCardKey {
+    if (!eventType) return 'shot';
+    if (eventType in GAME_EVENT_CARD_FRAMES) return eventType as GameEventCardKey;
+    return GAME_EVENT_TYPE_ALIASES[eventType] ?? 'shot';
   }
 
   private eventTitleLine(actor: string, action: string, players: PlayerCardData[], size: number, color: number, cardHeight: number) {
@@ -510,24 +496,22 @@ export class BattleScene extends BaseScene {
   }
 
   private eventCardFrame(entry: BattleEventEntry) {
-    const key = entry.eventType ?? this.eventCardKey(entry.title, entry.mood);
+    const key = this.normalizeEventType(entry.eventType ?? this.eventCardKey(entry.title, entry.mood));
     const frame = GAME_EVENT_CARD_FRAMES[key];
     return new Rectangle(frame.x, frame.y, frame.width, frame.height);
   }
 
   private eventCardKey(title: string, mood: BattleEvent['mood']): GameEventCardKey {
-    if (title === '黄牌') return 'yellow_card';
-    if (title === '红牌') return 'red_card';
+    if (title === '黄牌') return 'yellow';
+    if (title === '红牌') return 'red';
     if (title === '角球') return 'corner';
-    if (title === '换人') return 'substitution';
-    if (title === '伤停') return 'injury';
+    if (title === '换人') return 'sub';
+    if (title === '伤停' || title === '受伤') return 'injury';
     if (title === '扑救') return 'save';
     if (title === '射门') return 'shot';
-    if (title === '抢断') return 'tackle';
-    if (title === '危险' || mood === 'bad') return 'attack';
     if (title === '进球') return 'goal';
-    if (title === '配合') return 'assist';
-    return 'whistle';
+    if (mood === 'bad' && title === '危险') return 'yellow';
+    return 'shot';
   }
 
   private eventCardTitle(title: string) {
@@ -537,25 +521,8 @@ export class BattleScene extends BaseScene {
     if (title === '黄牌') return '吃到黄牌';
     if (title === '红牌') return '被罚下';
     if (title === '换人') return '换人调整';
-    if (title === '伤停') return '伤停';
-    if (title === '危险') return '危险时刻';
-    if (title === '进攻') return '推进';
-    if (title === '进球确认') return '进球有效';
-    if (title === '拼抢') return '身体对抗';
-    if (title === '助攻') return '送出助攻';
-    if (title === '传球') return '关键传球';
-    if (title === '抢断') return '完成抢断';
-    if (title === '过人') return '连续过人';
-    if (title === '哨响') return '裁判鸣哨';
-    if (title === '越位') return '越位在先';
-    if (title === '阵容') return '阵容变化';
-    if (title === '受伤') return '受伤治疗';
-    if (title === '球员受伤') return '倒地不起';
-    if (title === '战术') return '战术调整';
-    if (title === '补时') return '伤停补时';
-    if (title === '半场') return '半场结束';
-    if (title === '开球') return '比赛开始';
-    if (title === '结束') return '比赛结束';
+    if (title === '伤停' || title === '受伤') return '受伤治疗';
+    if (title === '扑救') return '门前扑救';
     return title;
   }
 
@@ -863,16 +830,17 @@ export class BattleScene extends BaseScene {
   }
 
   private safeEventType(eventType?: string): GameEventCardKey | undefined {
-    return eventType && eventType in GAME_EVENT_CARD_FRAMES ? eventType as GameEventCardKey : undefined;
+    if (!eventType) return undefined;
+    return this.normalizeEventType(eventType);
   }
 
   private momentTypeFromGenerated(eventType: string): MomentType {
-    if (eventType === 'goal') return 'goal';
-    if (eventType === 'shot') return 'shot';
-    if (eventType === 'save') return 'save';
-    if (eventType === 'corner') return 'corner';
-    if (eventType === 'yellow_card' || eventType === 'red_card' || eventType === 'offside') return 'counter';
-    if (eventType === 'tackle' || eventType === 'duel' || eventType === 'pass' || eventType === 'dribble' || eventType === 'assist') return 'attack';
+    const type = this.normalizeEventType(eventType);
+    if (type === 'goal') return 'goal';
+    if (type === 'shot') return 'shot';
+    if (type === 'save') return 'save';
+    if (type === 'corner') return 'corner';
+    if (type === 'yellow' || type === 'red') return 'counter';
     return 'attack';
   }
 
@@ -916,30 +884,14 @@ export class BattleScene extends BaseScene {
   private debugBattleEntries(): BattleEventEntry[] {
     const home = (name: string) => this.findPlayerByName(name);
     const entries: BattleEventEntry[] = [
-      { eventType: 'kick_off', time: 1, title: '开球', actor: '裁判', player: undefined, text: '哨声响起，比赛正式开始。', mood: 'normal', scoreA: 0, scoreB: 0 },
-      { eventType: 'attack', time: 5, title: '进攻', actor: '哈兰德', player: undefined, text: '中路提速推进，防线被迫后撤。', mood: 'good', scoreA: 0, scoreB: 0 },
       { eventType: 'shot', time: 9, title: '射门', actor: '孙兴慜', player: home('孙兴慜'), text: '接球后直接起脚，门将飞身化解。', mood: 'good', scoreA: 0, scoreB: 0 },
-      { eventType: 'save', time: 12, title: '扑救', actor: '门前险情', player: undefined, text: '门将飞身扑出近距离射门。', mood: 'good', scoreA: 0, scoreB: 0 },
-      { eventType: 'offside', time: 16, title: '越位', actor: '姆巴佩', player: undefined, text: '前插过早，边裁举旗示意越位。', mood: 'normal', scoreA: 0, scoreB: 0 },
-      { eventType: 'duel', time: 20, title: '拼抢', actor: '维尔茨', player: home('维尔茨'), text: '中场强硬对抗，赢下关键球权。', mood: 'good', scoreA: 0, scoreB: 0 },
-      { eventType: 'pass', time: 24, title: '传球', actor: '罗一鸣', player: home('罗一鸣'), text: '长传转移，直接找到弱侧空当。', mood: 'good', scoreA: 0, scoreB: 0 },
-      { eventType: 'assist', time: 28, title: '助攻', actor: '林浩', player: home('林浩'), text: '精准直塞，送出致命助攻。', mood: 'good', scoreA: 0, scoreB: 0 },
       { eventType: 'goal', time: 31, title: '进球', actor: '劳塔罗', player: home('劳塔罗'), text: '禁区内冷静推射，皮球应声入网。', mood: 'good', scoreA: 1, scoreB: 0 },
-      { eventType: 'goal_confirm', time: 32, title: '进球确认', actor: 'VAR', player: undefined, text: '裁判确认进球有效，比分改写。', mood: 'good', scoreA: 1, scoreB: 0 },
-      { eventType: 'yellow_card', time: 37, title: '黄牌', actor: '王涛', player: home('王涛'), text: '战术犯规，裁判出示黄牌警告。', mood: 'normal', scoreA: 1, scoreB: 0 },
+      { eventType: 'save', time: 12, title: '扑救', actor: '门将', player: undefined, text: '门将飞身扑出近距离射门。', mood: 'good', scoreA: 0, scoreB: 0 },
       { eventType: 'corner', time: 42, title: '角球', actor: '蓝焰俱乐部', player: undefined, text: '获得角球，右侧角球开出。', mood: 'good', scoreA: 1, scoreB: 0 },
-      { eventType: 'half_time', time: 45, title: '半场', actor: '裁判', player: undefined, text: '上半场结束，双方进入休息。', mood: 'normal', scoreA: 1, scoreB: 0 },
-      { eventType: 'substitution', time: 52, title: '换人', actor: '蓝焰俱乐部', player: undefined, text: '教练进行人员调整，加强边路。', mood: 'normal', scoreA: 1, scoreB: 0 },
-      { eventType: 'jersey_change', time: 56, title: '阵容', actor: '蓝焰俱乐部', player: undefined, text: '阵型切换，边翼卫位置前提。', mood: 'normal', scoreA: 1, scoreB: 0 },
-      { eventType: 'tactic', time: 60, title: '战术', actor: '教练组', player: undefined, text: '临场调整，压迫强度继续提升。', mood: 'normal', scoreA: 1, scoreB: 0 },
-      { eventType: 'tackle', time: 64, title: '抢断', actor: '凯恩', player: home('凯恩'), text: '倒地铲断，阻止对方快速反击。', mood: 'good', scoreA: 1, scoreB: 0 },
-      { eventType: 'dribble', time: 68, title: '过人', actor: '孙兴慜', player: home('孙兴慜'), text: '连续变向摆脱，突破到禁区前沿。', mood: 'good', scoreA: 1, scoreB: 0 },
-      { eventType: 'injury', time: 72, title: '受伤', actor: '队医', player: undefined, text: '队医进场检查，比赛短暂停顿。', mood: 'bad', scoreA: 1, scoreB: 0 },
-      { eventType: 'player_injury', time: 75, title: '球员受伤', actor: '奥斯梅恩', player: home('奥斯梅恩'), text: '冲刺后倒地，需要简单治疗。', mood: 'bad', scoreA: 1, scoreB: 0 },
-      { eventType: 'red_card', time: 81, title: '红牌', actor: '德布劳内', player: undefined, text: '犯规动作过大，被主裁直接罚下。', mood: 'bad', scoreA: 1, scoreB: 0 },
-      { eventType: 'whistle', time: 87, title: '哨响', actor: '裁判', player: undefined, text: '裁判鸣哨，示意一次犯规。', mood: 'normal', scoreA: 2, scoreB: 0 },
-      { eventType: 'timer', time: 90, title: '补时', actor: '第四官员', player: undefined, text: '场边举牌，伤停补时三分钟。', mood: 'normal', scoreA: 2, scoreB: 0 },
-      { eventType: 'match_end', time: 90, title: '结束', actor: '裁判', player: undefined, text: '全场比赛结束，比分定格。', mood: 'normal', scoreA: 2, scoreB: 0 }
+      { eventType: 'yellow', time: 37, title: '黄牌', actor: '王涛', player: home('王涛'), text: '战术犯规，裁判出示黄牌警告。', mood: 'normal', scoreA: 1, scoreB: 0 },
+      { eventType: 'red', time: 81, title: '红牌', actor: '德布劳内', player: undefined, text: '犯规动作过大，被主裁直接罚下。', mood: 'bad', scoreA: 1, scoreB: 0 },
+      { eventType: 'injury', time: 72, title: '受伤', actor: '奥斯梅恩', player: home('奥斯梅恩'), text: '冲刺后倒地，需要简单治疗。', mood: 'bad', scoreA: 1, scoreB: 0 },
+      { eventType: 'sub', time: 52, title: '换人', actor: '蓝焰俱乐部', player: undefined, text: '教练进行人员调整，加强边路。', mood: 'normal', scoreA: 1, scoreB: 0 }
     ];
     return entries.map((entry) => ({ ...entry, players: entry.players ?? this.findPlayersByActor(entry.actor) }));
   }
@@ -971,43 +923,24 @@ export class BattleScene extends BaseScene {
 
   private titleForEventType(eventType: GameEventCardKey) {
     const titles: Record<GameEventCardKey, string> = {
-      goal: '进球',
       shot: '射门',
-      attack: '进攻',
+      goal: '进球',
       save: '扑救',
-      goal_confirm: '进球确认',
       corner: '角球',
-      duel: '拼抢',
-      assist: '助攻',
-      pass: '传球',
-      tackle: '抢断',
-      dribble: '过人',
-      whistle: '哨响',
-      yellow_card: '黄牌',
-      red_card: '红牌',
-      offside: '越位',
-      substitution: '换人',
-      jersey_change: '阵容',
+      yellow: '黄牌',
+      red: '红牌',
       injury: '受伤',
-      player_injury: '球员受伤',
-      tactic: '战术',
-      timer: '补时',
-      half_time: '半场',
-      kick_off: '开球',
-      match_end: '结束'
+      sub: '换人'
     };
     return titles[eventType];
   }
 
   private eventTypeForMoment(moment: BattleMoment): GameEventCardKey {
-    if (moment.eventType) return moment.eventType;
+    if (moment.eventType) return this.normalizeEventType(moment.eventType);
     if (moment.score || moment.type === 'goal') return 'goal';
-    if (moment.type === 'shot' || moment.type === 'post') return 'shot';
     if (moment.type === 'corner') return 'corner';
     if (moment.type === 'save') return 'save';
-    if (moment.type === 'kickoff') return 'kick_off';
-    if (moment.type === 'counter') return 'attack';
-    return 'attack';
+    return 'shot';
   }
 
   private eventActor(text: string) {
@@ -1125,15 +1058,17 @@ export class BattleScene extends BaseScene {
     const advantage = power > 520 ? 0.12 : 0;
 
     if (roll < 0.15 + advantage) {
-      return { type: 'goal', title: '进球', detail: `${this.playerName(scorer)} 接到 ${this.playerName(creator)} 的传球，冷静推射破门！`, mood: 'good', score: 'home', actor: scorer, actors: [scorer, creator].filter(Boolean) as PlayerCardData[], team: 'home' };
+      return { type: 'goal', eventType: 'goal', title: '进球', detail: `${this.playerName(scorer)} 接到 ${this.playerName(creator)} 的传球，冷静推射破门！`, mood: 'good', score: 'home', actor: scorer, actors: [scorer, creator].filter(Boolean) as PlayerCardData[], team: 'home' };
     }
-    if (roll < 0.3) return { type: 'shot', title: '得分机会', detail: `${this.playerName(scorer)} 在禁区前沿获得起脚空间。`, mood: 'good', actor: scorer, team: 'home' };
-    if (roll < 0.42) return { type: 'post', title: '击中门柱', detail: `${this.playerName(scorer)} 的劲射狠狠砸在门柱上弹出。`, mood: 'normal', actor: scorer, team: 'home' };
-    if (roll < 0.54) return { type: 'corner', title: '角球机会', detail: `${this.playerName(creator)} 边路传中被挡出底线，获得角球。`, mood: 'good', actor: creator, team: 'home' };
-    if (roll < 0.68) return { type: 'save', title: '精彩扑救', detail: `${this.playerName(defender)} 飞身将 ${this.playerName(awayAttacker)} 的近距离射门扑出。`, mood: 'good', actor: defender, actors: [defender, awayAttacker].filter(Boolean) as PlayerCardData[], team: 'home' };
-    if (roll < 0.8) return { type: 'counter', title: '危险反击', detail: `${this.playerName(awayCreator)} 突然提速，${this.playerName(awayAttacker)} 已经前插到防线身后。`, mood: 'bad', actor: awayAttacker, actors: [awayCreator, awayAttacker].filter(Boolean) as PlayerCardData[], team: 'away' };
-    if (roll < 0.88) return { type: 'counter', title: '失球', detail: `${this.playerName(awayScorer)} 反击打穿防线，为${this.game.battleSource.opponentName}扳回一球。`, mood: 'bad', score: 'away', actor: awayScorer, team: 'away' };
-    return { type: 'attack', title: '组织推进', detail: `${this.playerName(creator)} 在中场连续传导，耐心寻找最后一传。`, mood: 'normal', actor: creator, team: 'home' };
+    if (roll < 0.3) return { type: 'shot', eventType: 'shot', title: '射门', detail: `${this.playerName(scorer)} 在禁区前沿获得起脚空间。`, mood: 'good', actor: scorer, team: 'home' };
+    if (roll < 0.42) return { type: 'shot', eventType: 'shot', title: '射门', detail: `${this.playerName(scorer)} 的劲射狠狠砸在门柱上弹出。`, mood: 'normal', actor: scorer, team: 'home' };
+    if (roll < 0.54) return { type: 'corner', eventType: 'corner', title: '角球', detail: `${this.playerName(creator)} 边路传中被挡出底线，获得角球。`, mood: 'good', actor: creator, team: 'home' };
+    if (roll < 0.68) return { type: 'save', eventType: 'save', title: '扑救', detail: `${this.playerName(defender)} 飞身将 ${this.playerName(awayAttacker)} 的近距离射门扑出。`, mood: 'good', actor: defender, actors: [defender, awayAttacker].filter(Boolean) as PlayerCardData[], team: 'home' };
+    if (roll < 0.76) return { type: 'counter', eventType: 'yellow', title: '黄牌', detail: `${this.playerName(defender)} 战术犯规，裁判出示黄牌。`, mood: 'normal', actor: defender, team: 'home' };
+    if (roll < 0.82) return { type: 'counter', eventType: 'sub', title: '换人', detail: '教练做出换人调整，加强边路冲击。', mood: 'normal', team: 'home' };
+    if (roll < 0.86) return { type: 'counter', eventType: 'injury', title: '受伤', detail: `${this.playerName(scorer)} 拼抢后倒地，队医进场检查。`, mood: 'bad', actor: scorer, team: 'home' };
+    if (roll < 0.94) return { type: 'counter', eventType: 'red', title: '红牌', detail: `${this.playerName(awayScorer)} 犯规动作过大，被主裁直接罚下。`, mood: 'bad', score: 'away', actor: awayScorer, team: 'away' };
+    return { type: 'shot', eventType: 'shot', title: '射门', detail: `${this.playerName(creator)} 连续传导，耐心寻找最后一传。`, mood: 'normal', actor: creator, team: 'home' };
   }
 
   private opponentLineup() {

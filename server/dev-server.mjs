@@ -243,7 +243,7 @@ async function generateBattleMoment(body) {
   const homePlayers = Array.isArray(body.homePlayers) ? body.homePlayers.slice(0, 8) : [];
   const awayPlayers = Array.isArray(body.awayPlayers) ? body.awayPlayers.slice(0, 8) : [];
   const recentEvents = Array.isArray(body.recentEvents) ? body.recentEvents.slice(0, 5) : [];
-  const allowedTypes = ['goal', 'shot', 'attack', 'save', 'corner', 'duel', 'assist', 'pass', 'tackle', 'dribble', 'yellow_card', 'red_card', 'offside', 'substitution', 'injury', 'tactic'];
+  const allowedTypes = ['goal', 'shot', 'save', 'corner', 'yellow', 'red', 'injury', 'sub'];
 
   const prompt = [
     '你是一个足球小游戏比赛事件导演。请生成下一条比赛事件，只返回 JSON。',
@@ -286,7 +286,7 @@ async function generateBattleMoment(body) {
 
   const content = payload?.choices?.[0]?.message?.content;
   const parsed = parseJsonObject(content);
-  const eventType = allowedTypes.includes(parsed.eventType) ? parsed.eventType : 'attack';
+  const eventType = allowedTypes.includes(parsed.eventType) ? parsed.eventType : 'shot';
   const mood = ['normal', 'good', 'bad'].includes(parsed.mood) ? parsed.mood : 'normal';
   const score = parsed.score === 'home' || parsed.score === 'away' ? parsed.score : null;
   const team = parsed.team === 'away' ? 'away' : 'home';
@@ -306,22 +306,14 @@ function titleForBattleEvent(eventType) {
   const titles = {
     goal: '进球',
     shot: '射门',
-    attack: '进攻',
     save: '扑救',
     corner: '角球',
-    duel: '拼抢',
-    assist: '助攻',
-    pass: '传球',
-    tackle: '抢断',
-    dribble: '过人',
-    yellow_card: '黄牌',
-    red_card: '红牌',
-    offside: '越位',
-    substitution: '换人',
+    yellow: '黄牌',
+    red: '红牌',
     injury: '受伤',
-    tactic: '战术'
+    sub: '换人'
   };
-  return titles[eventType] ?? '进攻';
+  return titles[eventType] ?? '射门';
 }
 
 async function grantShopReward(body) {

@@ -617,17 +617,18 @@ export class ResultScene extends BaseScene {
 
   private isReportEvent(event: BattleEvent) {
     const type = event.eventType ?? '';
-    return ['goal', 'yellow_card', 'red_card', 'corner', 'save', 'shot'].includes(type) || this.eventTag(event) !== '事件';
+    return ['goal', 'yellow', 'red', 'yellow_card', 'red_card', 'corner', 'save', 'shot', 'injury', 'sub', 'substitution'].includes(type) || this.eventTag(event) !== '事件';
   }
 
   private eventTag(event: BattleEvent) {
     if (event.eventType === 'goal') return '进球';
-    if (event.eventType === 'yellow_card') return '犯规';
-    if (event.eventType === 'red_card') return '犯规';
+    if (event.eventType === 'yellow' || event.eventType === 'yellow_card') return '犯规';
+    if (event.eventType === 'red' || event.eventType === 'red_card') return '犯规';
     if (event.eventType === 'corner') return '角球';
     if (event.eventType === 'save') return '扑救';
     if (event.eventType === 'shot') return '射门';
-    if (event.eventType === 'tackle') return '抢断';
+    if (event.eventType === 'injury') return '受伤';
+    if (event.eventType === 'sub' || event.eventType === 'substitution') return '换人';
     if (event.text.includes('破门') || event.text.includes('扳回')) return '进球';
     if (event.text.includes('拦截') || event.text.includes('抢断')) return '抢断';
     if (event.text.includes('犯规')) return '犯规';
