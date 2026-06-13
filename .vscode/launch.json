@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Web (Vite)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:9527",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "npm: dev"
+    },
+    {
+      "name": "Debug Douyin Build (watch)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run debug:douyin:watch",
+      "cwd": "${workspaceFolder}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug All (Web + Douyin)",
+      "configurations": ["Debug Web (Vite)", "Debug Douyin Build (watch)"],
+      "stopAll": true
+    }
+  ]
+}

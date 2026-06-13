@@ -19,9 +19,9 @@ const port = Number(env.SERVER_PORT ?? 8787);
 const cloudbaseReady = initCloudbaseDb(env);
 const douyinAppId = env.DOUYIN_APP_ID;
 const douyinAppSecret = env.DOUYIN_APP_SECRET;
-const minimaxApiKey = env.MINIMAX_API_KEY;
-const minimaxBaseUrl = env.MINIMAX_BASE_URL ?? 'https://api.minimaxi.com/v1';
-const minimaxModel = env.MINIMAX_MODEL ?? 'MiniMax-M2.5-highspeed';
+const dashscopeApiKey = env.DASHSCOPE_API_KEY;
+const dashscopeBaseUrl = env.DASHSCOPE_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+const dashscopeModel = env.DASHSCOPE_MODEL ?? 'qwen-flash';
 const botAfterMs = Number(env.MATCH_BOT_AFTER_MS ?? 15000);
 const ticketTtlMs = Number(env.MATCH_TICKET_TTL_MS ?? 45000);
 const queue = new Map();
@@ -29,6 +29,11 @@ const shopConfigPath = resolve(process.cwd(), 'server/shop-config.local.json');
 
 if (!cloudbaseReady) {
   console.warn('[server] CLOUDBASE_ENV_ID and CLOUDBASE_API_KEY (or TENCENTCLOUD_SECRETID/SECRETKEY) are required for database writes.');
+}
+if (dashscopeApiKey) {
+  console.info(`[server] battle-ai provider: dashscope (${dashscopeModel})`);
+} else {
+  console.warn('[server] DASHSCOPE_API_KEY is not configured; battle AI endpoints will fail.');
 }
 
 const server = http.createServer(async (request, response) => {
@@ -259,22 +264,31 @@ async function streamBattleScript(response, body) {
   });
   response.write(': connected\n\n');
 
+  const heartbeat = setInterval(() => {
+    if (!response.writableEnded) response.write(': heartbeat\n\n');
+  }, 5000);
+
   try {
-    const events = await fetchBattleScriptEvents(body, Math.max(6, Math.min(20, Number(body.count ?? 14))));
-    for (const event of events) {
-      response.write(`data: ${JSON.stringify(event)}\n\n`);
-    }
+    await fetchBattleScriptEvents(
+      body,
+      Math.max(6, Math.min(20, Number(body.count ?? 14))),
+      (event) => {
+        response.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+    );
     response.write('data: [DONE]\n\n');
   } catch (error) {
     console.error('[battle-ai] script stream failed', error);
     response.write(`data: ${JSON.stringify({ error: error.message ?? 'script_failed' })}\n\n`);
+  } finally {
+    clearInterval(heartbeat);
+    response.end();
   }
-  response.end();
 }
 
 async function fetchBattleScriptEvents(body, count = 10, onEvent) {
-  if (!minimaxApiKey) {
-    const error = new Error('MINIMAX_API_KEY is not configured.');
+  if (!dashscopeApiKey) {
+    const error = new Error('DASHSCOPE_API_KEY is not configured.');
     error.status = 503;
     throw error;
   }
@@ -313,62 +327,98 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
     `最近事件：${JSON.stringify(recentEvents)}`
   ].join('\n');
 
-  const llmResponse = await fetch(`${minimaxBaseUrl}/chat/completions`, {
+  const llmResponse = await fetch(`${dashscopeBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${minimaxApiKey}`,
+      Authorization: `Bearer ${dashscopeApiKey}`,
       'Content-Type': 'application/json'
     },
     signal: AbortSignal.timeout(120_000),
     body: JSON.stringify({
-      model: minimaxModel,
+      model: dashscopeModel,
       messages: [
-        { role: 'system', content: '你只输出 NDJSON，每行一个合法 JSON 对象，不要其他文字，不要输出思考过程。' },
+        { role: 'system', content: '你只输出 NDJSON，每行一个合法 JSON 对象，不要 Markdown，不要解释，不要输出思考过程。' },
         { role: 'user', content: prompt }
       ],
-      stream: false,
-      reasoning_split: true,
-      thinking: { type: 'disabled' },
+      stream: true,
+      enable_thinking: false,
       temperature: 0.85,
-      max_completion_tokens: 8192
+      max_tokens: 2048
     })
   });
 
   if (!llmResponse.ok) {
     const payload = await llmResponse.json().catch(() => ({}));
-    const message = payload?.error?.message ?? payload?.base_resp?.status_msg ?? payload?.message ?? `MiniMax request failed: ${llmResponse.status}`;
+    const message = payload?.error?.message ?? payload?.message ?? `DashScope request failed: ${llmResponse.status}`;
     throw new Error(message);
   }
 
-  const payload = await llmResponse.json();
-  const fullContent = stripMiniMaxThinking(payload?.choices?.[0]?.message?.content ?? '');
   const events = [];
-  for (const line of fullContent.split('\n')) {
-    const event = normalizeBattleMoment(parseJsonObject(line), allowedTypes, homePlayers, awayPlayers);
-    if (!event) continue;
-    if (events.some((item) => item.detail === event.detail && item.actorName === event.actorName && item.minute === event.minute)) continue;
+  let parsedLineCount = 0;
+  let rawContent = '';
+  let sseBuffer = '';
+
+  const pushEvent = (event) => {
+    if (!event) return;
+    if (events.some((item) => item.detail === event.detail && item.actorName === event.actorName && item.minute === event.minute)) return;
     events.push(event);
+    if (onEvent) onEvent(event);
+  };
+
+  const ingestContent = (text, includeLastLine = false) => {
+    const clean = stripLlmOutput(text);
+    const lines = clean.split('\n');
+    const lastIndex = includeLastLine ? lines.length : Math.max(0, lines.length - 1);
+    for (let index = parsedLineCount; index < lastIndex; index += 1) {
+      pushEvent(normalizeBattleMoment(parseJsonObject(lines[index]), allowedTypes, homePlayers, awayPlayers));
+    }
+    parsedLineCount = Math.max(parsedLineCount, lastIndex);
+  };
+
+  const reader = llmResponse.body?.getReader();
+  if (!reader) throw new Error('DashScope stream body missing');
+
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    sseBuffer += decoder.decode(value, { stream: true });
+    const parts = sseBuffer.split('\n');
+    sseBuffer = parts.pop() ?? '';
+    for (const part of parts) {
+      const line = part.trim();
+      if (!line.startsWith('data:')) continue;
+      const payloadText = line.slice(5).trim();
+      if (!payloadText || payloadText === '[DONE]') continue;
+      let chunk;
+      try {
+        chunk = JSON.parse(payloadText);
+      } catch {
+        continue;
+      }
+      const delta = chunk?.choices?.[0]?.delta?.content ?? '';
+      if (!delta) continue;
+      rawContent += delta;
+      ingestContent(rawContent);
+    }
   }
 
+  ingestContent(rawContent, true);
+
   if (!events.length) {
-    const parsed = parseJsonArray(fullContent || content || '');
-    for (const item of parsed) {
-      const event = normalizeBattleMoment(item, allowedTypes, homePlayers, awayPlayers);
-      if (!event) continue;
-      if (events.some((existing) => existing.detail === event.detail && existing.actorName === event.actorName && existing.minute === event.minute)) continue;
-      events.push(event);
+    const fullContent = stripLlmOutput(rawContent);
+    for (const item of parseJsonArray(fullContent)) {
+      pushEvent(normalizeBattleMoment(item, allowedTypes, homePlayers, awayPlayers));
     }
   }
 
   if (!events.length) {
-    events.push(fallbackBattleMoment('shot', 'home'));
+    pushEvent(fallbackBattleMoment('shot', 'home'));
   }
 
-  const finalEvents = spreadEventMinutes(events.slice(0, eventCount), minute, 90);
-  if (onEvent) {
-    for (const event of finalEvents) onEvent(event);
-  }
-  return finalEvents;
+  const sliced = events.slice(0, eventCount);
+  if (onEvent) return sliced;
+  return spreadEventMinutes(sliced, minute, 90);
 }
 
 function spreadEventMinutes(events, startMinute = 1, endMinute = 90) {
@@ -408,9 +458,12 @@ function spreadEventMinutes(events, startMinute = 1, endMinute = 90) {
   }));
 }
 
-function stripMiniMaxThinking(text) {
+function stripLlmOutput(text) {
   return String(text ?? '')
+    .replace(/^```(?:json|ndjson)?\s*/i, '')
+    .replace(/\s*```$/g, '')
     .replace(/<think>[\s\S]*?<\/redacted_thinking>/g, '')
+    .replace(/<think>[\s\S]*$/g, '')
     .replace(/<\/?redacted_thinking>/g, '');
 }
 

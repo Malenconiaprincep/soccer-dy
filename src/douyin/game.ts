@@ -21,6 +21,9 @@ type TtApi = {
   onTouchMove?: (listener: (event: TtTouchEvent) => void) => void;
   onTouchEnd?: (listener: (event: TtTouchEvent) => void) => void;
   onTouchCancel?: (listener: (event: TtTouchEvent) => void) => void;
+  getStorageSync?: (key: string) => unknown;
+  setStorageSync?: (key: string, value: unknown) => void;
+  removeStorageSync?: (key: string) => void;
   request?: (options: {
     url: string;
     method?: string;
@@ -447,6 +450,39 @@ const miniWindow = Object.assign(globalThis, {
   location: { href: '' }
 });
 
+const memoryStorage = new Map<string, string>();
+const miniLocalStorage = {
+  getItem(key: string) {
+    try {
+      const value = ttApi.getStorageSync?.(key);
+      if (value == null) return null;
+      return String(value);
+    } catch {
+      return memoryStorage.get(key) ?? null;
+    }
+  },
+  setItem(key: string, value: string) {
+    const stringValue = String(value);
+    memoryStorage.set(key, stringValue);
+    try {
+      ttApi.setStorageSync?.(key, stringValue);
+    } catch {
+      // Keep the in-memory fallback for runtimes without sync storage.
+    }
+  },
+  removeItem(key: string) {
+    memoryStorage.delete(key);
+    try {
+      ttApi.removeStorageSync?.(key);
+    } catch {
+      // Keep the in-memory fallback for runtimes without sync storage.
+    }
+  },
+  clear() {
+    memoryStorage.clear();
+  }
+};
+
 const miniDocument = {
   body: { appendChild: () => undefined, style: {} },
   baseURI: '',
@@ -466,6 +502,7 @@ const miniDocument = {
 Object.assign(globalThis, {
   window: miniWindow,
   document: miniDocument,
+  localStorage: (globalThis as typeof globalThis & { localStorage?: unknown }).localStorage ?? miniLocalStorage,
   PointerEvent: MiniPointerEvent,
   MouseEvent: MiniMouseEvent,
   TouchEvent: MiniTouchEvent,

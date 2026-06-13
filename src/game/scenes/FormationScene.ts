@@ -5,7 +5,8 @@ import type { FormationData, LineupSlot, PlayerCardData, Position, Rarity } from
 import { playerDisplayName, shortenPlayerName } from '../playerNames';
 import { coverSprite, glassPanel, headerTitleSprite, imageBackButton, label, palette } from '../ui';
 
-const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
+const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean; MODE?: string } }).env ?? {};
+const isDebugRuntime = runtimeEnv.DEV || runtimeEnv.MODE === 'douyin-debug';
 
 type CardSource = { type: 'lineup'; slotId: string } | { type: 'bench'; index: number };
 
@@ -90,7 +91,7 @@ export class FormationScene extends BaseScene {
   protected build() {
     this.container.addChild(this.formationBackground());
     this.drawHeader();
-    if (runtimeEnv.DEV) this.drawDebugAutofill();
+    if (isDebugRuntime) this.drawDebugAutofill();
     this.drawFormationCards();
     this.drawField();
     this.drawBench();

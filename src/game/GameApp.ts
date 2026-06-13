@@ -1,4 +1,4 @@
-import { Application, Assets, Container } from 'pixi.js';
+import { Application, Assets, Container, Graphics } from 'pixi.js';
 import { BattleScene } from './scenes/BattleScene';
 import { BlindBoxScene } from './scenes/BlindBoxScene';
 import { FormationScene } from './scenes/FormationScene';
@@ -16,10 +16,12 @@ import { PlayerStorage } from './storage/PlayerStorage';
 import { GameServerClient, type MatchOpponent } from './services/GameServerClient';
 import { defaultShopConfig, type ShopConfig } from '../shopConfig';
 import { DEV_MATCH_DURATION_KEY, resolveMatchDurationMs } from './matchmakingConfig';
+import { label, palette } from './ui';
 
 const DESIGN_WIDTH = 720;
 const DESIGN_HEIGHT = 1280;
-const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean; VITE_WEB_TEST_AS_DOUYIN?: string; VITE_MATCH_DURATION_MS?: string } }).env ?? {};
+const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean; MODE?: string; VITE_WEB_TEST_AS_DOUYIN?: string; VITE_MATCH_DURATION_MS?: string } }).env ?? {};
+const isDebugRuntime = runtimeEnv.DEV || runtimeEnv.MODE === 'douyin-debug';
 const SCENES: SceneName[] = ['loading', 'home', 'formation', 'blindBox', 'matchmaking', 'matchup', 'battle', 'result'];
 const DEV_SCENE_KEY = 'soccer.dev.defaultScene';
 const DEV_HOLD_LOADING_KEY = 'soccer.dev.holdLoading';
@@ -85,6 +87,12 @@ export class GameApp {
   private safeAreaInsetBottomPx = 0;
   private safeContentRightPx = 0;
   private devPanel?: HTMLDivElement;
+  private miniDevPanel?: Container;
+  private miniDevPanelCollapsed = true;
+  private miniDevSceneIndex = 0;
+  private miniDevSignDay = 1;
+  private miniDevMatchSeconds = 15;
+  private miniDevSaveFlashUntil = 0;
 
   constructor(private readonly mount: GameMount, private readonly runtime: GameRuntime = {}) {
     this.platform = runtime.miniGame ? new DouyinPlatform() : new WebPlatform();
@@ -191,14 +199,14 @@ export class GameApp {
     ]);
     this.app.ticker.add((ticker) => this.scene?.update(ticker.deltaMS));
     window.addEventListener?.('resize', () => this.resize());
-    if (runtimeEnv.DEV && !this.runtime.miniGame) this.installDevPanel();
+    if (isDebugRuntime && !this.runtime.miniGame) this.installDevPanel();
     const initialScene = this.devInitialScene();
     this.prepareDevScene(initialScene);
     this.changeScene(initialScene);
   }
 
   changeScene(name: SceneName) {
-    if (runtimeEnv.DEV) this.prepareDevScene(name);
+    if (isDebugRuntime) this.prepareDevScene(name);
     this.scene?.exit();
     this.root.removeChildren();
 
@@ -214,10 +222,11 @@ export class GameApp {
     this.updateViewport();
     this.scene?.enter();
     this.resize();
+    if (isDebugRuntime && this.runtime.miniGame) this.installMiniDevPanel();
   }
 
   isLoadingHeldForDebug() {
-    if (!runtimeEnv.DEV || this.runtime.miniGame) return false;
+    if (!isDebugRuntime) return false;
     const params = new URLSearchParams(globalThis.location?.search ?? '');
     const queryValue = params.get('holdLoading');
     if (queryValue !== null) return queryValue !== '0' && queryValue !== 'false';
@@ -225,7 +234,7 @@ export class GameApp {
   }
 
   signInDayForDebug() {
-    if (!runtimeEnv.DEV || this.runtime.miniGame) return 1;
+    if (!isDebugRuntime) return 1;
     const params = new URLSearchParams(globalThis.location?.search ?? '');
     const raw = params.get('signDay') ?? globalThis.localStorage?.getItem(DEV_SIGN_DAY_KEY);
     const day = Number(raw);
@@ -233,7 +242,7 @@ export class GameApp {
   }
 
   private devInitialScene(): SceneName {
-    if (!runtimeEnv.DEV || this.runtime.miniGame) return 'loading';
+    if (!isDebugRuntime) return 'loading';
     const params = new URLSearchParams(globalThis.location?.search ?? '');
     const queryScene = params.get('scene') as SceneName | null;
     if (queryScene && SCENES.includes(queryScene)) return queryScene;
@@ -243,7 +252,7 @@ export class GameApp {
   }
 
   private prepareDevScene(sceneName: SceneName) {
-    if (!runtimeEnv.DEV || this.runtime.miniGame) return;
+    if (!isDebugRuntime) return;
     if (sceneName === 'matchmaking' || sceneName === 'matchup' || sceneName === 'battle' || sceneName === 'result') {
       this.fillDebugLineup();
     }
@@ -585,6 +594,208 @@ export class GameApp {
     return select;
   }
 
+  private installMiniDevPanel() {
+    if (!this.miniDevPanel) {
+      this.miniDevPanel = new Container();
+      this.miniDevPanel.eventMode = 'static';
+      this.miniDevPanelCollapsed = globalThis.localStorage?.getItem(DEV_PANEL_COLLAPSED_KEY) !== '0';
+      this.miniDevSceneIndex = Math.max(0, SCENES.indexOf(this.devInitialScene()));
+      this.miniDevSignDay = this.signInDayForDebug();
+      this.miniDevMatchSeconds = Math.round(this.matchDurationMs() / 1000);
+    }
+
+    if (!this.miniDevPanel.parent) this.root.addChild(this.miniDevPanel);
+    this.renderMiniDevPanel();
+  }
+
+  private renderMiniDevPanel() {
+    const panel = this.miniDevPanel;
+    if (!panel) return;
+    panel.removeChildren().forEach((child) => child.destroy({ children: true }));
+
+    const collapsed = this.miniDevPanelCollapsed;
+    const width = collapsed ? 168 : 310;
+    const height = collapsed ? 76 : 478;
+    panel.x = 22;
+    panel.y = Math.max(12, this.safeAreaTop + 8);
+
+    const bg = new Graphics();
+    bg.roundRect(0, 0, width, height, 14);
+    bg.fill({ color: 0x030a1c, alpha: 0.92 });
+    bg.stroke({ color: 0x67d8ff, alpha: 0.88, width: 3 });
+    bg.roundRect(6, 6, width - 12, height - 12, 10);
+    bg.stroke({ color: 0x2f8cff, alpha: 0.62, width: 2 });
+    panel.addChild(bg);
+
+    const title = label(collapsed ? 'DEV' : 'DEV 场景调试', collapsed ? 24 : 22, palette.white, '900');
+    title.x = 18;
+    title.y = 22;
+    panel.addChild(title);
+
+    const toggle = this.miniDevButton(collapsed ? '展开' : '收起', 78, 48);
+    toggle.x = width - 92;
+    toggle.y = 14;
+    toggle.on('pointertap', (event: any) => {
+      event.stopPropagation();
+      this.miniDevPanelCollapsed = !this.miniDevPanelCollapsed;
+      globalThis.localStorage?.setItem(DEV_PANEL_COLLAPSED_KEY, this.miniDevPanelCollapsed ? '1' : '0');
+      this.renderMiniDevPanel();
+    });
+    panel.addChild(toggle);
+
+    if (collapsed) return;
+
+    let y = 84;
+    this.addMiniDevSceneRow(panel, y);
+    y += 74;
+    const go = this.miniDevButton('跳转', 132, 48);
+    go.x = 16;
+    go.y = y;
+    go.on('pointertap', (event: any) => {
+      event.stopPropagation();
+      this.changeScene(SCENES[this.miniDevSceneIndex]);
+    });
+    const save = this.miniDevButton(Date.now() < this.miniDevSaveFlashUntil ? '已保存' : '设默认', 132, 48);
+    save.x = 162;
+    save.y = y;
+    save.on('pointertap', (event: any) => {
+      event.stopPropagation();
+      this.saveMiniDevDefaults();
+      this.miniDevSaveFlashUntil = Date.now() + 900;
+      this.renderMiniDevPanel();
+      window.setTimeout(() => this.renderMiniDevPanel(), 920);
+    });
+    panel.addChild(go, save);
+
+    y += 66;
+    this.addMiniDevToggle(panel, y, '暂停 loading 跳转', DEV_HOLD_LOADING_KEY, () => {
+      if (this.scene instanceof LoadingScene) this.changeScene('loading');
+    });
+    y += 48;
+    this.addMiniDevStepper(panel, y, '签到天数', `第 ${this.miniDevSignDay} 天`, () => {
+      this.miniDevSignDay = Math.max(1, this.miniDevSignDay - 1);
+      globalThis.localStorage?.setItem(DEV_SIGN_DAY_KEY, String(this.miniDevSignDay));
+      if (this.scene instanceof HomeScene) this.changeScene('home');
+      this.renderMiniDevPanel();
+    }, () => {
+      this.miniDevSignDay = Math.min(7, this.miniDevSignDay + 1);
+      globalThis.localStorage?.setItem(DEV_SIGN_DAY_KEY, String(this.miniDevSignDay));
+      if (this.scene instanceof HomeScene) this.changeScene('home');
+      this.renderMiniDevPanel();
+    });
+    y += 54;
+    this.addMiniDevStepper(panel, y, '匹配秒数', `${this.miniDevMatchSeconds}s`, () => {
+      this.miniDevMatchSeconds = Math.max(3, this.miniDevMatchSeconds - 1);
+      globalThis.localStorage?.setItem(DEV_MATCH_DURATION_KEY, String(this.miniDevMatchSeconds));
+      this.renderMiniDevPanel();
+    }, () => {
+      this.miniDevMatchSeconds = Math.min(120, this.miniDevMatchSeconds + 1);
+      globalThis.localStorage?.setItem(DEV_MATCH_DURATION_KEY, String(this.miniDevMatchSeconds));
+      this.renderMiniDevPanel();
+    });
+    y += 56;
+    this.addMiniDevToggle(panel, y, '显示全部比赛过程', DEV_BATTLE_EVENTS_KEY, () => {
+      if (this.scene instanceof BattleScene) this.changeScene('battle');
+    });
+    y += 48;
+    this.addMiniDevToggle(panel, y, '停留比赛中', DEV_BATTLE_STAY_KEY);
+    y += 48;
+    this.addMiniDevToggle(panel, y, '比赛走大模型', DEV_BATTLE_AI_KEY, () => {
+      if (this.scene instanceof BattleScene) this.changeScene('battle');
+    });
+  }
+
+  private addMiniDevSceneRow(panel: Container, y: number) {
+    const caption = label('场景', 18, 0x9fdcff, '700');
+    caption.x = 18;
+    caption.y = y;
+    const previous = this.miniDevButton('<', 44, 42);
+    previous.x = 16;
+    previous.y = y + 28;
+    const sceneText = label(SCENES[this.miniDevSceneIndex], 22, palette.white, '900');
+    sceneText.anchor.set(0.5, 0);
+    sceneText.x = 155;
+    sceneText.y = y + 34;
+    const next = this.miniDevButton('>', 44, 42);
+    next.x = 250;
+    next.y = y + 28;
+    previous.on('pointertap', (event: any) => {
+      event.stopPropagation();
+      this.miniDevSceneIndex = (this.miniDevSceneIndex + SCENES.length - 1) % SCENES.length;
+      this.renderMiniDevPanel();
+    });
+    next.on('pointertap', (event: any) => {
+      event.stopPropagation();
+      this.miniDevSceneIndex = (this.miniDevSceneIndex + 1) % SCENES.length;
+      this.renderMiniDevPanel();
+    });
+    panel.addChild(caption, previous, sceneText, next);
+  }
+
+  private addMiniDevToggle(panel: Container, y: number, text: string, key: string, onChange?: () => void) {
+    const enabled = globalThis.localStorage?.getItem(key) === '1';
+    const button = this.miniDevButton(enabled ? '开' : '关', 54, 36, enabled ? 0x12391f : 0x172443);
+    button.x = 16;
+    button.y = y;
+    const caption = label(text, 19, palette.white, '700');
+    caption.x = 82;
+    caption.y = y + 6;
+    button.on('pointertap', (event: any) => {
+      event.stopPropagation();
+      globalThis.localStorage?.setItem(key, enabled ? '0' : '1');
+      onChange?.();
+      this.renderMiniDevPanel();
+    });
+    panel.addChild(button, caption);
+  }
+
+  private addMiniDevStepper(panel: Container, y: number, text: string, value: string, onMinus: () => void, onPlus: () => void) {
+    const caption = label(text, 18, 0x9fdcff, '700');
+    caption.x = 18;
+    caption.y = y + 9;
+    const minus = this.miniDevButton('-', 42, 38);
+    minus.x = 126;
+    minus.y = y;
+    const valueLabel = label(value, 20, palette.white, '900');
+    valueLabel.anchor.set(0.5, 0);
+    valueLabel.x = 210;
+    valueLabel.y = y + 8;
+    const plus = this.miniDevButton('+', 42, 38);
+    plus.x = 252;
+    plus.y = y;
+    minus.on('pointertap', (event: any) => {
+      event.stopPropagation();
+      onMinus();
+    });
+    plus.on('pointertap', (event: any) => {
+      event.stopPropagation();
+      onPlus();
+    });
+    panel.addChild(caption, minus, valueLabel, plus);
+  }
+
+  private miniDevButton(text: string, width: number, height: number, fill = 0x10234b) {
+    const button = new Container();
+    const bg = new Graphics();
+    bg.roundRect(0, 0, width, height, 10);
+    bg.fill({ color: fill, alpha: 0.94 });
+    bg.stroke({ color: 0x56a8ff, alpha: 0.95, width: 3 });
+    const title = label(text, Math.min(22, Math.max(16, height * 0.42)), palette.white, '900');
+    title.anchor.set(0.5);
+    title.x = width / 2;
+    title.y = height / 2;
+    button.addChild(bg, title);
+    button.eventMode = 'static';
+    button.cursor = 'pointer';
+    return button;
+  }
+
+  private saveMiniDevDefaults() {
+    globalThis.localStorage?.setItem(DEV_SCENE_KEY, SCENES[this.miniDevSceneIndex]);
+    globalThis.localStorage?.setItem(DEV_SIGN_DAY_KEY, String(this.miniDevSignDay));
+    globalThis.localStorage?.setItem(DEV_MATCH_DURATION_KEY, String(this.miniDevMatchSeconds));
+  }
+
   setFormation(formation: FormationData) {
     this.selectedFormation = formation;
     this.lineup = this.arrangeLineupForFormation(formation);
@@ -869,7 +1080,7 @@ export class GameApp {
         playerId: slot.player?.id,
         rating: slot.player?.rating
       })),
-      ...(runtimeEnv.DEV ? { botAfterMs: matchDurationMs } : {})
+      ...(isDebugRuntime ? { botAfterMs: matchDurationMs } : {})
     });
     if (!ticket) {
       this.prepareOpponent();
@@ -1078,6 +1289,7 @@ export class GameApp {
     this.root.x = (this.app.renderer.width - this.viewportWidth * scale) / 2;
     this.root.y = (this.app.renderer.height - this.viewportHeight * scale) / 2;
     this.scene?.resize(this.width, this.height);
+    if (this.miniDevPanel?.parent) this.renderMiniDevPanel();
   }
 
   private updateViewport() {

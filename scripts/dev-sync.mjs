@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 
-const DEV_PORT = 5179;
+const DEV_PORT = 9527;
+const args = new Set(process.argv.slice(2));
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const children = [];
 
@@ -39,5 +40,7 @@ process.on('SIGTERM', () => shutdown(0));
 console.log(`[dev-sync] Web: http://localhost:${DEV_PORT}`);
 console.log('[dev-sync] Douyin output: ./douyin-game (refresh in Douyin DevTools after rebuild)');
 
-run('dev', 'web', ['--port', String(DEV_PORT)]);
-// run('build:douyin:watch', 'douyin');
+run('dev', 'web');
+if (args.has('--douyin-debug')) {
+  run('debug:douyin:watch', 'douyin-debug');
+}

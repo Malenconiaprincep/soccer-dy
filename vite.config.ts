@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => {
-  if (mode !== 'douyin') {
+  const isDouyinMode = mode === 'douyin' || mode === 'douyin-debug';
+  const isDouyinDebug = mode === 'douyin-debug';
+
+  if (!isDouyinMode) {
     return {
       server: {
         proxy: {
@@ -25,7 +28,7 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       target: 'es2018',
       minify: false,
-      sourcemap: false,
+      sourcemap: isDouyinDebug,
       rollupOptions: {
         input: 'src/douyin/game.ts',
         output: {

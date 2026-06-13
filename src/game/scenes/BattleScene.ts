@@ -9,7 +9,8 @@ import { headerTitleSprite, label, palette } from '../ui';
 type MomentType = 'kickoff' | 'attack' | 'shot' | 'post' | 'corner' | 'save' | 'goal' | 'counter';
 type GameEventCardKey = 'shot' | 'goal' | 'save' | 'corner' | 'yellow' | 'red' | 'injury' | 'sub';
 
-const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean } }).env ?? {};
+const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean; MODE?: string } }).env ?? {};
+const isDebugRuntime = runtimeEnv.DEV || runtimeEnv.MODE === 'douyin-debug';
 const DEV_BATTLE_EVENTS_KEY = 'soccer.dev.battleEventsAll';
 const DEV_BATTLE_STAY_KEY = 'soccer.dev.battleStay';
 const DEV_BATTLE_AI_KEY = 'soccer.dev.battleAi';
@@ -1066,14 +1067,25 @@ export class BattleScene extends BaseScene {
     this.showPreparationOverlay();
     const startMinute = this.matchMinute();
     const pending: BattleMoment[] = [];
+    const prepTimeout = window.setTimeout(() => {
+      if (!this.momentScriptLoading) return;
+      this.momentScriptLoading = false;
+      this.momentScriptDisabled = pending.length === 0;
+      this.momentScriptFetched = true;
+      this.hidePreparationOverlay();
+      console.warn('[battle-ai] script prep timed out, continuing with available moments');
+    }, 30000);
     void this.game.server.streamBattleScript(this.battleScriptPayload(), (moment) => {
       pending.push(this.toBattleMoment(moment));
     }).catch((error) => {
       this.momentScriptDisabled = true;
       console.warn('[battle-ai] script stream failed, falling back to local moments', error);
     }).finally(() => {
-      this.momentQueue.push(...spreadEventMinutes(pending, startMinute));
-      this.momentQueue.sort((a, b) => (a.minute ?? 999) - (b.minute ?? 999));
+      window.clearTimeout(prepTimeout);
+      if (pending.length > 0) {
+        this.momentQueue.push(...spreadEventMinutes(pending, startMinute));
+        this.momentQueue.sort((a, b) => (a.minute ?? 999) - (b.minute ?? 999));
+      }
       this.momentScriptLoading = false;
       this.momentScriptFetched = true;
       this.hidePreparationOverlay();
@@ -1228,7 +1240,7 @@ export class BattleScene extends BaseScene {
       minute: this.matchMinute(),
       scoreA: this.scoreA,
       scoreB: this.scoreB,
-      count: 12,
+      count: 8,
       homePlayers: this.squadForGeneration(this.game.lineup, this.game.substitutes),
       awayPlayers: this.squadForGeneration(this.opponentLineup(), this.opponentSubstitutes()),
       recentEvents: this.events.slice(0, 5).map((event) => ({
@@ -1435,13 +1447,13 @@ export class BattleScene extends BaseScene {
   }
 
   private isBattleProcessDebug() {
-    if (!runtimeEnv.DEV) return false;
+    if (!isDebugRuntime) return false;
     const params = new URLSearchParams(globalThis.location?.search ?? '');
     return params.get('battleEvents') === 'all' || globalThis.localStorage?.getItem(DEV_BATTLE_EVENTS_KEY) === '1';
   }
 
   private isBattleStayDebug() {
-    if (!runtimeEnv.DEV) return false;
+    if (!isDebugRuntime) return false;
     const params = new URLSearchParams(globalThis.location?.search ?? '');
     return params.get('battleStay') === '1' || globalThis.localStorage?.getItem(DEV_BATTLE_STAY_KEY) === '1';
   }
@@ -1455,7 +1467,7 @@ export class BattleScene extends BaseScene {
 
   private shouldUseBattleAi() {
     if (!this.game.server.enabled || this.isBattleProcessDebug()) return false;
-    if (runtimeEnv.DEV) return this.isBattleAiEnabled();
+    if (isDebugRuntime) return this.isBattleAiEnabled();
     return true;
   }
 
