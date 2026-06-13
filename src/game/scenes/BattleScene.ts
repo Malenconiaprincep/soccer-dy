@@ -1228,7 +1228,7 @@ export class BattleScene extends BaseScene {
       minute: this.matchMinute(),
       scoreA: this.scoreA,
       scoreB: this.scoreB,
-      count: 20,
+      count: 12,
       homePlayers: this.squadForGeneration(this.game.lineup, this.game.substitutes),
       awayPlayers: this.squadForGeneration(this.opponentLineup(), this.opponentSubstitutes()),
       recentEvents: this.events.slice(0, 5).map((event) => ({

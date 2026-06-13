@@ -3,23 +3,32 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defaultShopConfig, normalizeShopConfig } from './shop-config.mjs';
+import {
+  applyMatchResult,
+  cleanupOldMatches,
+  ensurePlayerState,
+  initCloudbaseDb,
+  insertMatch,
+  patchPlayerState,
+  randomBotProfile,
+  upsertProfile
+} from './cloudbase-db.mjs';
 
 const env = loadEnv();
 const port = Number(env.SERVER_PORT ?? 8787);
-const supabaseUrl = env.SUPABASE_URL ?? env.VITE_SUPABASE_URL;
-const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+const cloudbaseReady = initCloudbaseDb(env);
 const douyinAppId = env.DOUYIN_APP_ID;
 const douyinAppSecret = env.DOUYIN_APP_SECRET;
-const dashscopeApiKey = env.DASHSCOPE_API_KEY;
-const bailianModel = env.BAILIAN_MODEL ?? 'qwen-turbo';
-const bailianBaseUrl = env.BAILIAN_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+const minimaxApiKey = env.MINIMAX_API_KEY;
+const minimaxBaseUrl = env.MINIMAX_BASE_URL ?? 'https://api.minimaxi.com/v1';
+const minimaxModel = env.MINIMAX_MODEL ?? 'MiniMax-M2.5-highspeed';
 const botAfterMs = Number(env.MATCH_BOT_AFTER_MS ?? 15000);
 const ticketTtlMs = Number(env.MATCH_TICKET_TTL_MS ?? 45000);
 const queue = new Map();
 const shopConfigPath = resolve(process.cwd(), 'server/shop-config.local.json');
 
-if (!supabaseUrl || !serviceRoleKey) {
-  console.warn('[server] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for database writes.');
+if (!cloudbaseReady) {
+  console.warn('[server] CLOUDBASE_ENV_ID and CLOUDBASE_API_KEY (or TENCENTCLOUD_SECRETID/SECRETKEY) are required for database writes.');
 }
 
 const server = http.createServer(async (request, response) => {
@@ -79,8 +88,8 @@ const server = http.createServer(async (request, response) => {
       return;
     }
     if (request.method === 'POST' && url.pathname === '/api/admin/cleanup-matches') {
-      await supabaseRpc('cleanup_old_matches', {});
-      sendJson(response, 200, { ok: true });
+      const removed = await cleanupOldMatches();
+      sendJson(response, 200, { ok: true, removed });
       return;
     }
 
@@ -196,7 +205,7 @@ async function recordMatch(body) {
     energy: -6
   };
 
-  await supabaseInsert('matches', {
+  await insertMatch({
     player_id: playerId,
     opponent_id: body.opponentId || null,
     opponent_is_bot: body.opponentIsBot !== false,
@@ -213,21 +222,20 @@ async function recordMatch(body) {
     rewards
   });
 
-  await supabaseRpc('apply_match_result', {
-    p_user_id: playerId,
-    p_win: win,
-    p_coins: rewardCoins,
-    p_scout_tickets: rewardScoutTickets,
-    p_energy_cost: 6
+  await applyMatchResult({
+    userId: playerId,
+    win,
+    coins: rewardCoins,
+    scoutTickets: rewardScoutTickets,
+    energyCost: 6
   }).catch(async () => {
     const state = await ensurePlayerState(playerId);
-    await supabasePatch(`player_state?user_id=eq.${encodeURIComponent(playerId)}`, {
+    await patchPlayerState(playerId, {
       coins: Number(state.coins ?? 0) + rewardCoins,
       energy: Math.max(0, Number(state.energy ?? 0) - 6),
       scout_tickets: Number(state.scout_tickets ?? 0) + rewardScoutTickets,
       matches_played: Number(state.matches_played ?? 0) + 1,
-      wins: Number(state.wins ?? 0) + (win ? 1 : 0),
-      updated_at: new Date().toISOString()
+      wins: Number(state.wins ?? 0) + (win ? 1 : 0)
     });
   });
 
@@ -246,8 +254,10 @@ async function streamBattleScript(response, body) {
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache',
-    Connection: 'keep-alive'
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no'
   });
+  response.write(': connected\n\n');
 
   try {
     const events = await fetchBattleScriptEvents(body, Math.max(6, Math.min(20, Number(body.count ?? 14))));
@@ -263,8 +273,8 @@ async function streamBattleScript(response, body) {
 }
 
 async function fetchBattleScriptEvents(body, count = 10, onEvent) {
-  if (!dashscopeApiKey) {
-    const error = new Error('DASHSCOPE_API_KEY is not configured.');
+  if (!minimaxApiKey) {
+    const error = new Error('MINIMAX_API_KEY is not configured.');
     error.status = 503;
     throw error;
   }
@@ -303,50 +313,41 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
     `最近事件：${JSON.stringify(recentEvents)}`
   ].join('\n');
 
-  const llmResponse = await fetch(`${bailianBaseUrl}/chat/completions`, {
+  const llmResponse = await fetch(`${minimaxBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${dashscopeApiKey}`,
+      Authorization: `Bearer ${minimaxApiKey}`,
       'Content-Type': 'application/json'
     },
+    signal: AbortSignal.timeout(120_000),
     body: JSON.stringify({
-      model: bailianModel,
+      model: minimaxModel,
       messages: [
-        { role: 'system', content: '你只输出 NDJSON，每行一个合法 JSON 对象，不要其他文字。' },
+        { role: 'system', content: '你只输出 NDJSON，每行一个合法 JSON 对象，不要其他文字，不要输出思考过程。' },
         { role: 'user', content: prompt }
       ],
-      stream: true,
+      stream: false,
+      reasoning_split: true,
+      thinking: { type: 'disabled' },
       temperature: 0.85,
-      max_tokens: Math.min(4096, 220 * eventCount)
+      max_completion_tokens: 8192
     })
   });
 
   if (!llmResponse.ok) {
     const payload = await llmResponse.json().catch(() => ({}));
-    const message = payload?.error?.message ?? payload?.message ?? `DashScope request failed: ${llmResponse.status}`;
+    const message = payload?.error?.message ?? payload?.base_resp?.status_msg ?? payload?.message ?? `MiniMax request failed: ${llmResponse.status}`;
     throw new Error(message);
   }
 
+  const payload = await llmResponse.json();
+  const fullContent = stripMiniMaxThinking(payload?.choices?.[0]?.message?.content ?? '');
   const events = [];
-  let content = '';
-  let fullContent = '';
-  for await (const delta of readDashscopeDeltaStream(llmResponse)) {
-    fullContent += delta;
-    content += delta;
-    const lines = content.split('\n');
-    content = lines.pop() ?? '';
-    for (const line of lines) {
-      const event = normalizeBattleMoment(parseJsonObject(line), allowedTypes, homePlayers, awayPlayers);
-      if (!event) continue;
-      events.push(event);
-    }
-  }
-  const tail = content.trim();
-  if (tail) {
-    const event = normalizeBattleMoment(parseJsonObject(tail), allowedTypes, homePlayers, awayPlayers);
-    if (event && !events.some((item) => item.detail === event.detail && item.actorName === event.actorName && item.minute === event.minute)) {
-      events.push(event);
-    }
+  for (const line of fullContent.split('\n')) {
+    const event = normalizeBattleMoment(parseJsonObject(line), allowedTypes, homePlayers, awayPlayers);
+    if (!event) continue;
+    if (events.some((item) => item.detail === event.detail && item.actorName === event.actorName && item.minute === event.minute)) continue;
+    events.push(event);
   }
 
   if (!events.length) {
@@ -407,28 +408,10 @@ function spreadEventMinutes(events, startMinute = 1, endMinute = 90) {
   }));
 }
 
-async function* readDashscopeDeltaStream(response) {
-  if (!response.body) return;
-  const decoder = new TextDecoder();
-  let buffer = '';
-  for await (const chunk of response.body) {
-    buffer += decoder.decode(chunk, { stream: true });
-    const parts = buffer.split('\n');
-    buffer = parts.pop() ?? '';
-    for (const part of parts) {
-      const line = part.trim();
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === '[DONE]') continue;
-      try {
-        const json = JSON.parse(payload);
-        const delta = json?.choices?.[0]?.delta?.content;
-        if (delta) yield delta;
-      } catch {
-        // ignore malformed chunks
-      }
-    }
-  }
+function stripMiniMaxThinking(text) {
+  return String(text ?? '')
+    .replace(/<think>[\s\S]*?<\/redacted_thinking>/g, '')
+    .replace(/<\/?redacted_thinking>/g, '');
 }
 
 function normalizeSquadPlayers(players) {
@@ -533,7 +516,7 @@ function normalizeBattleMoment(raw, allowedTypes, homePlayers = [], awayPlayers 
     title: titleForBattleEvent(eventType),
     actorName,
     relatedActorNames,
-    detail: stringValue(raw.detail, '双方在中场展开争夺。').slice(0, 60),
+    detail: stringValue(raw.detail ?? raw.description, '双方在中场展开争夺。').slice(0, 60),
     mood,
     score,
     team
@@ -585,12 +568,11 @@ async function grantShopReward(body) {
   const scoutTickets = Number(body.scoutTickets ?? 0);
   const gems = Number(body.gems ?? 0);
   const energy = Number(body.energy ?? 0);
-  await supabasePatch(`player_state?user_id=eq.${encodeURIComponent(userId)}`, {
+  await patchPlayerState(userId, {
     coins: Number(state.coins ?? 0) + Math.max(0, coins),
     scout_tickets: Number(state.scout_tickets ?? 0) + Math.max(0, scoutTickets),
     gems: Number(state.gems ?? 0) + Math.max(0, gems),
-    energy: Math.min(120, Number(state.energy ?? 0) + Math.max(0, energy)),
-    updated_at: new Date().toISOString()
+    energy: Math.min(120, Number(state.energy ?? 0) + Math.max(0, energy))
   });
   return { ok: true, itemId: stringValue(body.itemId, 'unknown') };
 }
@@ -637,71 +619,6 @@ function toOpponent(ticket, isBot) {
     formationId: ticket.formationId,
     lineup: ticket.lineup
   };
-}
-
-async function randomBotProfile() {
-  const bots = await supabaseSelect('profiles?is_bot=eq.true&select=id,nickname,avatar_url&limit=30');
-  if (!Array.isArray(bots) || bots.length === 0) return null;
-  return bots[Math.floor(Math.random() * bots.length)];
-}
-
-async function upsertProfile({ douyinOpenId, nickname, avatarUrl, isBot }) {
-  const rows = await supabasePost('profiles?on_conflict=douyin_open_id', {
-    douyin_open_id: douyinOpenId,
-    nickname,
-    avatar_url: avatarUrl,
-    is_bot: isBot,
-    last_login_at: new Date().toISOString()
-  }, 'resolution=merge-duplicates,return=representation');
-  return rows[0];
-}
-
-async function ensurePlayerState(userId) {
-  const rows = await supabaseSelect(`player_state?user_id=eq.${encodeURIComponent(userId)}&select=*&limit=1`);
-  if (rows[0]) return rows[0];
-  const inserted = await supabasePost('player_state', { user_id: userId }, 'return=representation');
-  return inserted[0];
-}
-
-async function supabaseSelect(path) {
-  return supabaseFetch(path, { method: 'GET' });
-}
-
-async function supabaseInsert(table, row) {
-  return supabasePost(table, row, 'return=minimal');
-}
-
-async function supabasePost(path, body, prefer = 'return=representation') {
-  return supabaseFetch(path, { method: 'POST', body: JSON.stringify(body), prefer });
-}
-
-async function supabasePatch(path, body) {
-  return supabaseFetch(path, { method: 'PATCH', body: JSON.stringify(body), prefer: 'return=minimal' });
-}
-
-async function supabaseRpc(name, body) {
-  return supabaseFetch(`rpc/${name}`, { method: 'POST', body: JSON.stringify(body), prefer: 'return=minimal' });
-}
-
-async function supabaseFetch(path, options) {
-  if (!supabaseUrl || !serviceRoleKey) throw new Error('Supabase service env is missing.');
-  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
-    method: options.method,
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-      Prefer: options.prefer ?? 'return=representation'
-    },
-    body: options.body
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Supabase ${options.method} ${path} failed: ${response.status} ${text}`);
-  }
-  if (response.status === 204) return null;
-  const text = await response.text();
-  return text ? JSON.parse(text) : null;
 }
 
 function readJson(request) {

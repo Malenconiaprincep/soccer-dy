@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 9527",
     "dev:server": "node server/dev-server.mjs",
+    "seed:cloudbase": "node scripts/seed-cloudbase.mjs",
     "dev:sync": "node scripts/dev-sync.mjs",
     "build": "tsc && vite build",
     "build:douyin": "tsc && vite build --mode douyin",
@@ -14,6 +15,7 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.1",
     "pixi.js": "^8.8.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
