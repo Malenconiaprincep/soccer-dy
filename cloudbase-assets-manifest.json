@@ -1,0 +1,2362 @@
+{
+  "envId": "bprecorder-d9gia565fe424bc20",
+  "assetDir": "public/assets",
+  "cloudPrefix": "soccer-dy3/assets",
+  "uploadedAt": "2026-06-14T14:13:18.771Z",
+  "totalFiles": 336,
+  "totalBytes": 83303609,
+  "files": [
+    {
+      "localPath": "/assets/home-bg.jpg",
+      "cloudPath": "soccer-dy3/assets/home-bg.jpg",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/home-bg.jpg",
+      "size": 2150287,
+      "sha1": "67349f4995f106144abcb8bb5b9141af815d86e5"
+    },
+    {
+      "localPath": "/assets/loading-bg.png",
+      "cloudPath": "soccer-dy3/assets/loading-bg.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/loading-bg.png",
+      "size": 131315,
+      "sha1": "ab9906bdf681dfe7fe1f593dd426c4b9207a379d"
+    },
+    {
+      "localPath": "/assets/page-bg.jpg",
+      "cloudPath": "soccer-dy3/assets/page-bg.jpg",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/page-bg.jpg",
+      "size": 135743,
+      "sha1": "689235b5059283b0d31362d8937c6b9cb55a9fec"
+    },
+    {
+      "localPath": "/assets/players/generated/alisson.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/alisson.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/alisson.png",
+      "size": 139470,
+      "sha1": "3218f24d9368f96256a94be6b1088a0b9df5662f"
+    },
+    {
+      "localPath": "/assets/players/generated/barella.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/barella.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/barella.png",
+      "size": 135050,
+      "sha1": "5b6de695bd9234dd253b1cca92bf6ced1f6c5b87"
+    },
+    {
+      "localPath": "/assets/players/generated/bellingham.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/bellingham.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/bellingham.png",
+      "size": 139015,
+      "sha1": "544768a7078a0e6dbf37e4a647a7a327dc4b8bbd"
+    },
+    {
+      "localPath": "/assets/players/generated/benzema.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/benzema.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/benzema.png",
+      "size": 137080,
+      "sha1": "78076da63b005b4e8f2962ef2a8f45e631e90f3d"
+    },
+    {
+      "localPath": "/assets/players/generated/bernardo-silva.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/bernardo-silva.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/bernardo-silva.png",
+      "size": 136983,
+      "sha1": "59749046bac6f362e657699cab6397400cfd740a"
+    },
+    {
+      "localPath": "/assets/players/generated/bruno-fernandes.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/bruno-fernandes.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/bruno-fernandes.png",
+      "size": 135546,
+      "sha1": "c4c2cb58d232733421db678d9f73ed2123444be0"
+    },
+    {
+      "localPath": "/assets/players/generated/buffon.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/buffon.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/buffon.png",
+      "size": 140021,
+      "sha1": "60a424fbde1c8c85b25110f8c5a274758bb2723a"
+    },
+    {
+      "localPath": "/assets/players/generated/camavinga.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/camavinga.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/camavinga.png",
+      "size": 134871,
+      "sha1": "0858ac43e02f4a80f99fdbfebc868fb4e9de18f4"
+    },
+    {
+      "localPath": "/assets/players/generated/cancelo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/cancelo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/cancelo.png",
+      "size": 135452,
+      "sha1": "81d01f9b3b3f8cc2348bfd10aa4ac4920c111f5e"
+    },
+    {
+      "localPath": "/assets/players/generated/carlos.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/carlos.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/carlos.png",
+      "size": 130775,
+      "sha1": "a750097307a64e6208db4852ef465d4bfb46e5ed"
+    },
+    {
+      "localPath": "/assets/players/generated/casillas.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/casillas.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/casillas.png",
+      "size": 139198,
+      "sha1": "bfbbd6c6aa5b1c8a11e17cda90f938bb11d3d718"
+    },
+    {
+      "localPath": "/assets/players/generated/chiesa.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/chiesa.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/chiesa.png",
+      "size": 136283,
+      "sha1": "e51d0a4f8fb32866be652eefd51a893ca55af88e"
+    },
+    {
+      "localPath": "/assets/players/generated/courtois.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/courtois.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/courtois.png",
+      "size": 139366,
+      "sha1": "21bc797a6129f311fb244e303ceb5e9199f96aba"
+    },
+    {
+      "localPath": "/assets/players/generated/cr7.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/cr7.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/cr7.png",
+      "size": 132745,
+      "sha1": "34cda60f25beadd99150d35ae43f2a1b1aaf61ac"
+    },
+    {
+      "localPath": "/assets/players/generated/cruyff.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/cruyff.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/cruyff.png",
+      "size": 138277,
+      "sha1": "c58cac8fa690160b863d3827684c513f45e57afa"
+    },
+    {
+      "localPath": "/assets/players/generated/davies.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/davies.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/davies.png",
+      "size": 131941,
+      "sha1": "efeb4ed5b98193032bffe692d32156ae2272609c"
+    },
+    {
+      "localPath": "/assets/players/generated/debruyne.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/debruyne.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/debruyne.png",
+      "size": 140097,
+      "sha1": "76df71d7098f63a912586ef240fb620e73b238aa"
+    },
+    {
+      "localPath": "/assets/players/generated/dembele.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/dembele.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/dembele.png",
+      "size": 130323,
+      "sha1": "72efa31be88c1ccc194d84a508b892619fc9bca1"
+    },
+    {
+      "localPath": "/assets/players/generated/dias.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/dias.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/dias.png",
+      "size": 139779,
+      "sha1": "04c7cd27a03101c5532aadde04ca4e3c80402936"
+    },
+    {
+      "localPath": "/assets/players/generated/donnarumma.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/donnarumma.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/donnarumma.png",
+      "size": 138099,
+      "sha1": "2941f72047cde5a2eebcc8153eb8a7005d9bc71d"
+    },
+    {
+      "localPath": "/assets/players/generated/ederson.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/ederson.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/ederson.png",
+      "size": 137994,
+      "sha1": "d3851353768d38bb76e8cab4aae8ec4f59959f73"
+    },
+    {
+      "localPath": "/assets/players/generated/emiliano.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/emiliano.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/emiliano.png",
+      "size": 136205,
+      "sha1": "179130192fe02363bb127e92253fd26ab47cad41"
+    },
+    {
+      "localPath": "/assets/players/generated/enzo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/enzo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/enzo.png",
+      "size": 136400,
+      "sha1": "c03d065cbccd11bba2e313fc38207a1058a3bc1d"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/acerbi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/acerbi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/acerbi.png",
+      "size": 192670,
+      "sha1": "9b09e42348683a3da24b6743e864b74efe854764"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/acuna.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/acuna.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/acuna.png",
+      "size": 203421,
+      "sha1": "25e860824b4273cda57dbe2b0acaef11ae01da82"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/alan-carvalho.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/alan-carvalho.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/alan-carvalho.png",
+      "size": 132379,
+      "sha1": "02933a889e659d3e94b2d84f7aa8637aa44ab442"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/almada.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/almada.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/almada.png",
+      "size": 203762,
+      "sha1": "ba40136cc8fb4d03c12647b689249a7ad94da7cd"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/amadou-onana.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/amadou-onana.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/amadou-onana.png",
+      "size": 195749,
+      "sha1": "806c7df5b8d73dd61378c4551dcf85014c46a4e4"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/amrabat.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/amrabat.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/amrabat.png",
+      "size": 201022,
+      "sha1": "5e9a2fa28ee4f7228beaf5099be41a8f34509559"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/angel-correa.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/angel-correa.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/angel-correa.png",
+      "size": 201358,
+      "sha1": "3a1befceb433ef10b1d68a473f09e8b89c2baf6b"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/ansu-fati.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/ansu-fati.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/ansu-fati.png",
+      "size": 199656,
+      "sha1": "c0636f2998fbedb3d34c761c8efddedf047c0df1"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/anthony-gordon.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/anthony-gordon.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/anthony-gordon.png",
+      "size": 199009,
+      "sha1": "3239bf88e3daf75f056482c08cd867aa51809d76"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/araujo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/araujo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/araujo.png",
+      "size": 200570,
+      "sha1": "008d8fd07940883cc067ddb82ebb9ff8886c0d45"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/arda-guler.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/arda-guler.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/arda-guler.png",
+      "size": 204210,
+      "sha1": "1c0b8b8f39e92898d298a8d65a57de56c79d984a"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/arrascaeta.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/arrascaeta.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/arrascaeta.png",
+      "size": 201374,
+      "sha1": "ef689dd5cb9215f7662093f1d8c69e08bfd7092c"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/azmoun.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/azmoun.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/azmoun.png",
+      "size": 133625,
+      "sha1": "1bc1bf23fe6cfec975227c4191896fadef165a4f"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/balogun.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/balogun.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/balogun.png",
+      "size": 194183,
+      "sha1": "d76d4e120f38f52412868f82f93ac5629ebadcea"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/barcola.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/barcola.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/barcola.png",
+      "size": 205790,
+      "sha1": "15249242ce0ed8774f656e68c67c5cc2a85f81c8"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/bastoni.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/bastoni.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/bastoni.png",
+      "size": 200346,
+      "sha1": "a797d3bd79a12dd82275aeb3ffdd1df82b7924df"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/ben-white.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/ben-white.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/ben-white.png",
+      "size": 195213,
+      "sha1": "205ffdacb44f9da16a253e06ee80312235ec9f29"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/bennacer.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/bennacer.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/bennacer.png",
+      "size": 201939,
+      "sha1": "1989e44c6bfc9fc542aaaccdce10f46e90b67098"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/bentancur.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/bentancur.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/bentancur.png",
+      "size": 200228,
+      "sha1": "7bca06f7e55cee92699e8837fff7190d777d0eff"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/berardi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/berardi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/berardi.png",
+      "size": 202588,
+      "sha1": "0ea49a237468eda99fcfcce2bc3354fb80a05f48"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/bono.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/bono.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/bono.png",
+      "size": 205818,
+      "sha1": "86067ed4a654ca34c125d8c9aac25d6b749e5fa7"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/botman.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/botman.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/botman.png",
+      "size": 202944,
+      "sha1": "a8284c97e90308c27fa39c0ea64678434428d133"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/bremer.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/bremer.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/bremer.png",
+      "size": 199790,
+      "sha1": "a578153003b18cdcc1e2403d21f091cc43aba013"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/brobbey.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/brobbey.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/brobbey.png",
+      "size": 191409,
+      "sha1": "cae3f5f0bd17678701c7fd2f7fba3a5510e753d5"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/brozovic.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/brozovic.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/brozovic.png",
+      "size": 199731,
+      "sha1": "727be8dd4891219813b40a40e7e4900b4ad76d41"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/bruno-guimaraes.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/bruno-guimaraes.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/bruno-guimaraes.png",
+      "size": 195667,
+      "sha1": "a4d1683f647b4b6f97831c3500b06fd02e0b06b5"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/bryan-zaragoza.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/bryan-zaragoza.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/bryan-zaragoza.png",
+      "size": 194672,
+      "sha1": "b5679e51b867169dd7d225239ed405a2dd84f7f5"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/caicedo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/caicedo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/caicedo.png",
+      "size": 195710,
+      "sha1": "a7bf742eedf09f9d531056b1556852d588841649"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/calhanoglu.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/calhanoglu.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/calhanoglu.png",
+      "size": 192876,
+      "sha1": "2121ed4e61518d54f6bf62d7dfaade8ea58034e3"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/carvajal.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/carvajal.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/carvajal.png",
+      "size": 202514,
+      "sha1": "510f3e42ad1ef9b5274c6b18d8060bd9c0693dc9"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/casemiro.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/casemiro.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/casemiro.png",
+      "size": 196663,
+      "sha1": "e00a7672df344da7e37bfdd213bbfef6b8289ac7"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/cheng-jin.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/cheng-jin.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/cheng-jin.png",
+      "size": 131683,
+      "sha1": "5b278de2e64e7e4a53a7d16cb96ad75bcbba1b75"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/cho-gue-sung.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/cho-gue-sung.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/cho-gue-sung.png",
+      "size": 133645,
+      "sha1": "cce85008cd7c0b1877ef75d1bdc526604deb6a1e"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/cole-palmer.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/cole-palmer.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/cole-palmer.png",
+      "size": 199168,
+      "sha1": "9645f4cfa05d504f59afd1a1eb1f63d5362b6111"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/coman.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/coman.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/coman.png",
+      "size": 194929,
+      "sha1": "d957097430c5a07d2ad1210041a6d5a8d88b5da1"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/cristian-romero.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/cristian-romero.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/cristian-romero.png",
+      "size": 197451,
+      "sha1": "730207d303b6ed2d98b6cb06e852cb59a9b0b330"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/cucurella.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/cucurella.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/cucurella.png",
+      "size": 194766,
+      "sha1": "514db8ab07de676084dad13ec5c670daa2d14cce"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/dai-wai-tsun.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/dai-wai-tsun.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/dai-wai-tsun.png",
+      "size": 130226,
+      "sha1": "4c1dfc19ea78bdfa90fc121b30e415ecb04b96ff"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/dani-olmo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/dani-olmo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/dani-olmo.png",
+      "size": 199285,
+      "sha1": "a6583eab6426b0b5089b26964293014101a54098"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/danilo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/danilo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/danilo.png",
+      "size": 200697,
+      "sha1": "e78581ca3fc402131b499b1918523fd65a283d9c"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/darmian.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/darmian.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/darmian.png",
+      "size": 202866,
+      "sha1": "b7ccf2081c912079b0a7770d958fa7db4922ddbc"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/david-raya.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/david-raya.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/david-raya.png",
+      "size": 196095,
+      "sha1": "42b7e7dfe4030060906e84630189b92f9a59cac4"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/de-ligt.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/de-ligt.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/de-ligt.png",
+      "size": 200708,
+      "sha1": "64a4e944ded42ea2ba851b117f8486cd7bb8aa70"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/de-paul.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/de-paul.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/de-paul.png",
+      "size": 199038,
+      "sha1": "9cc74315c33ff33c41edf11461be19452bf864e2"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/de-roon.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/de-roon.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/de-roon.png",
+      "size": 199132,
+      "sha1": "9e1575a7055af55934d88d7ba88059212b3c2d7a"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/di-lorenzo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/di-lorenzo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/di-lorenzo.png",
+      "size": 202148,
+      "sha1": "970674dd4c6ec64c0061f7499ec944cb8a010065"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/dimarco.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/dimarco.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/dimarco.png",
+      "size": 195698,
+      "sha1": "1b14c8ddec9751e56f6c4eb08317495c37186cf7"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/diogo-jota.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/diogo-jota.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/diogo-jota.png",
+      "size": 199751,
+      "sha1": "e4d4f03923620229c988d7f72eac21c15d3bed57"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/douglas-luiz.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/douglas-luiz.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/douglas-luiz.png",
+      "size": 201850,
+      "sha1": "38ce4f084550fa914d19485bd55e418d6b09f9e5"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/dumfries.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/dumfries.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/dumfries.png",
+      "size": 197392,
+      "sha1": "a104cc141f8cd4c18d450afd8949bc951900fa5a"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/dybala.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/dybala.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/dybala.png",
+      "size": 201474,
+      "sha1": "9f273e0e17876c7fa0656e6b7b3dc7b3d61b5b98"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/endrick.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/endrick.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/endrick.png",
+      "size": 203126,
+      "sha1": "01a958c0ed9dd4131880c42d62894a4af555b8f1"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/eriksen.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/eriksen.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/eriksen.png",
+      "size": 201034,
+      "sha1": "97a7d9923fefcb80b2ebeeef7198485a86b37262"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/evanilson.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/evanilson.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/evanilson.png",
+      "size": 196311,
+      "sha1": "f76c902534e43a2092fe181b0f5484832ee8ad41"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/eze.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/eze.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/eze.png",
+      "size": 201060,
+      "sha1": "e22c0eada8af019962033c623454658fa88d1ef3"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/fabian-ruiz.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/fabian-ruiz.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/fabian-ruiz.png",
+      "size": 202390,
+      "sha1": "57895a62e8360fffdcfd9b4244e80fc995594687"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/fernandinho-china.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/fernandinho-china.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/fernandinho-china.png",
+      "size": 131939,
+      "sha1": "57afccfa4406cfd1442815804fceeec3e583af08"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/ferran-torres.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/ferran-torres.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/ferran-torres.png",
+      "size": 204596,
+      "sha1": "bcf037afc2afb4844a81d2038be69ffbbe1e9e9a"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/francisco-conceicao.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/francisco-conceicao.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/francisco-conceicao.png",
+      "size": 208748,
+      "sha1": "0f5f342b06b862fda267fc22de1332b957bd2cd9"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/frenkie-de-jong.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/frenkie-de-jong.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/frenkie-de-jong.png",
+      "size": 200091,
+      "sha1": "9144c9e26b94a474794c681625322f8e35236671"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/furuhashi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/furuhashi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/furuhashi.png",
+      "size": 137526,
+      "sha1": "02702642a2ce83a4297d0e86de799fdc07f98a05"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/gabriel-jesus.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/gabriel-jesus.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/gabriel-jesus.png",
+      "size": 203216,
+      "sha1": "718c7148f53b23288065d30a8b41ce1a416be3b1"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/gabriel-magalhaes.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/gabriel-magalhaes.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/gabriel-magalhaes.png",
+      "size": 194898,
+      "sha1": "184fdfdc1980992610ee3e4cabc7efdd909c006f"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/gallagher.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/gallagher.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/gallagher.png",
+      "size": 197797,
+      "sha1": "d2aee0f684a1985a4a1d2056a75702a5bab89cc8"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/gao-tianyi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/gao-tianyi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/gao-tianyi.png",
+      "size": 130490,
+      "sha1": "d852bc42ba23373da3a86d500cf3ba8a0cc2c770"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/gao-zhunyi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/gao-zhunyi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/gao-zhunyi.png",
+      "size": 129845,
+      "sha1": "2be53a15425afaf4d6d18a4a3cefc0828c7ddcac"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/gerard-moreno.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/gerard-moreno.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/gerard-moreno.png",
+      "size": 200489,
+      "sha1": "1abfd1c82093d853bef89f8b6289589b80fcb172"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/gilmour.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/gilmour.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/gilmour.png",
+      "size": 203633,
+      "sha1": "69ef089feda3caf020caff3280dfb1def604ed79"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/goncalo-ramos.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/goncalo-ramos.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/goncalo-ramos.png",
+      "size": 201445,
+      "sha1": "6d5cdc5f27d4d20986c8785a41cba5fa653e2447"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/gravenberch.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/gravenberch.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/gravenberch.png",
+      "size": 195219,
+      "sha1": "de12b941c3f258f313a88bd872af3a822fc55917"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/grimaldo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/grimaldo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/grimaldo.png",
+      "size": 197537,
+      "sha1": "404bc432de8b02fe67cd51980e82fb3d8f3b8a54"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/guehi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/guehi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/guehi.png",
+      "size": 202214,
+      "sha1": "16eda793dbdecf06106ae7fe70b12fd032ed22e0"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/guerreiro.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/guerreiro.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/guerreiro.png",
+      "size": 199424,
+      "sha1": "0287bc835de4462531546331a0e4a84e438654db"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/guirassy.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/guirassy.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/guirassy.png",
+      "size": 202427,
+      "sha1": "b303a3410827e8e6f1b82cfdd25e94fc7dc51757"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/gyokeres.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/gyokeres.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/gyokeres.png",
+      "size": 203267,
+      "sha1": "952037bc793f919b54ca6f18408628c72ab49fb1"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/han-pengfei.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/han-pengfei.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/han-pengfei.png",
+      "size": 128971,
+      "sha1": "ec1467d7a8c65a4c5a97b08a412caa4504e90d15"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/hojbjerg.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/hojbjerg.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/hojbjerg.png",
+      "size": 200723,
+      "sha1": "97ecc47be9d7822ad505808832d03e9d6a932780"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/hojlund.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/hojlund.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/hojlund.png",
+      "size": 199733,
+      "sha1": "bb0aa2f0deeb83c0f7bdf5ae592cf25f11c58f9e"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/hu-hetao.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/hu-hetao.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/hu-hetao.png",
+      "size": 130190,
+      "sha1": "ff4c4b7d96d1ccdf54c77e6183954a67a9ec065e"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/hwang-hee-chan.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/hwang-hee-chan.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/hwang-hee-chan.png",
+      "size": 130909,
+      "sha1": "2bc5c9b7002b196515e1eaa02d98de3d185ef913"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/jiang-guangtai.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/jiang-guangtai.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/jiang-guangtai.png",
+      "size": 131283,
+      "sha1": "a25f511765da941c3004fe5d0c819ed32d775f06"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/joao-felix.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/joao-felix.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/joao-felix.png",
+      "size": 209971,
+      "sha1": "1ed4093d65095f9b5a72a1219c53c675754977cc"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/joao-neves.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/joao-neves.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/joao-neves.png",
+      "size": 200574,
+      "sha1": "91574f3a53e53c4505b742b0ab2a2c5031875ffd"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/joelinton.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/joelinton.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/joelinton.png",
+      "size": 189588,
+      "sha1": "52a24f9fd4b8ee21aa57dd33c8e86e51644bd98c"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/jonathan-david.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/jonathan-david.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/jonathan-david.png",
+      "size": 191312,
+      "sha1": "c464a6cddb7cfc099b8de1f2e6b8ca28b5c675ac"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/jose-gimenez.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/jose-gimenez.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/jose-gimenez.png",
+      "size": 204908,
+      "sha1": "03185878747532b9cc5215d924f6d53c66baee0c"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/julian-alvarez.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/julian-alvarez.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/julian-alvarez.png",
+      "size": 194636,
+      "sha1": "0b432120f498364a7ca5e3805194c1dba6a6b7ec"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/kante.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/kante.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/kante.png",
+      "size": 204507,
+      "sha1": "10a6044d1be1e1690331e95e4ffc9506fd012588"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/kessie.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/kessie.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/kessie.png",
+      "size": 200655,
+      "sha1": "e5054aa4dde76146771ef727cfad35f8fa75c87e"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/kobel.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/kobel.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/kobel.png",
+      "size": 200370,
+      "sha1": "0a8b28c206a1d81e0e7b23fcd5f2ee8d22ba5227"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/koke.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/koke.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/koke.png",
+      "size": 206338,
+      "sha1": "edef251248a0026604eb9f35bf93969228b5ca6b"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/kolo-muani.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/kolo-muani.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/kolo-muani.png",
+      "size": 196951,
+      "sha1": "ae8de2efd85537aad1f2542c99835fc08217b2b8"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/konate.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/konate.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/konate.png",
+      "size": 200409,
+      "sha1": "3c896707d1390b81d83efea443b53e8539099fd6"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/koopmeiners.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/koopmeiners.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/koopmeiners.png",
+      "size": 197104,
+      "sha1": "24625830c5f0fa2ec49b8ce7ab248b77bd861ca8"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/kovacic.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/kovacic.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/kovacic.png",
+      "size": 203300,
+      "sha1": "4f68778bfdfa0c78f3819dd2978047b00415d4c6"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/kudus.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/kudus.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/kudus.png",
+      "size": 205555,
+      "sha1": "dfb35c2bc41c756ef20794b18fc54cca6df1219c"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/laporte.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/laporte.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/laporte.png",
+      "size": 202914,
+      "sha1": "edde10f0ace78b75d4848ff11582f0569ae63539"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/li-lei.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/li-lei.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/li-lei.png",
+      "size": 132019,
+      "sha1": "648ebd0f04052042a5a37014f91087db13c9defd"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/li-yuanyi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/li-yuanyi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/li-yuanyi.png",
+      "size": 131887,
+      "sha1": "b14b5c751d7948c060380b45509a711da5fed461"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/lin-liangming.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/lin-liangming.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/lin-liangming.png",
+      "size": 133362,
+      "sha1": "3ad85448c81185653ecbe1c8459dbd5cae16df03"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/lisandro-martinez.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/lisandro-martinez.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/lisandro-martinez.png",
+      "size": 193793,
+      "sha1": "94397c4380cd9b5864d1502625a8dcb711334397"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/liu-dianzuo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/liu-dianzuo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/liu-dianzuo.png",
+      "size": 136109,
+      "sha1": "e473bef2385a1e6f0606a9f7d95d4d6a6feddf35"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/liu-yang.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/liu-yang.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/liu-yang.png",
+      "size": 130629,
+      "sha1": "be464176815ff6c12cf3b42923ef2408f24518c8"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/livakovic.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/livakovic.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/livakovic.png",
+      "size": 198689,
+      "sha1": "066bba9229e728e02119bdcbaea2e4f314f8d587"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/llorente.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/llorente.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/llorente.png",
+      "size": 197220,
+      "sha1": "d7eaa4df6bb4a238c3959cbaf2fa2f7841c8379d"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/lo-celso.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/lo-celso.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/lo-celso.png",
+      "size": 205166,
+      "sha1": "08c7faec733ad420a059ed5c72e634bcdad6fa7d"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/lucas-hernandez.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/lucas-hernandez.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/lucas-hernandez.png",
+      "size": 189915,
+      "sha1": "5451de207daab23dd84c21eb83ec23bdc1dfa9d0"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/luke-shaw.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/luke-shaw.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/luke-shaw.png",
+      "size": 196623,
+      "sha1": "b6b306e9e941f9eeb22b2309aca9d68c17e39fcb"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/lunin.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/lunin.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/lunin.png",
+      "size": 190776,
+      "sha1": "3e45de300ab26f785560edd865351543900f9b9f"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/maddison.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/maddison.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/maddison.png",
+      "size": 203601,
+      "sha1": "6eb1760dd49f70cc244daa9561a5ca36be9f4b98"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/maguire.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/maguire.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/maguire.png",
+      "size": 201751,
+      "sha1": "e49691ad82cee3f56e7ee8e2a5ff15611cbeb4e5"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/mainoo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/mainoo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/mainoo.png",
+      "size": 197325,
+      "sha1": "aa2253c02425080fb01a374ed8d5da03b1765e47"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/majer.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/majer.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/majer.png",
+      "size": 199998,
+      "sha1": "f7428f1485f5f4d2f31231dad1d157584b7faea7"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/marcus-thuram.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/marcus-thuram.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/marcus-thuram.png",
+      "size": 196626,
+      "sha1": "fb344f91ae112aa2c203f295271eaccde82e2a40"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/marquinhos.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/marquinhos.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/marquinhos.png",
+      "size": 192769,
+      "sha1": "2e64fdbb86203943b340b5fd34e29be537fbbfae"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/martinelli.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/martinelli.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/martinelli.png",
+      "size": 202877,
+      "sha1": "965a9481f0cb540c032ebda2c231bcaaa2018abb"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/matheus-nunes.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/matheus-nunes.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/matheus-nunes.png",
+      "size": 190249,
+      "sha1": "36f800601a01671746856ad6e99dc704f3864673"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/mctominay.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/mctominay.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/mctominay.png",
+      "size": 200862,
+      "sha1": "544a5c86d416936424f97cbe38b0104fc88d79fd"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/memphis.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/memphis.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/memphis.png",
+      "size": 206969,
+      "sha1": "5ad57a8a7f39875e7782ad68bedc920201b89bbf"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/merino.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/merino.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/merino.png",
+      "size": 205245,
+      "sha1": "74b0f49fdf226d01cb5277483f8d886225ba289b"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/milinkovic-savic.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/milinkovic-savic.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/milinkovic-savic.png",
+      "size": 198357,
+      "sha1": "5a88663270f5fa14638f868bf9b44979f2ca35dc"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/minamino.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/minamino.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/minamino.png",
+      "size": 131864,
+      "sha1": "498623763fbadb9f924779c9c8eb3ecf37604865"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/molina.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/molina.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/molina.png",
+      "size": 200065,
+      "sha1": "15d48b0382df75ffea4b8515e25c59655471c17b"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/morata.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/morata.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/morata.png",
+      "size": 203738,
+      "sha1": "a5e634fba7b131044c86d54514c801dc91fffc28"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/mount.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/mount.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/mount.png",
+      "size": 202930,
+      "sha1": "cf985b88a0d876ef01c7d4e6f9875fb2a611fc2a"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/nacho.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/nacho.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/nacho.png",
+      "size": 201093,
+      "sha1": "222585bc18e89bcb87ddfd3f537f4ea10239ea14"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/nicolas-gonzalez.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/nicolas-gonzalez.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/nicolas-gonzalez.png",
+      "size": 204805,
+      "sha1": "fa20eb580a8695ca254a29ee424708dfda1fc9e9"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/nkunku.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/nkunku.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/nkunku.png",
+      "size": 200604,
+      "sha1": "fe97f0ae72c1e640d588f160f49d74cc716d79fd"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/nuno-mendes.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/nuno-mendes.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/nuno-mendes.png",
+      "size": 195170,
+      "sha1": "008cbba08984536af10c4d8b21c93c8699c9e8b3"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/oblak.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/oblak.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/oblak.png",
+      "size": 196480,
+      "sha1": "d8fb0a0b8a5db7a0588d57014720061be697bce7"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/otamendi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/otamendi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/otamendi.png",
+      "size": 199402,
+      "sha1": "a064e9cceb199f5eb6ff97ecc39d2b668117e045"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/oyarzabal.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/oyarzabal.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/oyarzabal.png",
+      "size": 205225,
+      "sha1": "f133e7bfc94c1766afa3f6bc17be10dee5fd8e6a"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/palacios.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/palacios.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/palacios.png",
+      "size": 205496,
+      "sha1": "56d468379781e7c3eadc02eaaec3a749996cd758"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/paqueta.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/paqueta.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/paqueta.png",
+      "size": 200783,
+      "sha1": "e18fc64a0936b01728e8fdafc5dd7b191aa946db"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/paredes.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/paredes.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/paredes.png",
+      "size": 204862,
+      "sha1": "8a481978c883a930c31049423b6518a32243eb2b"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/partey.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/partey.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/partey.png",
+      "size": 195117,
+      "sha1": "a839be84ad7caa084e33e15796247bbcbfada86f"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/pavard.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/pavard.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/pavard.png",
+      "size": 200344,
+      "sha1": "0a8b94d33b81e1352aa0bf8316ecb37e1f6aaef0"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/pedro-neto.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/pedro-neto.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/pedro-neto.png",
+      "size": 200309,
+      "sha1": "8ad62e533aed610441642b9ac712da7ed1af1b72"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/pepi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/pepi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/pepi.png",
+      "size": 201364,
+      "sha1": "497c5024b1c03546fac6b835347205aee74494f0"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/phillips.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/phillips.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/phillips.png",
+      "size": 199856,
+      "sha1": "b2adc3c0037b7875928838d586fa7e42e34c44ff"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/pickford.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/pickford.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/pickford.png",
+      "size": 201669,
+      "sha1": "a45a4bf6ee4e3b9f9c00292475d2e25865e83744"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/rabiot.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/rabiot.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/rabiot.png",
+      "size": 197901,
+      "sha1": "9a74b2ac09151f7c23d029fbc35fad16cdea362a"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/ramsdale.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/ramsdale.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/ramsdale.png",
+      "size": 199786,
+      "sha1": "fb26b1296926388b67491c0153bc4de4c4737194"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/rashford.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/rashford.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/rashford.png",
+      "size": 202343,
+      "sha1": "ca56c407f7bd00898f3e269ec19d7849a9c5ae3f"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/reece-james.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/reece-james.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/reece-james.png",
+      "size": 205319,
+      "sha1": "53659ad2e34a974c15c3a623e4c172d67eff3b94"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/reijnders.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/reijnders.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/reijnders.png",
+      "size": 199597,
+      "sha1": "0de3565b22e41423126b299d9a108c9541716b6b"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/retegui.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/retegui.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/retegui.png",
+      "size": 198820,
+      "sha1": "a14bddeec3d451d41b0095d2535a7f291369ed5b"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/richarlison.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/richarlison.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/richarlison.png",
+      "size": 198222,
+      "sha1": "999e15d244bcaee433623063419117744735f1a6"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/rodrygo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/rodrygo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/rodrygo.png",
+      "size": 198729,
+      "sha1": "25d735befe1e713e701efcafd84f1fe103f95219"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/ruben-neves.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/ruben-neves.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/ruben-neves.png",
+      "size": 203125,
+      "sha1": "8fa2af9b99c8cbc1792b71c64cac5ec85474e039"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/samardzic.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/samardzic.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/samardzic.png",
+      "size": 205777,
+      "sha1": "a7123349837cd8a707bb565baf151b184eea3f68"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/samba.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/samba.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/samba.png",
+      "size": 197082,
+      "sha1": "41fe91b37c92b008625a4afaa6441ee1698943fe"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/sancho.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/sancho.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/sancho.png",
+      "size": 203198,
+      "sha1": "7ea871f632a6965dae479d8b104e6e0808c83e63"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/santiago-gimenez.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/santiago-gimenez.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/santiago-gimenez.png",
+      "size": 197021,
+      "sha1": "c2e240ca53dcc36a9837229c8409bf0e8e6fea9d"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/scalvini.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/scalvini.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/scalvini.png",
+      "size": 202222,
+      "sha1": "dff4a3503531c879b6549bbf0e14485fa728d41b"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/scamacca.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/scamacca.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/scamacca.png",
+      "size": 193730,
+      "sha1": "27117c9809bc5b9c5aaa5f7a704de1deb82c60f3"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/sesko.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/sesko.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/sesko.png",
+      "size": 202457,
+      "sha1": "a70d32a4ba52fb798283fba85a28597e2e08852e"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/sommer.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/sommer.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/sommer.png",
+      "size": 205768,
+      "sha1": "256812a61b6be5eae4d87c50197d2d49e3002aa4"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/stones.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/stones.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/stones.png",
+      "size": 201208,
+      "sha1": "226010a56ce88b4a631c9cd828b902bdaa504909"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/sucic.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/sucic.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/sucic.png",
+      "size": 204183,
+      "sha1": "12ecb62ed6c7c96cc91684fea2ac78116f4c1fbe"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/szczesny.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/szczesny.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/szczesny.png",
+      "size": 201741,
+      "sha1": "8bd0c2de7256248132972b4424f25e2487f7e4c7"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/szoboszlai.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/szoboszlai.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/szoboszlai.png",
+      "size": 196731,
+      "sha1": "fdcd0991c4e1fe7e8e42a526b80b5a8ffe06a451"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/taremi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/taremi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/taremi.png",
+      "size": 131801,
+      "sha1": "aa0133d59f1066b8d03d6e4833ce0f05af443b18"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/ter-stegen.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/ter-stegen.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/ter-stegen.png",
+      "size": 192503,
+      "sha1": "396fcc504346dc634b254700c5e919452fd5b1d6"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/tim-weah.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/tim-weah.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/tim-weah.png",
+      "size": 205052,
+      "sha1": "7e5f09cb126e6065f2022172f2657bc431bf5daf"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/timber.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/timber.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/timber.png",
+      "size": 202376,
+      "sha1": "4a2785a08c27d64058d1d7fe2d4346dd6107a43a"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/toney.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/toney.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/toney.png",
+      "size": 203062,
+      "sha1": "3a0099bec2661aab3079680ea3ca4df48f1b1165"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/trippier.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/trippier.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/trippier.png",
+      "size": 200729,
+      "sha1": "3da9d903ef54d3d9636caad0d6bbe35b72fb18a4"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/trubin.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/trubin.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/trubin.png",
+      "size": 203141,
+      "sha1": "796dfb5629e34c1ddc3bdb111885da6dca2101b7"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/udogie.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/udogie.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/udogie.png",
+      "size": 205789,
+      "sha1": "f03643c7bc91f5645ba1463317762dc2b3bfbb5b"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/ugarte.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/ugarte.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/ugarte.png",
+      "size": 189621,
+      "sha1": "f42495c8d84e69930006f6faa615928864250d06"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/varane.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/varane.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/varane.png",
+      "size": 200782,
+      "sha1": "00a2f860438a57a78f2c6ea935eb4e8bc6ece943"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/vicario.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/vicario.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/vicario.png",
+      "size": 195266,
+      "sha1": "482e73328e94f6ff92e074ab999fa40e6bd4bbfc"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/vitinha.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/vitinha.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/vitinha.png",
+      "size": 200494,
+      "sha1": "37956ce105f7eb041d2e9cdf11140a91ef3941b1"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/walker.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/walker.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/walker.png",
+      "size": 192569,
+      "sha1": "7e9845c1e6d33f7f39c2b83cce088a6fec6f633a"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/wang-dalei.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/wang-dalei.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/wang-dalei.png",
+      "size": 131660,
+      "sha1": "e220ec9bd62fa6cb1d032b046fd4464d920d1ecc"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/wang-shangyuan.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/wang-shangyuan.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/wang-shangyuan.png",
+      "size": 134648,
+      "sha1": "247764f575d3973583e38b10ca7d0b0cb14280da"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/wang-shenchao.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/wang-shenchao.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/wang-shenchao.png",
+      "size": 130136,
+      "sha1": "157ed4ae6fe63eeeb7844b3451d14f95d93b946f"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/watkins.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/watkins.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/watkins.png",
+      "size": 199947,
+      "sha1": "809b19d140dc07787f6e6473b0e78e763d35f820"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/weghorst.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/weghorst.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/weghorst.png",
+      "size": 198673,
+      "sha1": "2ce53c848bf2bec6303cf838addeb05ed5507dd4"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/wei-shihao.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/wei-shihao.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/wei-shihao.png",
+      "size": 135512,
+      "sha1": "b6c74738388a85773ba309811f291635db985a9e"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/wu-lei.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/wu-lei.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/wu-lei.png",
+      "size": 134922,
+      "sha1": "f8126283963bc5acc60c10dd1ec2439210a8e50a"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/wu-xi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/wu-xi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/wu-xi.png",
+      "size": 132473,
+      "sha1": "614a09c6951b7a9b5ea5872298521f45074fe065"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/xavi-simons.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/xavi-simons.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/xavi-simons.png",
+      "size": 202092,
+      "sha1": "180fb823f5da4fae84710e1ca947bdd738073379"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/xie-pengfei.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/xie-pengfei.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/xie-pengfei.png",
+      "size": 132989,
+      "sha1": "77303e2f25f32d1ba5667e5f18fe1e7a68bbc3c2"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/xu-xin.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/xu-xin.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/xu-xin.png",
+      "size": 130749,
+      "sha1": "656d4162c96e4074236b56ee16106b244e2ac826"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/yan-junling.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/yan-junling.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/yan-junling.png",
+      "size": 134642,
+      "sha1": "0f1508a9c40061490ab14d6d7c5bb2f143bc0027"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/yeremy-pino.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/yeremy-pino.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/yeremy-pino.png",
+      "size": 198566,
+      "sha1": "605e0848a2d20841ec307767effbffc24e97a460"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/zaire-emery.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/zaire-emery.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/zaire-emery.png",
+      "size": 196449,
+      "sha1": "9a0a1a8c748ee59f8e2eee000bb5a547a146f006"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/zhang-linpeng.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/zhang-linpeng.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/zhang-linpeng.png",
+      "size": 131383,
+      "sha1": "3395daf6df4e778b9820810a1b3b01b6b567ffe2"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/zhang-xizhe.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/zhang-xizhe.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/zhang-xizhe.png",
+      "size": 133862,
+      "sha1": "868f5f2f933ad41a692db0dbcec7beba870dc185"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/zhang-yuning.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/zhang-yuning.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/zhang-yuning.png",
+      "size": 132362,
+      "sha1": "8558dadbef2309d41cd640b8e738b761084c360b"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/zhu-chenjie.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/zhu-chenjie.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/zhu-chenjie.png",
+      "size": 133068,
+      "sha1": "092ed735be8d0b334d735930d8a1e4627430afb8"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/zielinski.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/zielinski.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/zielinski.png",
+      "size": 210137,
+      "sha1": "aa619aba6e4a93ecbc132748bb6512b888578ea2"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/zirkzee.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/zirkzee.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/zirkzee.png",
+      "size": 194870,
+      "sha1": "fc5f8f03633601579ef79e9c0969040ee821d101"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/ziyech.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/ziyech.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/ziyech.png",
+      "size": 197531,
+      "sha1": "6f75fd61cd9dfe91a7a2137ad3678b1b9305fdde"
+    },
+    {
+      "localPath": "/assets/players/generated/extra/zubimendi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/extra/zubimendi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/extra/zubimendi.png",
+      "size": 197288,
+      "sha1": "7c4ac899f653353da20329ce3fe78b0a098e2471"
+    },
+    {
+      "localPath": "/assets/players/generated/foden.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/foden.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/foden.png",
+      "size": 133864,
+      "sha1": "71df977a69ac4add59f656e9fdc55d2d7fd5d52f"
+    },
+    {
+      "localPath": "/assets/players/generated/gakpo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/gakpo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/gakpo.png",
+      "size": 130494,
+      "sha1": "bd3433fc01a7b414b6558012d004d6b2c6707ef0"
+    },
+    {
+      "localPath": "/assets/players/generated/gavi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/gavi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/gavi.png",
+      "size": 139761,
+      "sha1": "b1a0b0d99bc23a05c723bd6ba57183add539701f"
+    },
+    {
+      "localPath": "/assets/players/generated/griezmann.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/griezmann.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/griezmann.png",
+      "size": 145620,
+      "sha1": "08dbe068fffe0d7bd9664b9338b7b3a42259f1c6"
+    },
+    {
+      "localPath": "/assets/players/generated/gvardiol.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/gvardiol.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/gvardiol.png",
+      "size": 138403,
+      "sha1": "cd52e4c8713b0d01a0b2d41374ef16773fd73d2a"
+    },
+    {
+      "localPath": "/assets/players/generated/haaland.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/haaland.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/haaland.png",
+      "size": 139825,
+      "sha1": "e2f1b37af2bc1c9f302eddedc8a2012b484cd1b8"
+    },
+    {
+      "localPath": "/assets/players/generated/hakimi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/hakimi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/hakimi.png",
+      "size": 132699,
+      "sha1": "86641d9f0406a71d6f0b6a08d191aabd64488dc8"
+    },
+    {
+      "localPath": "/assets/players/generated/iniesta.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/iniesta.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/iniesta.png",
+      "size": 136761,
+      "sha1": "e761844728d384b6a1f561ed248a385d6c797510"
+    },
+    {
+      "localPath": "/assets/players/generated/isak.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/isak.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/isak.png",
+      "size": 131312,
+      "sha1": "bec3bbbdebde90012d88b7c090df930327c2f984"
+    },
+    {
+      "localPath": "/assets/players/generated/kane.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/kane.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/kane.png",
+      "size": 133741,
+      "sha1": "5253fa39b4a3943a61c5da12b44543ef9341bcca"
+    },
+    {
+      "localPath": "/assets/players/generated/kim-minjae.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/kim-minjae.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/kim-minjae.png",
+      "size": 129651,
+      "sha1": "8ffa22cd40f08a1efa4d075d59b5be59c52e02e1"
+    },
+    {
+      "localPath": "/assets/players/generated/kimmich.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/kimmich.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/kimmich.png",
+      "size": 138682,
+      "sha1": "fe9f9a4da59af2c70b08f30b9ea4082fa97be1e9"
+    },
+    {
+      "localPath": "/assets/players/generated/kounde.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/kounde.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/kounde.png",
+      "size": 134593,
+      "sha1": "1f98f9cd32014b18b7864f11b2c47a4f256658ba"
+    },
+    {
+      "localPath": "/assets/players/generated/kubo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/kubo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/kubo.png",
+      "size": 132337,
+      "sha1": "f33466a5acf1a1ef30d8e7f77c4fe86817155913"
+    },
+    {
+      "localPath": "/assets/players/generated/kvaratskhelia.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/kvaratskhelia.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/kvaratskhelia.png",
+      "size": 140842,
+      "sha1": "6f62887ead9bc7aa0c003c10409681aa8912df3f"
+    },
+    {
+      "localPath": "/assets/players/generated/lautaro.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/lautaro.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/lautaro.png",
+      "size": 135739,
+      "sha1": "790f2136bbf8cc1d4d8032cd80dfdf29bf685ec7"
+    },
+    {
+      "localPath": "/assets/players/generated/leao.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/leao.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/leao.png",
+      "size": 132565,
+      "sha1": "475c522a2644987c63b6f37c28152705f6a07c9a"
+    },
+    {
+      "localPath": "/assets/players/generated/lewandowski.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/lewandowski.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/lewandowski.png",
+      "size": 137965,
+      "sha1": "1302e005c939edfcf939a8542161474d7d272d0f"
+    },
+    {
+      "localPath": "/assets/players/generated/luis-diaz.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/luis-diaz.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/luis-diaz.png",
+      "size": 132556,
+      "sha1": "16b71abf2ba64e1b7c120e4b20044414293083f9"
+    },
+    {
+      "localPath": "/assets/players/generated/mac-allister.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/mac-allister.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/mac-allister.png",
+      "size": 134378,
+      "sha1": "42f490cc4379b1c6d319665fd797ffb2cab69cc0"
+    },
+    {
+      "localPath": "/assets/players/generated/maignan.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/maignan.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/maignan.png",
+      "size": 135107,
+      "sha1": "d783692fb486377b897a3b8cdbed43e4594c58d9"
+    },
+    {
+      "localPath": "/assets/players/generated/maldini.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/maldini.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/maldini.png",
+      "size": 139895,
+      "sha1": "2fa1df1f13a70cc25cdce3107be6d1a958c9f29c"
+    },
+    {
+      "localPath": "/assets/players/generated/maradona.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/maradona.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/maradona.png",
+      "size": 138903,
+      "sha1": "b98d3b530554cef70030d453f8be140b349ffc91"
+    },
+    {
+      "localPath": "/assets/players/generated/mbappe.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/mbappe.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/mbappe.png",
+      "size": 134773,
+      "sha1": "337db8f6f8949911bbfce14ef65e38a5d2518b9c"
+    },
+    {
+      "localPath": "/assets/players/generated/messi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/messi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/messi.png",
+      "size": 140090,
+      "sha1": "602ede1d974d06603af021083a9e79eef5ea4502"
+    },
+    {
+      "localPath": "/assets/players/generated/militao.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/militao.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/militao.png",
+      "size": 136626,
+      "sha1": "b4a7fb1133b991ee7191cbcbf2f9a3b0b31956aa"
+    },
+    {
+      "localPath": "/assets/players/generated/mitoma.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/mitoma.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/mitoma.png",
+      "size": 134873,
+      "sha1": "52f7fb30480611892951e67c01fb79b622c97638"
+    },
+    {
+      "localPath": "/assets/players/generated/modric.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/modric.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/modric.png",
+      "size": 143624,
+      "sha1": "9eac8492304237842dc66a5a707e2dad680aeb2c"
+    },
+    {
+      "localPath": "/assets/players/generated/musiala.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/musiala.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/musiala.png",
+      "size": 135744,
+      "sha1": "2a7a8e24bc92db00aba42f66e690983aed731646"
+    },
+    {
+      "localPath": "/assets/players/generated/neuer.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/neuer.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/neuer.png",
+      "size": 136055,
+      "sha1": "c2ae6dcc13457d19989b6110cffd4807c3f917dc"
+    },
+    {
+      "localPath": "/assets/players/generated/neymar.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/neymar.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/neymar.png",
+      "size": 136659,
+      "sha1": "496dcf20100da02b1df343717d1b82a0aefef687"
+    },
+    {
+      "localPath": "/assets/players/generated/nico-williams.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/nico-williams.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/nico-williams.png",
+      "size": 136682,
+      "sha1": "313c4133fd6c2900f58b1c86c07bea311e1a5143"
+    },
+    {
+      "localPath": "/assets/players/generated/nunez.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/nunez.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/nunez.png",
+      "size": 132147,
+      "sha1": "21fdec6db53904e57c8b92c1f9a07705c365605d"
+    },
+    {
+      "localPath": "/assets/players/generated/odegaard.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/odegaard.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/odegaard.png",
+      "size": 139534,
+      "sha1": "2d3e1ce08c8aa982bb310b403555b1e83bef763e"
+    },
+    {
+      "localPath": "/assets/players/generated/olise.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/olise.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/olise.png",
+      "size": 130915,
+      "sha1": "57e2a85da3b2c2f786a5b9e7f32640f67132388b"
+    },
+    {
+      "localPath": "/assets/players/generated/osimhen.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/osimhen.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/osimhen.png",
+      "size": 136388,
+      "sha1": "9d94f5a662995e1ecf611b447aae6a262cb1f2af"
+    },
+    {
+      "localPath": "/assets/players/generated/pedri.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/pedri.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/pedri.png",
+      "size": 139283,
+      "sha1": "f70c65a445a5d6a98e84412b2ae3cb2f5a37cb9c"
+    },
+    {
+      "localPath": "/assets/players/generated/pele.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/pele.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/pele.png",
+      "size": 130595,
+      "sha1": "fc0163a98faa597b433cacf38be5d88e5603b9dc"
+    },
+    {
+      "localPath": "/assets/players/generated/pulisic.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/pulisic.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/pulisic.png",
+      "size": 134487,
+      "sha1": "23d2adb771295a4df24a3d56b1a4259a5fe97228"
+    },
+    {
+      "localPath": "/assets/players/generated/ramos.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/ramos.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/ramos.png",
+      "size": 141735,
+      "sha1": "5e0927e114c1bc1807765d97638badd989983fb8"
+    },
+    {
+      "localPath": "/assets/players/generated/raphinha.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/raphinha.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/raphinha.png",
+      "size": 134284,
+      "sha1": "ff569b65b7215b1b72b168b5ff7c1ddf867b7d32"
+    },
+    {
+      "localPath": "/assets/players/generated/rice.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/rice.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/rice.png",
+      "size": 137454,
+      "sha1": "03656867ccdf88ca47f00384dbbba2f4176f5440"
+    },
+    {
+      "localPath": "/assets/players/generated/rodri.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/rodri.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/rodri.png",
+      "size": 133842,
+      "sha1": "916659627f4b7bc6f96b3aed8ec4fd325bb076da"
+    },
+    {
+      "localPath": "/assets/players/generated/ronaldinho.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/ronaldinho.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/ronaldinho.png",
+      "size": 137814,
+      "sha1": "87ee8af336190f6acaa2db0e0edd911d3b4bf157"
+    },
+    {
+      "localPath": "/assets/players/generated/ronaldo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/ronaldo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/ronaldo.png",
+      "size": 131304,
+      "sha1": "4891892ae08084ea3d971e476ae38cf16d949f29"
+    },
+    {
+      "localPath": "/assets/players/generated/rudiger.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/rudiger.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/rudiger.png",
+      "size": 137442,
+      "sha1": "f83a48f0fa44133ea8e92c52089e131e08ae4266"
+    },
+    {
+      "localPath": "/assets/players/generated/saka.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/saka.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/saka.png",
+      "size": 139341,
+      "sha1": "acaded792c4fcc194e9ac42bbfe090454c547ce8"
+    },
+    {
+      "localPath": "/assets/players/generated/salah.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/salah.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/salah.png",
+      "size": 139924,
+      "sha1": "22a77fbbb2077e581aec343a88600357f9df5771"
+    },
+    {
+      "localPath": "/assets/players/generated/saliba.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/saliba.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/saliba.png",
+      "size": 133563,
+      "sha1": "b8daedb5bf872b2990da3eb92584c8344480cc9c"
+    },
+    {
+      "localPath": "/assets/players/generated/son.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/son.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/son.png",
+      "size": 135789,
+      "sha1": "89c5efe2dff7a2bb8d4f5e4f36eb077ff9ae06c7"
+    },
+    {
+      "localPath": "/assets/players/generated/suarez.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/suarez.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/suarez.png",
+      "size": 139906,
+      "sha1": "8d417b5b3284f9001472baa9fe513831c183492a"
+    },
+    {
+      "localPath": "/assets/players/generated/tchouameni.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/tchouameni.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/tchouameni.png",
+      "size": 131279,
+      "sha1": "c3e5faf396ff96c1ed8e5d390a59be84e69cb120"
+    },
+    {
+      "localPath": "/assets/players/generated/theo.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/theo.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/theo.png",
+      "size": 140308,
+      "sha1": "3b6bf092b7e5d08a98983f792b82aa413dc1611b"
+    },
+    {
+      "localPath": "/assets/players/generated/trent.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/trent.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/trent.png",
+      "size": 134987,
+      "sha1": "ac2a0c010c6128d1dab83da20de3bd84e6c118f8"
+    },
+    {
+      "localPath": "/assets/players/generated/upamecano.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/upamecano.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/upamecano.png",
+      "size": 132735,
+      "sha1": "9e0f9fbbf05512dcef1b37e95807f7f708e30925"
+    },
+    {
+      "localPath": "/assets/players/generated/valverde.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/valverde.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/valverde.png",
+      "size": 146556,
+      "sha1": "c8ffc678b16a453891547c59832a89e5f8ce0c79"
+    },
+    {
+      "localPath": "/assets/players/generated/vandijk.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/vandijk.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/vandijk.png",
+      "size": 135394,
+      "sha1": "aad2f61484027190297d47a2a1d184ca314128a5"
+    },
+    {
+      "localPath": "/assets/players/generated/vini.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/vini.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/vini.png",
+      "size": 132988,
+      "sha1": "071b477380eea63bf8f41c61e099fe76c5341a20"
+    },
+    {
+      "localPath": "/assets/players/generated/vlahovic.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/vlahovic.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/vlahovic.png",
+      "size": 136613,
+      "sha1": "76593d461f7c4eb455e29202a06f533070f60209"
+    },
+    {
+      "localPath": "/assets/players/generated/wirtz.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/wirtz.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/wirtz.png",
+      "size": 138434,
+      "sha1": "a63596ce5a228a118d6fd7c0b48a94de1d1050e4"
+    },
+    {
+      "localPath": "/assets/players/generated/xavi.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/xavi.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/xavi.png",
+      "size": 134335,
+      "sha1": "1a73f050de5f535a4ac2854478395194517f2aca"
+    },
+    {
+      "localPath": "/assets/players/generated/yamal.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/yamal.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/yamal.png",
+      "size": 142118,
+      "sha1": "95c9d5e774a8364724ba50f4d13b4a50e946e253"
+    },
+    {
+      "localPath": "/assets/players/generated/yashin.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/yashin.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/yashin.png",
+      "size": 143834,
+      "sha1": "65718b281fbb12042a9210e7a9096631e70cde26"
+    },
+    {
+      "localPath": "/assets/players/generated/zidane.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/zidane.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/zidane.png",
+      "size": 135884,
+      "sha1": "1ec91b7016c7af4fc2af1b51ce28a69549c54fc5"
+    },
+    {
+      "localPath": "/assets/players/generated/zlatan.png",
+      "cloudPath": "soccer-dy3/assets/players/generated/zlatan.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/players/generated/zlatan.png",
+      "size": 138382,
+      "sha1": "bcdea891e20ac679f876b50a0c58cc75554f6b70"
+    },
+    {
+      "localPath": "/assets/ui/avatar-bg.png",
+      "cloudPath": "soccer-dy3/assets/ui/avatar-bg.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/avatar-bg.png",
+      "size": 201499,
+      "sha1": "8c12bb6ecab79c3cf4a4c17f3b29c2bd607f6ef1"
+    },
+    {
+      "localPath": "/assets/ui/back.png",
+      "cloudPath": "soccer-dy3/assets/ui/back.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/back.png",
+      "size": 560695,
+      "sha1": "c89ec1dceb15a9ed072350bd1afea8c3e71d3bd9"
+    },
+    {
+      "localPath": "/assets/ui/bottom-menu.png",
+      "cloudPath": "soccer-dy3/assets/ui/bottom-menu.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/bottom-menu.png",
+      "size": 464230,
+      "sha1": "bb782d807a8d433f18efdc751ca51c8ccc85a853"
+    },
+    {
+      "localPath": "/assets/ui/button-ready.png",
+      "cloudPath": "soccer-dy3/assets/ui/button-ready.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/button-ready.png",
+      "size": 581158,
+      "sha1": "e1563a5287f7252ce882ef0961974f9b6b6de479"
+    },
+    {
+      "localPath": "/assets/ui/buttons.png",
+      "cloudPath": "soccer-dy3/assets/ui/buttons.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/buttons.png",
+      "size": 298487,
+      "sha1": "41d95a2b68d333bc88a836b48764356988ea9a1f"
+    },
+    {
+      "localPath": "/assets/ui/card-guess.png",
+      "cloudPath": "soccer-dy3/assets/ui/card-guess.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/card-guess.png",
+      "size": 1205058,
+      "sha1": "7ac76d42f56cf9b9a80fbc1b23ed36e2ff314103"
+    },
+    {
+      "localPath": "/assets/ui/card-guess1.png",
+      "cloudPath": "soccer-dy3/assets/ui/card-guess1.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/card-guess1.png",
+      "size": 396141,
+      "sha1": "63b5e718b72263b6958e3311c5176e58d548b850"
+    },
+    {
+      "localPath": "/assets/ui/cardbg.png",
+      "cloudPath": "soccer-dy3/assets/ui/cardbg.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/cardbg.png",
+      "size": 894684,
+      "sha1": "5481e048957c8345ab1bef4d3d343b4efe5e034b"
+    },
+    {
+      "localPath": "/assets/ui/draft-button.png",
+      "cloudPath": "soccer-dy3/assets/ui/draft-button.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/draft-button.png",
+      "size": 448384,
+      "sha1": "ce02fd0f18aab358bd6e73c91eca21b8a8008c2f"
+    },
+    {
+      "localPath": "/assets/ui/everyday-active.png",
+      "cloudPath": "soccer-dy3/assets/ui/everyday-active.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/everyday-active.png",
+      "size": 1326044,
+      "sha1": "67654b525edd15e729b7b6d30817d513e68448c3"
+    },
+    {
+      "localPath": "/assets/ui/football-backgrond.png",
+      "cloudPath": "soccer-dy3/assets/ui/football-backgrond.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/football-backgrond.png",
+      "size": 1248041,
+      "sha1": "af6b9dacb11317ef88393c8492d91a36d389dcbd"
+    },
+    {
+      "localPath": "/assets/ui/gamebutton.png",
+      "cloudPath": "soccer-dy3/assets/ui/gamebutton.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/gamebutton.png",
+      "size": 282127,
+      "sha1": "ffde47c5cd7bda89909a1e48f62ab9b0643771cf"
+    },
+    {
+      "localPath": "/assets/ui/gameevents.png",
+      "cloudPath": "soccer-dy3/assets/ui/gameevents.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/gameevents.png",
+      "size": 1132119,
+      "sha1": "3391005b06d73109e24c656ebd79e7817e4c1a7a"
+    },
+    {
+      "localPath": "/assets/ui/gamereadybg.png",
+      "cloudPath": "soccer-dy3/assets/ui/gamereadybg.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/gamereadybg.png",
+      "size": 1336055,
+      "sha1": "efbdcd2d66a36c63d6f2c65c86adf123b06acbb0"
+    },
+    {
+      "localPath": "/assets/ui/gift.png",
+      "cloudPath": "soccer-dy3/assets/ui/gift.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/gift.png",
+      "size": 1137371,
+      "sha1": "221ee93d6d5db283db6cdf3f8c5e34ba2379cff4"
+    },
+    {
+      "localPath": "/assets/ui/headertitle.png",
+      "cloudPath": "soccer-dy3/assets/ui/headertitle.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/headertitle.png",
+      "size": 519782,
+      "sha1": "69138d2dcb5084c9194187efa707e0d3c970163d"
+    },
+    {
+      "localPath": "/assets/ui/hero.png",
+      "cloudPath": "soccer-dy3/assets/ui/hero.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/hero.png",
+      "size": 309782,
+      "sha1": "bc1adb0f3965be37693ff1224c26043e002c406a"
+    },
+    {
+      "localPath": "/assets/ui/jifenkuang.png",
+      "cloudPath": "soccer-dy3/assets/ui/jifenkuang.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/jifenkuang.png",
+      "size": 2767755,
+      "sha1": "ecece18b83408a0ea021cbe58ce369f4d2dc6994"
+    },
+    {
+      "localPath": "/assets/ui/matchtitle.png",
+      "cloudPath": "soccer-dy3/assets/ui/matchtitle.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/matchtitle.png",
+      "size": 104560,
+      "sha1": "f50683a6b3f0469f9bca06e92df6aed4d519fea0"
+    },
+    {
+      "localPath": "/assets/ui/play.png",
+      "cloudPath": "soccer-dy3/assets/ui/play.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/play.png",
+      "size": 359425,
+      "sha1": "54dfe1c068635f2a6fb1066f6a501c5a538f1658"
+    },
+    {
+      "localPath": "/assets/ui/playbutton.png",
+      "cloudPath": "soccer-dy3/assets/ui/playbutton.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/playbutton.png",
+      "size": 519233,
+      "sha1": "430348564a3d6027306f271a4c1dac3affbbb834"
+    },
+    {
+      "localPath": "/assets/ui/playercore.png",
+      "cloudPath": "soccer-dy3/assets/ui/playercore.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/playercore.png",
+      "size": 343630,
+      "sha1": "4c510a9849b4b682c9fc797dc8e092828ea9cfa5"
+    },
+    {
+      "localPath": "/assets/ui/players-bg.png",
+      "cloudPath": "soccer-dy3/assets/ui/players-bg.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/players-bg.png",
+      "size": 565149,
+      "sha1": "72ac0de68cb5e56f3bba36f286bbb6c5a515fa4c"
+    },
+    {
+      "localPath": "/assets/ui/playerscore.png",
+      "cloudPath": "soccer-dy3/assets/ui/playerscore.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/playerscore.png",
+      "size": 163313,
+      "sha1": "49f760b9fbebf0cb111979739151f98a4c787c87"
+    },
+    {
+      "localPath": "/assets/ui/qiandao.png",
+      "cloudPath": "soccer-dy3/assets/ui/qiandao.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/qiandao.png",
+      "size": 741483,
+      "sha1": "2288b5ee41650bd563877c1b30ca1b2a7abe7fb3"
+    },
+    {
+      "localPath": "/assets/ui/readybutton.png",
+      "cloudPath": "soccer-dy3/assets/ui/readybutton.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/readybutton.png",
+      "size": 303837,
+      "sha1": "20c2bd9d332d8650ec54f13fcab13f3d3c1ce884"
+    },
+    {
+      "localPath": "/assets/ui/replace_player.png",
+      "cloudPath": "soccer-dy3/assets/ui/replace_player.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/replace_player.png",
+      "size": 538963,
+      "sha1": "82565d562a86ae40a8dc08cf90c430a312c7f864"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/accpet-end.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/accpet-end.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/accpet-end.png",
+      "size": 278960,
+      "sha1": "d8aa4b24dc1641557a658ea0836ab8e8a2d08d35"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/accpet.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/accpet.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/accpet.png",
+      "size": 407021,
+      "sha1": "0ddd9412118e71d1e8af437bf309a606a2f2ed13"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/diamond.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/diamond.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/diamond.png",
+      "size": 191932,
+      "sha1": "b823a06262d47228d60c4bd2c3d728bac0f7aa56"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/five.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/five.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/five.png",
+      "size": 663566,
+      "sha1": "001cb8041ac4fdf875a446407c50d0172617f706"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/flash.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/flash.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/flash.png",
+      "size": 243079,
+      "sha1": "60c1a077338e43d31243b33927001656edcbd616"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/four.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/four.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/four.png",
+      "size": 796091,
+      "sha1": "fe611a9ffff4568fdf1c0327a62c1b0a0a9a80f7"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/giftbg.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/giftbg.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/giftbg.png",
+      "size": 387366,
+      "sha1": "b5cede60c5f5e27817fbe7a0605f0d343f9bde2c"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/one.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/one.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/one.png",
+      "size": 702154,
+      "sha1": "689a13c7d808b5abd701b93b3f8f5881f65bdb5a"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/seven.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/seven.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/seven.png",
+      "size": 673933,
+      "sha1": "03787984ec0c0434273b2dc1a59c41e8f9b38279"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/six.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/six.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/six.png",
+      "size": 711443,
+      "sha1": "1658a2df75f9dff4a0a572769eef63c1b6468c31"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/three.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/three.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/three.png",
+      "size": 1453473,
+      "sha1": "13064058f46c38fa303022a57eaf9c09f36dbaf5"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/ticket.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/ticket.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/ticket.png",
+      "size": 250416,
+      "sha1": "8359cb0cc879997fdb16d0b30a5f5b38c5bd69bf"
+    },
+    {
+      "localPath": "/assets/ui/sevenday/two.png",
+      "cloudPath": "soccer-dy3/assets/ui/sevenday/two.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/sevenday/two.png",
+      "size": 850641,
+      "sha1": "a196595b9f28be951e602aba0a9abbbb2ed3cfc4"
+    },
+    {
+      "localPath": "/assets/ui/shoptitle.png",
+      "cloudPath": "soccer-dy3/assets/ui/shoptitle.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/shoptitle.png",
+      "size": 2169319,
+      "sha1": "a6661cb1d0a0a376e60658269340954be27a81f5"
+    },
+    {
+      "localPath": "/assets/ui/squard-qc.png",
+      "cloudPath": "soccer-dy3/assets/ui/squard-qc.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/squard-qc.png",
+      "size": 1174820,
+      "sha1": "5a56e47d6cf36a5b7a981036d0aa0e850d6566da"
+    },
+    {
+      "localPath": "/assets/ui/start.png",
+      "cloudPath": "soccer-dy3/assets/ui/start.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/start.png",
+      "size": 507464,
+      "sha1": "26236719728715c7d44dad1094d5baad6ce9686a"
+    },
+    {
+      "localPath": "/assets/ui/toolstitle.png",
+      "cloudPath": "soccer-dy3/assets/ui/toolstitle.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/toolstitle.png",
+      "size": 114094,
+      "sha1": "81ee39aabf47d5bd0e93318a0b36c721cbaea28e"
+    },
+    {
+      "localPath": "/assets/ui/top-button.png",
+      "cloudPath": "soccer-dy3/assets/ui/top-button.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/top-button.png",
+      "size": 643653,
+      "sha1": "aa731929eb2517beb690295263982922c412cce9"
+    },
+    {
+      "localPath": "/assets/ui/top-number.png",
+      "cloudPath": "soccer-dy3/assets/ui/top-number.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/top-number.png",
+      "size": 168980,
+      "sha1": "0aa2616676510c18c8a6f1a7a174d2b10bde4ed9"
+    },
+    {
+      "localPath": "/assets/ui/vs-squard.png",
+      "cloudPath": "soccer-dy3/assets/ui/vs-squard.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/vs-squard.png",
+      "size": 563204,
+      "sha1": "f1143a9dad4ead9df057209c61db8295d5b26aef"
+    },
+    {
+      "localPath": "/assets/ui/vs.png",
+      "cloudPath": "soccer-dy3/assets/ui/vs.png",
+      "fileID": "cloud://bprecorder-d9gia565fe424bc20.6270-bprecorder-d9gia565fe424bc20-1439533610/soccer-dy3/assets/ui/vs.png",
+      "size": 23659,
+      "sha1": "5782944789402a4656ae42fe56bbdb9d365669c9"
+    }
+  ]
+}
