@@ -56,6 +56,46 @@ function matches() {
   return db.collection('matches');
 }
 
+export async function ensureCloudbaseCollections(collectionNames = ['profiles', 'player_state', 'matches']) {
+  requireDb();
+  const results = [];
+  for (const name of collectionNames) {
+    try {
+      const result = await db.createCollection(name);
+      if (hasCloudbaseError(result)) {
+        if (isCollectionExistsError(result)) {
+          results.push({ name, status: 'exists' });
+          continue;
+        }
+        throw new Error(result.message ?? result.msg ?? result.code ?? result.errCode);
+      }
+      results.push({ name, status: 'created' });
+    } catch (error) {
+      if (isCollectionExistsError(error)) {
+        results.push({ name, status: 'exists' });
+        continue;
+      }
+      throw error;
+    }
+  }
+  return results;
+}
+
+function hasCloudbaseError(result) {
+  return !!(result?.code || result?.errCode) && !['SUCCESS', 'OK', 0].includes(result.code ?? result.errCode);
+}
+
+function isCollectionExistsError(error) {
+  const text = [
+    error?.message,
+    error?.msg,
+    error?.code,
+    error?.errCode,
+    error?.requestId
+  ].filter(Boolean).join(' ');
+  return /exist|already|DUPLICATE|DATABASE_COLLECTION_ALREADY_EXISTS|collection.*exists/i.test(text);
+}
+
 function normalizeProfile(doc) {
   return {
     id: doc.id ?? doc._id,

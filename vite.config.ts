@@ -23,6 +23,9 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    define: {
+      'import.meta.env.VITE_DOUYIN_DEV_PANEL': JSON.stringify(isDouyinDebug ? '1' : process.env.VITE_DOUYIN_DEV_PANEL ?? '')
+    },
     build: {
       outDir: 'douyin-game',
       emptyOutDir: true,

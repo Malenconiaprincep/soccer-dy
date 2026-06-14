@@ -14,14 +14,16 @@ import { SoundFx } from './audio/SoundFx';
 import type { BattleEvent, FormationData, LineupSlot, PlayerCardData, Position, Scene, SceneName } from './types';
 import { PlayerStorage } from './storage/PlayerStorage';
 import { GameServerClient, type MatchOpponent } from './services/GameServerClient';
+import { BattleSocketClient, type MatchFoundPayload, type RealtimeRosterItem } from './services/BattleSocketClient';
 import { defaultShopConfig, type ShopConfig } from '../shopConfig';
 import { DEV_MATCH_DURATION_KEY, resolveMatchDurationMs } from './matchmakingConfig';
 import { label, palette } from './ui';
+import { playerDisplayName } from './playerNames';
 
 const DESIGN_WIDTH = 720;
 const DESIGN_HEIGHT = 1280;
-const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean; MODE?: string; VITE_WEB_TEST_AS_DOUYIN?: string; VITE_MATCH_DURATION_MS?: string } }).env ?? {};
-const isDebugRuntime = runtimeEnv.DEV || runtimeEnv.MODE === 'douyin-debug';
+const runtimeEnv = (import.meta as unknown as { env?: { DEV?: boolean; MODE?: string; VITE_DOUYIN_DEV_PANEL?: string; VITE_WEB_TEST_AS_DOUYIN?: string; VITE_MATCH_DURATION_MS?: string } }).env ?? {};
+const isDebugRuntime = runtimeEnv.DEV || runtimeEnv.MODE === 'douyin-debug' || runtimeEnv.VITE_DOUYIN_DEV_PANEL === '1';
 const SCENES: SceneName[] = ['loading', 'home', 'formation', 'blindBox', 'matchmaking', 'matchup', 'battle', 'result'];
 const DEV_SCENE_KEY = 'soccer.dev.defaultScene';
 const DEV_HOLD_LOADING_KEY = 'soccer.dev.holdLoading';
@@ -57,6 +59,7 @@ export class GameApp {
   readonly sound = new SoundFx();
   readonly storage = new PlayerStorage();
   readonly server = new GameServerClient();
+  readonly realtime = new BattleSocketClient();
   scene?: Scene;
   user = {
     userId: 'local-user',
@@ -616,8 +619,8 @@ export class GameApp {
     const collapsed = this.miniDevPanelCollapsed;
     const width = collapsed ? 168 : 310;
     const height = collapsed ? 76 : 478;
-    panel.x = 22;
-    panel.y = Math.max(12, this.safeAreaTop + 8);
+    panel.x = Math.max(22, Math.min(this.safeContentRight - width - 12, 150));
+    panel.y = Math.max(12, this.safeAreaTop + 10);
 
     const bg = new Graphics();
     bg.roundRect(0, 0, width, height, 14);
@@ -1063,6 +1066,18 @@ export class GameApp {
   }
 
   async findOpponent() {
+    if (this.realtime.enabled) {
+      try {
+        const match = await this.realtime.joinMatch(this.realtimeJoinPayload());
+        if (match) {
+          this.applyRealtimeOpponent(match);
+          return true;
+        }
+      } catch (error) {
+        console.warn('[matchmaking] socket match failed, falling back to http match', error);
+      }
+    }
+
     if (!this.server.enabled) {
       this.prepareOpponent();
       return true;
@@ -1106,6 +1121,77 @@ export class GameApp {
 
     this.prepareOpponent();
     return true;
+  }
+
+  private realtimeJoinPayload() {
+    this.ensureHomeSubstitutes();
+    return {
+      userId: this.user.userId,
+      nickname: this.user.nickname,
+      avatarUrl: this.user.avatarUrl,
+      power: this.lineupPower(),
+      formationId: this.selectedFormation.id,
+      lineup: this.realtimeRoster(this.lineup, 'starter'),
+      substitutes: this.substitutes
+        .filter(Boolean)
+        .map((player, index) => this.realtimePlayerItem(player!, 'bench', `bench-${index}`))
+    };
+  }
+
+  private realtimeRoster(lineup: LineupSlot[], role: 'starter' | 'bench') {
+    return lineup
+      .map((slot) => slot.player ? this.realtimePlayerItem(slot.player, role, slot.id, slot.position) : undefined)
+      .filter(Boolean) as RealtimeRosterItem[];
+  }
+
+  private realtimePlayerItem(player: PlayerCardData, role: 'starter' | 'bench', slotId?: string, slotPosition?: Position): RealtimeRosterItem {
+    return {
+      slotId,
+      playerId: player.id,
+      displayName: playerDisplayName(player),
+      position: slotPosition ?? player.position,
+      rating: player.rating,
+      role,
+      skill: player.skill
+    };
+  }
+
+  private applyRealtimeOpponent(match: MatchFoundPayload) {
+    const opponentLineup = this.lineupFromRealtime(match.opponent.lineup ?? [], match.opponent.formationId);
+    const opponentSubstitutes = (match.opponent.substitutes ?? [])
+      .map((item) => this.playerFromRealtime(item))
+      .filter(Boolean) as PlayerCardData[];
+    this.battleSource = {
+      mode: 'douyinRealtime',
+      opponentId: match.opponent.userId,
+      opponentIsBot: false,
+      opponentName: match.opponent.nickname || '在线玩家',
+      opponentFormation: formations.find((formation) => formation.id === match.opponent.formationId),
+      opponentLineup,
+      opponentSubstitutes
+    };
+  }
+
+  private lineupFromRealtime(items: RealtimeRosterItem[], formationId?: string) {
+    const formation = formations.find((item) => item.id === formationId) ?? formations[1];
+    return formation.slots.map((slot) => {
+      const remote = items.find((item) => item.slotId === slot.id)
+        ?? items.find((item) => item.position === slot.position);
+      return {
+        ...slot,
+        player: remote ? this.playerFromRealtime(remote) : undefined
+      };
+    });
+  }
+
+  private playerFromRealtime(item: RealtimeRosterItem) {
+    if (item.playerId) {
+      const known = players.find((player) => player.id === item.playerId);
+      if (known) return known;
+    }
+    return players.find((player) => player.position === item.position)
+      ?? players.find((player) => player.position !== 'GK')
+      ?? players[0];
   }
 
   async cancelMatchmaking(ticketId?: string) {

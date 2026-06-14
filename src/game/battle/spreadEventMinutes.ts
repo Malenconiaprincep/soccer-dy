@@ -19,7 +19,7 @@ export function spreadEventMinutes<T extends TimedEvent>(events: T[], startMinut
   const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
   const scale = available / Math.max(1, weightSum);
 
-  const minutes = [startMinute];
+  const minutes = [Math.max(startMinute + 3, Math.min(startMinute + 8, targetEnd - (count - 1) * minGap))];
   for (let index = 0; index < count - 1; index += 1) {
     const slotsLeft = count - 1 - index;
     const minRequired = minutes[minutes.length - 1] + minGap;

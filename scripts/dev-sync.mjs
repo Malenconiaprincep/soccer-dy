@@ -9,7 +9,6 @@ function run(script, label, extraArgs = []) {
   const args = extraArgs.length ? ['run', script, '--', ...extraArgs] : ['run', script];
   const child = spawn(npmCmd, args, {
     stdio: 'inherit',
-    shell: true,
     env: process.env
   });
 
@@ -38,8 +37,12 @@ process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
 console.log(`[dev-sync] Web: http://localhost:${DEV_PORT}`);
+console.log('[dev-sync] API: http://localhost:8787');
+console.log('[dev-sync] Socket: ws://localhost:8788/battle');
 console.log('[dev-sync] Douyin output: ./douyin-game (refresh in Douyin DevTools after rebuild)');
 
+run('dev:server', 'api');
+run('dev:socket', 'socket');
 run('dev', 'web');
 if (args.has('--douyin-debug')) {
   run('debug:douyin:watch', 'douyin-debug');

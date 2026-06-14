@@ -24,6 +24,13 @@ type TtApi = {
   getStorageSync?: (key: string) => unknown;
   setStorageSync?: (key: string, value: unknown) => void;
   removeStorageSync?: (key: string) => void;
+  connectSocket?: (options: {
+    url: string;
+    header?: Record<string, string>;
+    protocols?: string[];
+    success?: () => void;
+    fail?: (error: unknown) => void;
+  }) => MiniSocketTask;
   request?: (options: {
     url: string;
     method?: string;
@@ -71,6 +78,15 @@ type TtTouchEvent = {
   touches?: MiniTouch[];
   changedTouches?: MiniTouch[];
   timeStamp?: number;
+};
+
+type MiniSocketTask = {
+  send: (options: { data: string; success?: () => void; fail?: (error: unknown) => void }) => void;
+  close: (options?: { code?: number; reason?: string; success?: () => void; fail?: (error: unknown) => void }) => void;
+  onOpen: (listener: () => void) => void;
+  onMessage: (listener: (event: { data: string | ArrayBuffer }) => void) => void;
+  onClose: (listener: (event?: { code?: number; reason?: string }) => void) => void;
+  onError: (listener: (error: unknown) => void) => void;
 };
 
 const ttApi = (globalThis as typeof globalThis & { tt?: TtApi }).tt;
@@ -171,6 +187,71 @@ class MiniTouchEvent {
 
   preventDefault() {}
   stopPropagation() {}
+}
+
+class MiniWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSING = 2;
+  static CLOSED = 3;
+  CONNECTING = 0;
+  OPEN = 1;
+  CLOSING = 2;
+  CLOSED = 3;
+  readyState = MiniWebSocket.CONNECTING;
+  onopen: ((event: unknown) => void) | null = null;
+  onmessage: ((event: { data: string | ArrayBuffer }) => void) | null = null;
+  onclose: ((event: unknown) => void) | null = null;
+  onerror: ((event: unknown) => void) | null = null;
+  private listeners = new Map<string, Set<(event: unknown) => void>>();
+  private task?: MiniSocketTask;
+
+  constructor(url: string, protocols?: string | string[]) {
+    const api = ttApi!;
+    if (!api.connectSocket) throw new Error('tt.connectSocket is not available.');
+    this.task = api.connectSocket({
+      url,
+      protocols: Array.isArray(protocols) ? protocols : protocols ? [protocols] : undefined,
+      fail: (error) => this.emit('error', error)
+    });
+    this.task.onOpen(() => {
+      this.readyState = MiniWebSocket.OPEN;
+      this.emit('open', {});
+    });
+    this.task.onMessage((event) => this.emit('message', { data: event.data }));
+    this.task.onClose((event) => {
+      this.readyState = MiniWebSocket.CLOSED;
+      this.emit('close', event ?? {});
+    });
+    this.task.onError((error) => this.emit('error', error));
+  }
+
+  send(data: string) {
+    this.task?.send({ data });
+  }
+
+  close(code?: number, reason?: string) {
+    this.readyState = MiniWebSocket.CLOSING;
+    this.task?.close({ code, reason });
+  }
+
+  addEventListener(type: string, listener: (event: unknown) => void) {
+    const bucket = this.listeners.get(type) ?? new Set<(event: unknown) => void>();
+    bucket.add(listener);
+    this.listeners.set(type, bucket);
+  }
+
+  removeEventListener(type: string, listener: (event: unknown) => void) {
+    this.listeners.get(type)?.delete(listener);
+  }
+
+  private emit(type: string, event: unknown) {
+    if (type === 'open') this.onopen?.(event);
+    if (type === 'message') this.onmessage?.(event as { data: string | ArrayBuffer });
+    if (type === 'close') this.onclose?.(event);
+    if (type === 'error') this.onerror?.(event);
+    this.listeners.get(type)?.forEach((listener) => listener(event));
+  }
 }
 
 const mainCanvas = ttApi.createCanvas();
@@ -506,6 +587,7 @@ Object.assign(globalThis, {
   PointerEvent: MiniPointerEvent,
   MouseEvent: MiniMouseEvent,
   TouchEvent: MiniTouchEvent,
+  WebSocket: (globalThis as typeof globalThis & { WebSocket?: unknown }).WebSocket ?? MiniWebSocket,
   ResizeObserver: class MiniGameResizeObserver {
     observe() {}
     unobserve() {}

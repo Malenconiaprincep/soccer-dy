@@ -1,4 +1,4 @@
-import { initCloudbaseDb, upsertProfile, ensurePlayerState } from '../server/cloudbase-db.mjs';
+import { ensureCloudbaseCollections, ensurePlayerState, initCloudbaseDb, upsertProfile } from '../server/cloudbase-db.mjs';
 import { loadEnv, validateCloudbaseEnv } from './cloudbase-env.mjs';
 
 const BOTS = [
@@ -16,17 +16,22 @@ async function main() {
   const env = loadEnv();
   const validation = validateCloudbaseEnv(env);
   if (!validation.ok) {
-    console.error(`[seed] ${validation.message}`);
+    console.error(`[cloudbase:setup] ${validation.message}`);
     process.exit(1);
   }
   if (!initCloudbaseDb(env)) {
-    console.error('[seed] 请配置 CLOUDBASE_ENV_ID、TENCENTCLOUD_SECRETID、TENCENTCLOUD_SECRETKEY');
+    console.error('[cloudbase:setup] CloudBase 初始化失败。');
     process.exit(1);
+  }
+
+  const collections = await ensureCloudbaseCollections();
+  for (const item of collections) {
+    console.info(`[cloudbase:setup] ${item.name}: ${item.status}`);
   }
 
   for (const [douyinOpenId, nickname] of BOTS) {
     await upsertProfile({ douyinOpenId, nickname, avatarUrl: null, isBot: true });
-    console.info(`[seed] bot ${nickname}`);
+    console.info(`[cloudbase:setup] bot ready: ${nickname}`);
   }
 
   const localProfile = await upsertProfile({
@@ -36,10 +41,10 @@ async function main() {
     isBot: false
   });
   await ensurePlayerState(localProfile.id);
-  console.info('[seed] local test profile ready');
+  console.info('[cloudbase:setup] local test profile ready');
 }
 
 main().catch((error) => {
-  console.error('[seed] failed', error);
+  console.error('[cloudbase:setup] failed', error);
   process.exit(1);
 });

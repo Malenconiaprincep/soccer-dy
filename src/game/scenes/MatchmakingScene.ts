@@ -151,6 +151,7 @@ export class MatchmakingScene extends BaseScene {
 
   private finishWithFallback() {
     this.matched = true;
+    this.game.realtime.leave();
     this.game.prepareOpponent();
     this.game.changeScene('matchup');
   }

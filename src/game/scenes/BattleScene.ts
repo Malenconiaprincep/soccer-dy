@@ -3,6 +3,7 @@ import { BaseScene } from './BaseScene';
 import type { BattleEvent, LineupSlot, PlayerCardData, Position } from '../types';
 import { playerDisplayName } from '../playerNames';
 import type { GeneratedBattleMoment } from '../services/GameServerClient';
+import type { RealtimeBattleEvent } from '../services/BattleSocketClient';
 import { spreadEventMinutes } from '../battle/spreadEventMinutes';
 import { headerTitleSprite, label, palette } from '../ui';
 
@@ -166,6 +167,10 @@ export class BattleScene extends BaseScene {
   private fullTimeEventPushed = false;
   private endingReadyAt = 0;
   private endingOverlay?: Container;
+  private realtimeBattleDone = false;
+  private realtimeEventHandler?: (event: RealtimeBattleEvent) => void;
+  private realtimeDoneHandler?: () => void;
+  private realtimeErrorHandler?: (error: { message?: string }) => void;
   private moment: BattleMoment = {
     type: 'attack',
     eventType: 'shot',
@@ -193,10 +198,17 @@ export class BattleScene extends BaseScene {
     this.battlePhase = 'live';
     this.fullTimeEventPushed = false;
     this.endingReadyAt = 0;
+    this.realtimeBattleDone = false;
     this.clearEndingOverlayRefs();
     this.game.ensureHomeSubstitutes();
     this.game.sound.play('kickoff');
-    this.ensureBattleScriptBuffer(true);
+    if (this.shouldUseRealtimeBattle()) this.ensureRealtimeBattle();
+    else this.ensureBattleScriptBuffer(true);
+  }
+
+  exit() {
+    this.unbindRealtimeBattle();
+    super.exit();
   }
 
   update(deltaMs: number) {
@@ -1092,8 +1104,45 @@ export class BattleScene extends BaseScene {
     });
   }
 
+  private ensureRealtimeBattle() {
+    if (!this.shouldUseRealtimeBattle()) return;
+    this.momentScriptLoading = true;
+    this.showPreparationOverlay();
+    this.realtimeEventHandler = (event) => {
+      this.momentQueue.push(this.toBattleMoment(event));
+      this.momentQueue.sort((a, b) => (a.minute ?? 999) - (b.minute ?? 999));
+      this.momentScriptLoading = false;
+      this.hidePreparationOverlay();
+    };
+    this.realtimeDoneHandler = () => {
+      this.realtimeBattleDone = true;
+      this.momentScriptLoading = false;
+      this.hidePreparationOverlay();
+    };
+    this.realtimeErrorHandler = (error) => {
+      console.warn('[battle-socket] realtime battle failed', error);
+      this.realtimeBattleDone = true;
+      this.momentScriptLoading = false;
+      this.momentScriptDisabled = true;
+      this.hidePreparationOverlay();
+    };
+    this.game.realtime.on('battle_event', this.realtimeEventHandler);
+    this.game.realtime.on('battle_done', this.realtimeDoneHandler);
+    this.game.realtime.on('battle_error', this.realtimeErrorHandler);
+    this.game.realtime.readyForBattle();
+  }
+
+  private unbindRealtimeBattle() {
+    if (this.realtimeEventHandler) this.game.realtime.off('battle_event', this.realtimeEventHandler);
+    if (this.realtimeDoneHandler) this.game.realtime.off('battle_done', this.realtimeDoneHandler);
+    if (this.realtimeErrorHandler) this.game.realtime.off('battle_error', this.realtimeErrorHandler);
+    this.realtimeEventHandler = undefined;
+    this.realtimeDoneHandler = undefined;
+    this.realtimeErrorHandler = undefined;
+  }
+
   private showPreparationOverlay() {
-    if (!this.shouldUseBattleAi() || this.preparationOverlay) return;
+    if (!this.shouldUseScriptedBattle() || this.preparationOverlay) return;
 
     const layout = this.battleLayout();
     const x = 22;
@@ -1466,9 +1515,18 @@ export class BattleScene extends BaseScene {
   }
 
   private shouldUseBattleAi() {
+    if (this.shouldUseRealtimeBattle()) return false;
     if (!this.game.server.enabled || this.isBattleProcessDebug()) return false;
     if (isDebugRuntime) return this.isBattleAiEnabled();
     return true;
+  }
+
+  private shouldUseRealtimeBattle() {
+    return this.game.battleSource.mode === 'douyinRealtime' && this.game.realtime.enabled && !!this.game.realtime.roomId;
+  }
+
+  private shouldUseScriptedBattle() {
+    return this.shouldUseBattleAi() || this.shouldUseRealtimeBattle();
   }
 
   private eventTitle(event: BattleEvent) {
@@ -1727,7 +1785,7 @@ export class BattleScene extends BaseScene {
   }
 
   private matchMinute() {
-    if (this.shouldUseBattleAi()) return this.matchClockMinute();
+    if (this.shouldUseScriptedBattle()) return this.matchClockMinute();
     return Math.max(1, Math.min(90, Math.round((this.elapsed / 26000) * 90)));
   }
 
@@ -1739,7 +1797,7 @@ export class BattleScene extends BaseScene {
     if (this.battlePhase === 'ending' && this.fullTimeEventPushed) {
       return '90:00';
     }
-    if (!this.shouldUseBattleAi()) {
+    if (!this.shouldUseScriptedBattle()) {
       const totalSeconds = Math.max(0, Math.min(90 * 60, Math.floor((this.elapsed / 26000) * 90 * 60)));
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = String(totalSeconds % 60).padStart(2, '0');
@@ -1761,14 +1819,19 @@ export class BattleScene extends BaseScene {
 
   private canPushNextEvent() {
     if (this.battlePhase !== 'live') return false;
-    if (!this.shouldUseBattleAi()) return true;
+    if (!this.shouldUseScriptedBattle()) return true;
     if (this.momentQueue.length > 0) return true;
     if (this.momentScriptLoading) return false;
+    if (this.shouldUseRealtimeBattle()) return false;
     return this.momentScriptDisabled;
   }
 
   private isLiveBattleComplete() {
     if (this.isBattleStayDebug()) return false;
+    if (this.shouldUseRealtimeBattle()) {
+      if (this.momentScriptLoading || this.momentQueue.length > 0) return false;
+      return this.realtimeBattleDone && this.events.length > 0;
+    }
     if (this.shouldUseBattleAi()) {
       if (this.momentScriptLoading || this.momentQueue.length > 0) return false;
       if (this.events.length < 3) return false;

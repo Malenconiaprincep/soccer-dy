@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 9527",
     "dev:server": "node server/dev-server.mjs",
+    "dev:socket": "node server/socket-server.mjs",
+    "setup:cloudbase": "node scripts/setup-cloudbase.mjs",
     "seed:cloudbase": "node scripts/seed-cloudbase.mjs",
+    "test:cloudbase-login": "node scripts/test-cloudbase-login.mjs",
     "dev:sync": "node scripts/dev-sync.mjs",
     "build": "tsc && vite build",
     "build:douyin": "tsc && vite build --mode douyin",
@@ -21,7 +24,8 @@
     "@cloudbase/node-sdk": "^3.18.1",
     "pixi.js": "^8.8.1",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.16",

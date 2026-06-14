@@ -308,6 +308,9 @@ async function fetchBattleScriptEvents(body, count = 10, onEvent) {
     `- 共 ${eventCount} 条事件，minute 严格递增即可，间隔不必均匀（我们会重分配到全场）`,
     `- 最后一条会映射到 85-90 分钟；模型 minute 仅表示先后顺序`,
     '- 每行一个 JSON 对象，不要 Markdown，不要外层数组',
+    '- 第一条不要用射门/进球开场，优先角球、黄牌、扑救、换人或对方进攻',
+    '- 球员要分散使用，同一 displayName 最多出现 2 次，不要每条都是同一人',
+    '- actorName 必须严格等于 roster 里的 displayName（不要用真名/外号变体）',
     '- roster 每位球员含 skill 字段（个人特长，如"弧线劲射""冷静单刀"），写作时必须结合该球员 skill 设计动作',
     '- 至少 1 条 wondergoal（神仙球）：倒挂金钩/凌空抽射/超远重炮/彩虹过人后破门等，detail 要体现该球员 skill，score 必填 home 或 away',
     '- 可含 1-2 条 freekick（任意球）：禁区前沿或边路定位球；直接破门则 score 填 home/away，被扑出改 eventType=save，打飞则 score=null',
@@ -436,7 +439,7 @@ function spreadEventMinutes(events, startMinute = 1, endMinute = 90) {
   const weights = Array.from({ length: count - 1 }, () => minGap + Math.random() * (maxGap - minGap));
   const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
   const scale = available / Math.max(1, weightSum);
-  const minutes = [startMinute];
+  const minutes = [Math.max(startMinute + 3, Math.min(startMinute + 8, targetEnd - (count - 1) * minGap))];
 
   for (let index = 0; index < count - 1; index += 1) {
     const slotsLeft = count - 1 - index;
