@@ -42,7 +42,8 @@ type DouyinTtApi = {
 export interface GameItemPurchase {
   id: string;
   title: string;
-  diamondAmount: number;
+  priceCents: number;
+  productId?: string;
   quantity?: number;
   extra?: Record<string, unknown>;
 }
@@ -155,14 +156,14 @@ export class DouyinPlatform implements PlatformApi {
         currencyType: 'CNY',
         platform: isIos ? 'ios' : 'android',
         goodType: 2,
-        orderAmount: payload.diamondAmount * 10,
+        orderAmount: payload.priceCents,
         goodName: payload.title,
         zoneId: '1',
         customId: orderId,
         extraInfo: JSON.stringify({
-          productId: payload.id,
+          productId: payload.productId ?? payload.id,
           title: payload.title,
-          diamondAmount: payload.diamondAmount,
+          priceCents: payload.priceCents,
           quantity: payload.quantity ?? 1,
           ...payload.extra
         }),

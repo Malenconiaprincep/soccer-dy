@@ -26,6 +26,8 @@ export interface ShopCommonItemConfig {
   sub: string;
   cost?: number;
   priceText?: string;
+  priceCents?: number;
+  paymentProductId?: string;
   limit: string;
   icon: ShopIconType;
   reward: ShopReward;
@@ -87,6 +89,8 @@ export const defaultShopConfig: ShopConfig = {
       title: '钻石 ×100',
       sub: '游戏通用货币',
       priceText: '¥6',
+      priceCents: 600,
+      paymentProductId: 'gems100',
       limit: '今日限购 1/1',
       icon: 'gems',
       reward: { gems: 100 }
@@ -146,11 +150,16 @@ function normalizeCommonItem(value: unknown, fallback: ShopCommonItemConfig): Sh
   const icon = item.icon === 'energy' || item.icon === 'ticket' || item.icon === 'gems' ? item.icon : fallback.icon;
   const priceText = stringValue(item.priceText, fallback.priceText ?? '');
   const cost = priceText ? undefined : positiveNumber(item.cost, fallback.cost ?? 0);
+  const priceCents = priceText ? positiveNumber(item.priceCents, fallback.priceCents ?? priceTextToCents(priceText)) : undefined;
   return {
     id: stringValue(item.id, fallback.id),
     title: stringValue(item.title, fallback.title),
     sub: stringValue(item.sub, fallback.sub),
-    ...(priceText ? { priceText } : { cost }),
+    ...(priceText ? {
+      priceText,
+      priceCents,
+      paymentProductId: stringValue(item.paymentProductId, fallback.paymentProductId ?? stringValue(item.id, fallback.id))
+    } : { cost }),
     limit: stringValue(item.limit, fallback.limit),
     icon,
     reward: normalizeReward(item.reward, fallback.reward)
@@ -175,6 +184,11 @@ function optionalPositiveNumber(value: unknown, fallback?: number) {
 
 function positiveNumber(value: unknown, fallback: number) {
   return optionalPositiveNumber(value, fallback) ?? fallback;
+}
+
+function priceTextToCents(text: string) {
+  const number = Number(String(text).replace(/[^\d.]/g, ''));
+  return Number.isFinite(number) ? Math.round(number * 100) : 0;
 }
 
 function stringValue(value: unknown, fallback: string) {

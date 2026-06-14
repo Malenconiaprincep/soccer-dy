@@ -23,6 +23,7 @@ const dashscopeApiKey = env.DASHSCOPE_API_KEY;
 const dashscopeBaseUrl = env.DASHSCOPE_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1';
 const dashscopeModel = env.DASHSCOPE_MODEL ?? 'qwen-flash';
 const botAfterMs = Number(env.MATCH_BOT_AFTER_MS ?? 15000);
+const matchBotsEnabled = env.MATCH_BOTS_ENABLED === '1';
 const ticketTtlMs = Number(env.MATCH_TICKET_TTL_MS ?? 45000);
 const queue = new Map();
 const shopConfigPath = resolve(process.cwd(), 'server/shop-config.local.json');
@@ -188,7 +189,7 @@ async function pollMatch(ticketId) {
     queue.delete(ticketId);
     return { status: 'matched', ticketId, opponent: ticket.matched };
   }
-  if (Date.now() - ticket.createdAt >= ticket.botAfterMs) {
+  if (matchBotsEnabled && Date.now() - ticket.createdAt >= ticket.botAfterMs) {
     const opponent = await createBotOpponent(ticket);
     queue.delete(ticketId);
     return { status: 'matched', ticketId, opponent };

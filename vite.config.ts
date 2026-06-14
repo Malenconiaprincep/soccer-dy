@@ -1,4 +1,21 @@
-import { defineConfig } from 'vite';
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { defineConfig, type Plugin } from 'vite';
+
+function copyDouyinProjectFiles(): Plugin {
+  return {
+    name: 'copy-douyin-project-files',
+    closeBundle() {
+      for (const file of ['game.json', 'project.config.json']) {
+        const from = resolve('public', file);
+        const to = resolve('douyin-game', file);
+        if (!existsSync(from)) continue;
+        mkdirSync(dirname(to), { recursive: true });
+        copyFileSync(from, to);
+      }
+    }
+  };
+}
 
 export default defineConfig(({ mode }) => {
   const isDouyinMode = mode === 'douyin' || mode === 'douyin-debug';
@@ -23,9 +40,11 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    publicDir: false,
     define: {
       'import.meta.env.VITE_DOUYIN_DEV_PANEL': JSON.stringify(isDouyinDebug ? '1' : process.env.VITE_DOUYIN_DEV_PANEL ?? '')
     },
+    plugins: [copyDouyinProjectFiles()],
     build: {
       outDir: 'douyin-game',
       emptyOutDir: true,

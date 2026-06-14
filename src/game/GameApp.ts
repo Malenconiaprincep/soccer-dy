@@ -19,6 +19,7 @@ import { defaultShopConfig, type ShopConfig } from '../shopConfig';
 import { DEV_MATCH_DURATION_KEY, resolveMatchDurationMs } from './matchmakingConfig';
 import { label, palette } from './ui';
 import { playerDisplayName } from './playerNames';
+import { installPixiAssetResolver } from './assets';
 
 const DESIGN_WIDTH = 720;
 const DESIGN_HEIGHT = 1280;
@@ -108,6 +109,8 @@ export class GameApp {
   }
 
   async start() {
+    installPixiAssetResolver();
+
     if (this.runtime.miniGame) {
       Assets.setPreferences({
         preferWorkers: false,
@@ -1091,17 +1094,28 @@ export class GameApp {
   async purchaseShopItem(item: {
     id: string;
     title: string;
-    cost: number;
+    cost?: number;
+    priceText?: string;
+    priceCents?: number;
+    paymentProductId?: string;
     reward: { coins?: number; scoutTickets?: number; gems?: number; energy?: number };
   }) {
-    const result = await this.platform.purchaseGameItem({
-      id: item.id,
-      title: item.title,
-      diamondAmount: item.cost,
-      quantity: item.reward.scoutTickets ?? item.reward.gems ?? item.reward.coins ?? item.reward.energy ?? 1,
-      extra: { reward: item.reward }
-    });
-    if (!result.ok) return result;
+    const isRealMoneyPurchase = item.priceText || item.priceCents;
+    if (isRealMoneyPurchase) {
+      const result = await this.platform.purchaseGameItem({
+        id: item.id,
+        productId: item.paymentProductId,
+        title: item.title,
+        priceCents: item.priceCents ?? this.priceTextToCents(item.priceText ?? ''),
+        quantity: item.reward.scoutTickets ?? item.reward.gems ?? item.reward.coins ?? item.reward.energy ?? 1,
+        extra: { reward: item.reward }
+      });
+      if (!result.ok) return result;
+    } else {
+      const cost = Math.max(0, item.cost ?? 0);
+      if (this.gems < cost) return { ok: false, message: '钻石不足' };
+      this.gems -= cost;
+    }
     this.coins += item.reward.coins ?? 0;
     this.scoutTickets += item.reward.scoutTickets ?? 0;
     this.gems += item.reward.gems ?? 0;
@@ -1117,7 +1131,12 @@ export class GameApp {
     }).catch((error) => {
       console.warn('[shop] reward sync failed', error);
     });
-    return result;
+    return { ok: true };
+  }
+
+  private priceTextToCents(text: string) {
+    const number = Number(String(text).replace(/[^\d.]/g, ''));
+    return Number.isFinite(number) ? Math.round(number * 100) : 0;
   }
 
   ownedPlayers(position?: PlayerCardData['position']) {
@@ -1197,8 +1216,7 @@ export class GameApp {
     }
 
     if (!this.server.enabled) {
-      this.prepareOpponent();
-      return true;
+      throw new Error('matchmaking_server_disabled');
     }
 
     const matchDurationMs = this.matchDurationMs();
@@ -1216,8 +1234,7 @@ export class GameApp {
       ...(isDebugRuntime ? { botAfterMs: matchDurationMs } : {})
     });
     if (!ticket) {
-      this.prepareOpponent();
-      return true;
+      throw new Error('matchmaking_join_failed');
     }
     if (ticket.status === 'matched' && ticket.opponent) {
       this.applyMatchedOpponent(ticket.opponent);
@@ -1225,20 +1242,17 @@ export class GameApp {
     }
 
     const ticketId = ticket.ticketId;
-    const waitMs = ticket.botAfterMs ?? matchDurationMs;
-    const maxAttempts = Math.ceil(waitMs / 1000) + 8;
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    while (true) {
       await this.wait(1000);
       const result = await this.server.pollMatch(ticketId);
       if (result?.status === 'matched' && result.opponent) {
         this.applyMatchedOpponent(result.opponent);
         return true;
       }
-      if (result?.status === 'expired') break;
+      if (result?.status === 'expired') {
+        throw new Error('matchmaking_ticket_expired');
+      }
     }
-
-    this.prepareOpponent();
-    return true;
   }
 
   private realtimeJoinPayload() {

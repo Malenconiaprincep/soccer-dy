@@ -8,6 +8,7 @@
     "dev:server": "node server/dev-server.mjs",
     "dev:socket": "node server/socket-server.mjs",
     "setup:cloudbase": "node scripts/setup-cloudbase.mjs",
+    "upload:assets": "node scripts/upload-cloudbase-assets.mjs",
     "seed:cloudbase": "node scripts/seed-cloudbase.mjs",
     "test:cloudbase-login": "node scripts/test-cloudbase-login.mjs",
     "test:socket": "node scripts/test-socket-flow.mjs",

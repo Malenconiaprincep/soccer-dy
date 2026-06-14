@@ -278,7 +278,7 @@ mainCanvas.removeEventListener ??= removeListener;
 mainCanvas.dispatchEvent ??= () => true;
 mainCanvas.getBoundingClientRect = () => getCanvasBounds() as DOMRect;
 
-const normalizeAssetUrl = (url: string) => url.replace(/^\/assets\//, 'assets/');
+const normalizeAssetUrl = (url: string) => /^(https?:)?\/\//i.test(url) ? url : url.replace(/^\/assets\//, 'assets/');
 
 const setImageComplete = (image: MiniImage, value: boolean) => {
   try {

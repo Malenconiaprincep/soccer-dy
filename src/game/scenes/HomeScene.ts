@@ -1391,16 +1391,7 @@ export class HomeScene extends BaseScene {
     buy.hitArea = new Rectangle(0, 0, width * 0.28, height * 0.38);
     buy.x = width * 0.675;
     buy.y = height * 0.28;
-    buy.on('pointertap', () => {
-      if (item.priceText) {
-        this.game.sound.play('tap');
-        this.closeTaskModal();
-        this.resize();
-        this.openInfoModal('暂未开放', item.title, '付费购买接入后开放。');
-        return;
-      }
-      void this.handleShopPurchase({ id: item.id, title: item.title, cost: item.cost ?? 0, reward: item.reward });
-    });
+    buy.on('pointertap', () => void this.handleShopPurchase(item));
     const limit = label(item.limit, Math.round(18 * scale), 0x9ec9ff, '900');
     limit.anchor.set(0.5);
     limit.x = width * 0.795;
@@ -1481,7 +1472,15 @@ export class HomeScene extends BaseScene {
     return c;
   }
 
-  private async handleShopPurchase(item: { id: string; title: string; cost: number; reward: ShopReward }) {
+  private async handleShopPurchase(item: {
+    id: string;
+    title: string;
+    cost?: number;
+    priceText?: string;
+    priceCents?: number;
+    paymentProductId?: string;
+    reward: ShopReward;
+  }) {
     this.game.sound.play('tap');
     const result = await this.game.purchaseShopItem(item);
     if (!result.ok) {

@@ -46,7 +46,6 @@ export class MatchmakingScene extends BaseScene {
     }
     if (this.centerPulse) this.centerPulse.scale.set(1 + Math.sin(t * 4.1) * 0.035);
     this.updateWaitValue();
-    if (!this.matched && this.elapsed >= this.matchDurationMs) this.finishWithFallback();
   }
 
   resize() {
@@ -130,10 +129,9 @@ export class MatchmakingScene extends BaseScene {
 
   private updateWaitValue() {
     if (!this.waitValue) return;
-    const remainingMs = Math.max(0, this.matchDurationMs - this.elapsed);
-    const remainingSeconds = Math.ceil(remainingMs / 1000);
-    const minutes = Math.floor(remainingSeconds / 60);
-    const seconds = remainingSeconds % 60;
+    const elapsedSeconds = Math.floor(this.elapsed / 1000);
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
     this.waitValue.text = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
@@ -141,18 +139,16 @@ export class MatchmakingScene extends BaseScene {
     try {
       await this.game.findOpponent();
     } catch (error) {
-      console.warn('[matchmaking] remote match failed, using local AI', error);
-      this.game.prepareOpponent();
+      console.warn('[matchmaking] remote match failed, keep waiting for real player', error);
+      if (!this.cancelled && !this.matched) {
+        window.setTimeout(() => {
+          if (!this.cancelled && !this.matched) void this.startMatchmaking();
+        }, 1200);
+      }
+      return;
     }
     if (this.cancelled || this.matched) return;
     this.matched = true;
-    this.game.changeScene('matchup');
-  }
-
-  private finishWithFallback() {
-    this.matched = true;
-    this.game.realtime.leave();
-    this.game.prepareOpponent();
     this.game.changeScene('matchup');
   }
 
