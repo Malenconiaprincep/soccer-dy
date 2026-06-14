@@ -10,6 +10,7 @@
     "setup:cloudbase": "node scripts/setup-cloudbase.mjs",
     "seed:cloudbase": "node scripts/seed-cloudbase.mjs",
     "test:cloudbase-login": "node scripts/test-cloudbase-login.mjs",
+    "test:socket": "node scripts/test-socket-flow.mjs",
     "dev:sync": "node scripts/dev-sync.mjs",
     "build": "tsc && vite build",
     "build:douyin": "tsc && vite build --mode douyin",
