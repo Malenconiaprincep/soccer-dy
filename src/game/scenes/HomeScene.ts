@@ -352,12 +352,44 @@ export class HomeScene extends BaseScene {
     });
     this.floaters.push({ node: shop, baseY: shop.y, amplitude: 1.4, phase: 1.6 });
 
-    const follow = this.sideShortcutButton(2, '关注领奖');
-    follow.x = rightX;
-    follow.y = startY;
-    follow.on('pointertap', () => this.openInfoModal('关注领奖', '关注抖音账号后领取奖励', '功能接入抖音关注能力后开放。'));
-    this.floaters.push({ node: follow, baseY: follow.y, amplitude: 1.2, phase: 0.3 });
-    this.container.addChild(sign, shop, follow);
+    const sidebar = this.sideShortcutButton(2, '侧边栏');
+    sidebar.x = rightX;
+    sidebar.y = startY;
+    sidebar.on('pointertap', () => {
+      void this.openSidebarScene();
+    });
+    this.floaters.push({ node: sidebar, baseY: sidebar.y, amplitude: 1.2, phase: 0.3 });
+
+    const desktop = this.sideShortcutButton(1, '桌面');
+    desktop.x = rightX;
+    desktop.y = startY + this.sideShortcutBlockHeight() + itemGap;
+    desktop.on('pointertap', () => {
+      void this.addDesktopShortcut();
+    });
+    this.floaters.push({ node: desktop, baseY: desktop.y, amplitude: 1.2, phase: 1.9 });
+    this.container.addChild(sign, shop, sidebar, desktop);
+  }
+
+  private async openSidebarScene() {
+    this.game.sound.play('tap');
+    const result = await this.game.platform.navigateToSidebarScene();
+    if (result.ok) {
+      if (this.game.platform.name === 'web') {
+        this.openInfoModal('侧边栏复访', 'Web 调试模拟', result.message ?? '已模拟调用 tt.navigateToScene。');
+      }
+      return;
+    }
+    this.openInfoModal('侧边栏复访', '打开失败', result.message ?? '请升级抖音后重试。');
+  }
+
+  private async addDesktopShortcut() {
+    this.game.sound.play('tap');
+    const result = await this.game.platform.addDesktopShortcut();
+    if (result.ok) {
+      this.openInfoModal('添加到桌面', this.game.platform.name === 'web' ? 'Web 调试模拟' : '操作已发起', result.message ?? '请按抖音提示完成添加。');
+      return;
+    }
+    this.openInfoModal('添加到桌面', '添加失败', result.message ?? '请升级抖音后重试。');
   }
 
   private infoCard(titleText: string, valueText: string, subText: string, x: number, y: number, accent: number) {

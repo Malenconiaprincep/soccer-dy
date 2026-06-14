@@ -9,6 +9,8 @@ export interface PlatformApi {
   name: 'web' | 'douyin' | 'wechat';
   login(): Promise<PlatformUser>;
   share(payload: { title: string; imageUrl?: string }): Promise<void>;
+  navigateToSidebarScene(): Promise<{ ok: boolean; message?: string }>;
+  addDesktopShortcut(): Promise<{ ok: boolean; message?: string }>;
   showRewardVideoAd(scene: string): Promise<boolean>;
   checkAntiAddiction(): Promise<{ allowed: boolean; reason?: string }>;
   purchaseGameItem(payload: GameItemPurchase): Promise<{ ok: boolean; message?: string }>;
@@ -35,6 +37,17 @@ type DouyinTtApi = {
   }) => void;
   canIUse?: (schema: string) => boolean;
   getSystemInfoSync?: () => { platform?: string };
+  navigateToScene?: (options: {
+    scene: string;
+    success?: () => void;
+    fail?: (error: { errMsg?: string }) => void;
+    complete?: () => void;
+  }) => void;
+  addShortcut?: (options: {
+    success?: () => void;
+    fail?: (error: { errMsg?: string }) => void;
+    complete?: () => void;
+  }) => void;
   requestGamePayment?: (options: Record<string, unknown>) => void;
   openAwemeCustomerService?: (options: Record<string, unknown>) => void;
 };
@@ -128,6 +141,39 @@ export class DouyinPlatform implements PlatformApi {
     console.info('[platform:douyin] share mocked');
   }
 
+  async navigateToSidebarScene(): Promise<{ ok: boolean; message?: string }> {
+    const tt = (globalThis as typeof globalThis & { tt?: DouyinTtApi }).tt;
+    if (!tt) return { ok: false, message: '当前不在抖音小游戏环境' };
+
+    if (!tt.navigateToScene) {
+      return { ok: false, message: '当前抖音版本暂不支持侧边栏复访' };
+    }
+
+    return new Promise((resolve) => {
+      tt.navigateToScene?.({
+        scene: 'sidebar',
+        success: () => resolve({ ok: true }),
+        fail: (error) => resolve({ ok: false, message: error?.errMsg ?? '打开侧边栏失败' })
+      });
+    });
+  }
+
+  async addDesktopShortcut(): Promise<{ ok: boolean; message?: string }> {
+    const tt = (globalThis as typeof globalThis & { tt?: DouyinTtApi }).tt;
+    if (!tt) return { ok: false, message: '当前不在抖音小游戏环境' };
+
+    if (!tt.addShortcut) {
+      return { ok: false, message: '当前抖音版本暂不支持添加到桌面' };
+    }
+
+    return new Promise((resolve) => {
+      tt.addShortcut?.({
+        success: () => resolve({ ok: true }),
+        fail: (error) => resolve({ ok: false, message: error?.errMsg ?? '添加到桌面失败' })
+      });
+    });
+  }
+
   async showRewardVideoAd() {
     return true;
   }
@@ -209,6 +255,16 @@ export class WebPlatform implements PlatformApi {
 
   async share() {
     console.info('[platform:web] share mocked');
+  }
+
+  async navigateToSidebarScene() {
+    console.info('[platform:web] navigateToScene sidebar mocked');
+    return { ok: true, message: 'Web 调试环境已模拟侧边栏跳转' };
+  }
+
+  async addDesktopShortcut() {
+    console.info('[platform:web] addShortcut mocked');
+    return { ok: true, message: 'Web 调试环境已模拟添加到桌面' };
   }
 
   async showRewardVideoAd() {
