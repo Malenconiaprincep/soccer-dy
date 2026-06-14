@@ -1,4 +1,4 @@
-import { Application, Assets, Container, Graphics } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Rectangle } from 'pixi.js';
 import { BattleScene } from './scenes/BattleScene';
 import { BlindBoxScene } from './scenes/BlindBoxScene';
 import { FormationScene } from './scenes/FormationScene';
@@ -96,6 +96,9 @@ export class GameApp {
   private miniDevSignDay = 1;
   private miniDevMatchSeconds = 15;
   private miniDevSaveFlashUntil = 0;
+  private miniDevPanelPosition?: { x: number; y: number };
+  private miniDevDrag?: { pointerId: number; startX: number; startY: number; panelX: number; panelY: number; moved: boolean };
+  private miniDevStageDragBound = false;
 
   constructor(private readonly mount: GameMount, private readonly runtime: GameRuntime = {}) {
     this.platform = runtime.miniGame ? new DouyinPlatform() : new WebPlatform();
@@ -605,6 +608,8 @@ export class GameApp {
       this.miniDevSceneIndex = Math.max(0, SCENES.indexOf(this.devInitialScene()));
       this.miniDevSignDay = this.signInDayForDebug();
       this.miniDevMatchSeconds = Math.round(this.matchDurationMs() / 1000);
+      this.miniDevPanelPosition = this.readMiniDevPanelPosition();
+      this.bindMiniDevPanelDrag(this.miniDevPanel);
     }
 
     if (!this.miniDevPanel.parent) this.root.addChild(this.miniDevPanel);
@@ -619,8 +624,10 @@ export class GameApp {
     const collapsed = this.miniDevPanelCollapsed;
     const width = collapsed ? 168 : 310;
     const height = collapsed ? 76 : 478;
-    panel.x = Math.max(22, Math.min(this.safeContentRight - width - 12, 150));
-    panel.y = Math.max(12, this.safeAreaTop + 10);
+    const position = this.clampMiniDevPanelPosition(this.miniDevPanelPosition ?? this.defaultMiniDevPanelPosition(width), width, height);
+    this.miniDevPanelPosition = position;
+    panel.x = position.x;
+    panel.y = position.y;
 
     const bg = new Graphics();
     bg.roundRect(0, 0, width, height, 14);
@@ -640,6 +647,7 @@ export class GameApp {
     toggle.y = 14;
     toggle.on('pointertap', (event: any) => {
       event.stopPropagation();
+      if (this.miniDevDrag?.moved) return;
       this.miniDevPanelCollapsed = !this.miniDevPanelCollapsed;
       globalThis.localStorage?.setItem(DEV_PANEL_COLLAPSED_KEY, this.miniDevPanelCollapsed ? '1' : '0');
       this.renderMiniDevPanel();
@@ -656,6 +664,7 @@ export class GameApp {
     go.y = y;
     go.on('pointertap', (event: any) => {
       event.stopPropagation();
+      if (this.miniDevDrag?.moved) return;
       this.changeScene(SCENES[this.miniDevSceneIndex]);
     });
     const save = this.miniDevButton(Date.now() < this.miniDevSaveFlashUntil ? '已保存' : '设默认', 132, 48);
@@ -663,6 +672,7 @@ export class GameApp {
     save.y = y;
     save.on('pointertap', (event: any) => {
       event.stopPropagation();
+      if (this.miniDevDrag?.moved) return;
       this.saveMiniDevDefaults();
       this.miniDevSaveFlashUntil = Date.now() + 900;
       this.renderMiniDevPanel();
@@ -708,6 +718,109 @@ export class GameApp {
     });
   }
 
+  private bindMiniDevPanelDrag(panel: Container) {
+    panel.on('pointerdown', (event: any) => {
+      const point = this.miniDevPointerPosition(event);
+      const pointerId = event.pointerId ?? 1;
+      this.miniDevDrag = {
+        pointerId,
+        startX: point.x,
+        startY: point.y,
+        panelX: panel.x,
+        panelY: panel.y,
+        moved: false
+      };
+      event.stopPropagation();
+    });
+
+    if (!this.miniDevStageDragBound) {
+      this.miniDevStageDragBound = true;
+      this.app.stage.eventMode = 'static';
+      this.app.stage.hitArea = new Rectangle(0, 0, this.app.renderer.width, this.app.renderer.height);
+      this.app.stage.on('globalpointermove', (event: any) => this.updateMiniDevPanelDrag(event));
+      this.app.stage.on('pointerup', () => this.finishMiniDevPanelDrag());
+      this.app.stage.on('pointerupoutside', () => this.finishMiniDevPanelDrag());
+      this.app.stage.on('pointercancel', () => this.finishMiniDevPanelDrag());
+    }
+  }
+
+  private updateMiniDevPanelDrag(event: any) {
+    const panel = this.miniDevPanel;
+    if (!panel) return;
+      const drag = this.miniDevDrag;
+      if (!drag || drag.pointerId !== (event.pointerId ?? 1)) return;
+      const point = this.miniDevPointerPosition(event);
+      const dx = point.x - drag.startX;
+      const dy = point.y - drag.startY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) drag.moved = true;
+      const bounds = this.miniDevPanelBounds();
+      const next = this.clampMiniDevPanelPosition({ x: drag.panelX + dx, y: drag.panelY + dy }, bounds.width, bounds.height);
+      this.miniDevPanelPosition = next;
+      panel.x = next.x;
+      panel.y = next.y;
+  }
+
+  private finishMiniDevPanelDrag() {
+    if (!this.miniDevDrag) return;
+    this.storeMiniDevPanelPosition();
+    window.setTimeout(() => {
+      this.miniDevDrag = undefined;
+    }, 0);
+  }
+
+  private miniDevPointerPosition(event: any) {
+    const global = event.global ?? { x: 0, y: 0 };
+    const local = this.root.toLocal(global);
+    return { x: local.x, y: local.y };
+  }
+
+  private miniDevPanelBounds() {
+    return {
+      width: this.miniDevPanelCollapsed ? 168 : 310,
+      height: this.miniDevPanelCollapsed ? 76 : 478
+    };
+  }
+
+  private defaultMiniDevPanelPosition(width: number) {
+    return {
+      x: Math.max(22, Math.min(this.safeContentRight - width - 12, 150)),
+      y: Math.max(12, this.safeAreaTop + 10)
+    };
+  }
+
+  private readMiniDevPanelPosition() {
+    const bounds = this.miniDevPanelBounds();
+    try {
+      const raw = globalThis.localStorage?.getItem(DEV_PANEL_POSITION_KEY);
+      if (!raw) return this.defaultMiniDevPanelPosition(bounds.width);
+      const parsed = JSON.parse(raw) as { x?: number; y?: number };
+      return this.clampMiniDevPanelPosition({
+        x: Number.isFinite(parsed.x) ? Number(parsed.x) : this.defaultMiniDevPanelPosition(bounds.width).x,
+        y: Number.isFinite(parsed.y) ? Number(parsed.y) : this.defaultMiniDevPanelPosition(bounds.width).y
+      }, bounds.width, bounds.height);
+    } catch {
+      return this.defaultMiniDevPanelPosition(bounds.width);
+    }
+  }
+
+  private clampMiniDevPanelPosition(position: { x: number; y: number }, width: number, height: number) {
+    return {
+      x: Math.max(0, Math.min(position.x, this.width - width)),
+      y: Math.max(0, Math.min(position.y, this.height - height))
+    };
+  }
+
+  private storeMiniDevPanelPosition() {
+    if (!this.miniDevPanelPosition) return;
+    globalThis.localStorage?.setItem(
+      DEV_PANEL_POSITION_KEY,
+      JSON.stringify({
+        x: Math.round(this.miniDevPanelPosition.x),
+        y: Math.round(this.miniDevPanelPosition.y)
+      })
+    );
+  }
+
   private addMiniDevSceneRow(panel: Container, y: number) {
     const caption = label('场景', 18, 0x9fdcff, '700');
     caption.x = 18;
@@ -724,11 +837,13 @@ export class GameApp {
     next.y = y + 28;
     previous.on('pointertap', (event: any) => {
       event.stopPropagation();
+      if (this.miniDevDrag?.moved) return;
       this.miniDevSceneIndex = (this.miniDevSceneIndex + SCENES.length - 1) % SCENES.length;
       this.renderMiniDevPanel();
     });
     next.on('pointertap', (event: any) => {
       event.stopPropagation();
+      if (this.miniDevDrag?.moved) return;
       this.miniDevSceneIndex = (this.miniDevSceneIndex + 1) % SCENES.length;
       this.renderMiniDevPanel();
     });
@@ -745,6 +860,7 @@ export class GameApp {
     caption.y = y + 6;
     button.on('pointertap', (event: any) => {
       event.stopPropagation();
+      if (this.miniDevDrag?.moved) return;
       globalThis.localStorage?.setItem(key, enabled ? '0' : '1');
       onChange?.();
       this.renderMiniDevPanel();
@@ -768,10 +884,12 @@ export class GameApp {
     plus.y = y;
     minus.on('pointertap', (event: any) => {
       event.stopPropagation();
+      if (this.miniDevDrag?.moved) return;
       onMinus();
     });
     plus.on('pointertap', (event: any) => {
       event.stopPropagation();
+      if (this.miniDevDrag?.moved) return;
       onPlus();
     });
     panel.addChild(caption, minus, valueLabel, plus);
@@ -1374,6 +1492,7 @@ export class GameApp {
     this.root.scale.set(scale);
     this.root.x = (this.app.renderer.width - this.viewportWidth * scale) / 2;
     this.root.y = (this.app.renderer.height - this.viewportHeight * scale) / 2;
+    this.app.stage.hitArea = new Rectangle(0, 0, this.app.renderer.width, this.app.renderer.height);
     this.scene?.resize(this.width, this.height);
     if (this.miniDevPanel?.parent) this.renderMiniDevPanel();
   }
