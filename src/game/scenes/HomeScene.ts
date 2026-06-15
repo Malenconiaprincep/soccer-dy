@@ -1,4 +1,4 @@
-import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
+import { Assets, Container, FederatedPointerEvent, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BaseScene, PAGE_BG } from './BaseScene';
 import { avatar, coverSprite, glassPanel, headerTitleSprite, label, palette } from '../ui';
 import { dailyOfferForDate, type ShopCommonItemConfig, type ShopDailyOfferConfig, type ShopReward } from '../../shopConfig';
@@ -338,16 +338,14 @@ export class HomeScene extends BaseScene {
     const sign = this.sideShortcutButton(0, '七日签到');
     sign.x = leftX;
     sign.y = startY;
-    sign.on('pointertap', () => {
-      this.game.sound.play('tap');
+    this.bindPressAction(sign, () => {
       this.openSignModal();
     });
     this.floaters.push({ node: sign, baseY: sign.y, amplitude: 1.4, phase: 0 });
     const shop = this.sideShortcutButton(1, '商城');
     shop.x = leftX;
     shop.y = startY + this.sideShortcutBlockHeight() + itemGap;
-    shop.on('pointertap', () => {
-      this.game.sound.play('tap');
+    this.bindPressAction(shop, () => {
       this.openShopModal();
     });
     this.floaters.push({ node: shop, baseY: shop.y, amplitude: 1.4, phase: 1.6 });
@@ -355,7 +353,7 @@ export class HomeScene extends BaseScene {
     const sidebar = this.sideShortcutButton(2, '侧边栏');
     sidebar.x = rightX;
     sidebar.y = startY;
-    sidebar.on('pointertap', () => {
+    this.bindPressAction(sidebar, () => {
       void this.openSidebarScene();
     });
     this.floaters.push({ node: sidebar, baseY: sidebar.y, amplitude: 1.2, phase: 0.3 });
@@ -363,7 +361,7 @@ export class HomeScene extends BaseScene {
     const desktop = this.sideShortcutButton(1, '桌面');
     desktop.x = rightX;
     desktop.y = startY + this.sideShortcutBlockHeight() + itemGap;
-    desktop.on('pointertap', () => {
+    this.bindPressAction(desktop, () => {
       void this.addDesktopShortcut();
     });
     this.floaters.push({ node: desktop, baseY: desktop.y, amplitude: 1.2, phase: 1.9 });
@@ -371,7 +369,6 @@ export class HomeScene extends BaseScene {
   }
 
   private async openSidebarScene() {
-    this.game.sound.play('tap');
     const result = await this.game.platform.navigateToSidebarScene();
     if (result.ok) {
       if (this.game.platform.name === 'web') {
@@ -383,13 +380,45 @@ export class HomeScene extends BaseScene {
   }
 
   private async addDesktopShortcut() {
-    this.game.sound.play('tap');
     const result = await this.game.platform.addDesktopShortcut();
     if (result.ok) {
       this.openInfoModal('添加到桌面', this.game.platform.name === 'web' ? 'Web 调试模拟' : '操作已发起', result.message ?? '请按抖音提示完成添加。');
       return;
     }
     this.openInfoModal('添加到桌面', '添加失败', result.message ?? '请升级抖音后重试。');
+  }
+
+  private bindPressAction(target: Container, action: () => void, sound: 'tap' | 'confirm' = 'tap') {
+    let pressed = false;
+    let startX = 0;
+    let startY = 0;
+    let lastTrigger = 0;
+    const trigger = (event: FederatedPointerEvent) => {
+      if (!pressed) return;
+      pressed = false;
+      const distance = Math.hypot(event.global.x - startX, event.global.y - startY);
+      if (distance > 34) return;
+      const now = Date.now();
+      if (now - lastTrigger < 180) return;
+      lastTrigger = now;
+      this.game.sound.play(sound);
+      action();
+    };
+
+    target.on('pointerdown', (event: FederatedPointerEvent) => {
+      pressed = true;
+      startX = event.global.x;
+      startY = event.global.y;
+      target.scale.set(0.96);
+    });
+    target.on('pointerup', trigger);
+    target.on('pointerupoutside', trigger);
+    target.on('pointercancel', () => {
+      pressed = false;
+      target.scale.set(1);
+    });
+    target.on('pointerup', () => target.scale.set(1));
+    target.on('pointerupoutside', () => target.scale.set(1));
   }
 
   private infoCard(titleText: string, valueText: string, subText: string, x: number, y: number, accent: number) {
@@ -806,6 +835,7 @@ export class HomeScene extends BaseScene {
     icon.scale.set(scale);
     icon.x = SHORTCUT_BTN_W / 2;
     icon.y = 0;
+    icon.eventMode = 'none';
     c.addChild(icon);
 
     const iconBottom = SIDE_BUTTON_CELL.cropSize * scale;
@@ -813,12 +843,13 @@ export class HomeScene extends BaseScene {
     title.anchor.set(0.5, 0);
     title.x = SHORTCUT_BTN_W / 2;
     title.y = iconBottom + 8;
+    title.eventMode = 'none';
     c.addChild(title);
 
     const blockHeight = this.sideShortcutBlockHeight();
     c.eventMode = 'static';
     c.cursor = 'pointer';
-    c.hitArea = new Rectangle(0, 0, SHORTCUT_BTN_W, blockHeight);
+    c.hitArea = new Rectangle(-14, -10, SHORTCUT_BTN_W + 28, blockHeight + 24);
     return c;
   }
 

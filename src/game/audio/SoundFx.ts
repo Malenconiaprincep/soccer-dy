@@ -13,6 +13,21 @@ interface ToneOptions {
 
 export type SoundName = 'tap' | 'confirm' | 'reveal' | 'select' | 'kickoff' | 'goal' | 'danger' | 'reward' | 'win' | 'lose';
 
+type MiniAudioContext = {
+  src?: string;
+  volume?: number;
+  obeyMuteSwitch?: boolean;
+  currentTime?: number;
+  play: () => void;
+  stop?: () => void;
+};
+
+type MiniAudioApi = {
+  tt?: {
+    createInnerAudioContext?: () => MiniAudioContext;
+  };
+};
+
 export class SoundFx {
   private context?: AudioContext;
   private master?: GainNode;
@@ -20,6 +35,7 @@ export class SoundFx {
   private musicTimer?: number;
   private musicStep = 0;
   private unlocked = false;
+  private miniTapAudio?: MiniAudioContext;
 
   installUnlock(target: HTMLElement) {
     const unlock = () => void this.unlock();
@@ -28,7 +44,10 @@ export class SoundFx {
   }
 
   play(name: SoundName) {
-    if (!this.ensureContext()) return;
+    if (!this.ensureContext()) {
+      if (name === 'tap' || name === 'confirm' || name === 'select') this.playMiniTap();
+      return;
+    }
     const context = this.context;
     if (!context) return;
     if (context.state === 'suspended') void context.resume();
@@ -187,8 +206,28 @@ export class SoundFx {
   }
 
   private tap(volume = 0.26) {
+    if (this.playMiniTap()) return;
     this.tone({ freq: 620, duration: 0.045, type: 'triangle', volume, release: 0.035 });
     this.noise(0.035, 0.035, 1200, 0);
+  }
+
+  private playMiniTap() {
+    const tt = (globalThis as typeof globalThis & MiniAudioApi).tt;
+    if (!tt?.createInnerAudioContext) return false;
+    try {
+      const audio = this.miniTapAudio ?? tt.createInnerAudioContext();
+      this.miniTapAudio = audio;
+      audio.src = 'assets/audio/button-click.wav';
+      audio.volume = 0.55;
+      audio.obeyMuteSwitch = true;
+      if (typeof audio.currentTime === 'number') audio.currentTime = 0;
+      audio.stop?.();
+      audio.play();
+      return true;
+    } catch {
+      // Audio is a nice-to-have; never block gameplay on platform audio quirks.
+      return false;
+    }
   }
 
   private confirm() {

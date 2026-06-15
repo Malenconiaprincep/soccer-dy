@@ -6,9 +6,14 @@ function copyDouyinProjectFiles(): Plugin {
   return {
     name: 'copy-douyin-project-files',
     closeBundle() {
-      for (const file of ['game.json', 'project.config.json']) {
-        const from = resolve('public', file);
-        const to = resolve('douyin-game', file);
+      const files = [
+        ['game.json', 'game.json'],
+        ['project.config.json', 'project.config.json'],
+        ['assets/audio/button-click.wav', 'assets/audio/button-click.wav']
+      ] as const;
+      for (const [fromFile, toFile] of files) {
+        const from = resolve('public', fromFile);
+        const to = resolve('douyin-game', toFile);
         if (!existsSync(from)) continue;
         mkdirSync(dirname(to), { recursive: true });
         copyFileSync(from, to);
