@@ -1,0 +1,49 @@
+{
+  "bucket": "ttbbfdcd40259a8bf602-env-k4q8ex5psz",
+  "endpoint": "tos-cn-beijing.volces.com",
+  "region": "cn-beijing",
+  "assetDir": "public/assets",
+  "prefix": "soccer-dy3/assets",
+  "publicBaseUrl": "https://ttbbfdcd40259a8bf602-env-k4q8ex5psz.tos-cn-beijing.volces.com/soccer-dy3",
+  "uploadedAt": "2026-06-15T09:35:24.060Z",
+  "totalFiles": 5,
+  "totalBytes": 2564355,
+  "objectAcl": "public-read",
+  "files": [
+    {
+      "localPath": "/assets/audio/button-click.wav",
+      "objectKey": "soccer-dy3/assets/audio/button-click.wav",
+      "url": "https://ttbbfdcd40259a8bf602-env-k4q8ex5psz.tos-cn-beijing.volces.com/soccer-dy3/assets/audio/button-click.wav",
+      "size": 7540,
+      "sha1": "d0b53b83f6aec4b8143dbf7e87f0ae5b09395e60"
+    },
+    {
+      "localPath": "/assets/home-bg.jpg",
+      "objectKey": "soccer-dy3/assets/home-bg.jpg",
+      "url": "https://ttbbfdcd40259a8bf602-env-k4q8ex5psz.tos-cn-beijing.volces.com/soccer-dy3/assets/home-bg.jpg",
+      "size": 2150287,
+      "sha1": "67349f4995f106144abcb8bb5b9141af815d86e5"
+    },
+    {
+      "localPath": "/assets/loading-bg.png",
+      "objectKey": "soccer-dy3/assets/loading-bg.png",
+      "url": "https://ttbbfdcd40259a8bf602-env-k4q8ex5psz.tos-cn-beijing.volces.com/soccer-dy3/assets/loading-bg.png",
+      "size": 131315,
+      "sha1": "ab9906bdf681dfe7fe1f593dd426c4b9207a379d"
+    },
+    {
+      "localPath": "/assets/page-bg.jpg",
+      "objectKey": "soccer-dy3/assets/page-bg.jpg",
+      "url": "https://ttbbfdcd40259a8bf602-env-k4q8ex5psz.tos-cn-beijing.volces.com/soccer-dy3/assets/page-bg.jpg",
+      "size": 135743,
+      "sha1": "689235b5059283b0d31362d8937c6b9cb55a9fec"
+    },
+    {
+      "localPath": "/assets/players/generated/alisson.png",
+      "objectKey": "soccer-dy3/assets/players/generated/alisson.png",
+      "url": "https://ttbbfdcd40259a8bf602-env-k4q8ex5psz.tos-cn-beijing.volces.com/soccer-dy3/assets/players/generated/alisson.png",
+      "size": 139470,
+      "sha1": "3218f24d9368f96256a94be6b1088a0b9df5662f"
+    }
+  ]
+}

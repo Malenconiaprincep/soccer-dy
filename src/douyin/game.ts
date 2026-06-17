@@ -1,6 +1,7 @@
 type TtApi = {
   createCanvas: () => MiniCanvas;
   createImage?: () => unknown;
+  env?: { USER_DATA_PATH?: string };
   getSystemInfoSync: () => {
     windowWidth: number;
     windowHeight: number;
@@ -39,6 +40,14 @@ type TtApi = {
     success?: (res: { data: unknown; statusCode: number; header?: Record<string, string> }) => void;
     fail?: (error: unknown) => void;
   }) => void;
+  downloadFile?: (options: {
+    url: string;
+    filePath?: string;
+    header?: Record<string, string>;
+    success?: (res: { tempFilePath?: string; filePath?: string; statusCode?: number }) => void;
+    fail?: (error: unknown) => void;
+  }) => void;
+  getFileSystemManager?: () => MiniFileSystemManager;
 };
 
 type MiniCanvas = {
@@ -87,6 +96,13 @@ type MiniSocketTask = {
   onMessage: (listener: (event: { data: string | ArrayBuffer }) => void) => void;
   onClose: (listener: (event?: { code?: number; reason?: string }) => void) => void;
   onError: (listener: (error: unknown) => void) => void;
+};
+
+type MiniFileSystemManager = {
+  accessSync?: (path: string) => void;
+  mkdirSync?: (path: string, recursive?: boolean) => void;
+  saveFileSync?: (tempFilePath: string, filePath?: string) => string;
+  unlinkSync?: (path: string) => void;
 };
 
 const ttApi = (globalThis as typeof globalThis & { tt?: TtApi }).tt;
@@ -279,6 +295,92 @@ mainCanvas.dispatchEvent ??= () => true;
 mainCanvas.getBoundingClientRect = () => getCanvasBounds() as DOMRect;
 
 const normalizeAssetUrl = (url: string) => /^(https?:)?\/\//i.test(url) ? url : url.replace(/^\/assets\//, 'assets/');
+const userDataPath = ttApi.env?.USER_DATA_PATH;
+const fsManager = ttApi.getFileSystemManager?.();
+const remoteAssetCache = new Map<string, string>();
+const remoteAssetDownloads = new Map<string, Promise<string>>();
+const cacheRoot = userDataPath ? `${userDataPath}/asset-cache-v1` : '';
+
+const isRemoteUrl = (url: string) => /^https?:\/\//i.test(url);
+
+const cachedAssetPath = (url: string) => {
+  const cleanPath = url.split('?')[0] ?? url;
+  const extMatch = cleanPath.match(/\.[a-z0-9]+$/i);
+  return `${cacheRoot}/${hashString(url)}${extMatch?.[0] ?? ''}`;
+};
+
+const ensureCacheRoot = () => {
+  if (!cacheRoot || !fsManager?.mkdirSync) return;
+  try {
+    fsManager.mkdirSync(cacheRoot, true);
+  } catch {
+    // The directory may already exist on some Douyin runtimes.
+  }
+};
+
+const fileExists = (path: string) => {
+  if (!fsManager?.accessSync) return false;
+  try {
+    fsManager.accessSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const cacheRemoteAsset = (url: string) => {
+  if (!ttApi.downloadFile || !cacheRoot) return Promise.resolve(url);
+  const cached = remoteAssetCache.get(url);
+  if (cached) return Promise.resolve(cached);
+  const filePath = cachedAssetPath(url);
+  if (fileExists(filePath)) {
+    remoteAssetCache.set(url, filePath);
+    return Promise.resolve(filePath);
+  }
+  const running = remoteAssetDownloads.get(url);
+  if (running) return running;
+
+  ensureCacheRoot();
+  const promise = new Promise<string>((resolve) => {
+    ttApi.downloadFile?.({
+      url,
+      filePath,
+      success: (res) => {
+        if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+          resolve(url);
+          return;
+        }
+        const localPath = res.filePath ?? res.tempFilePath ?? filePath;
+        if (localPath !== filePath && fsManager?.saveFileSync) {
+          try {
+            const savedPath = fsManager.saveFileSync(localPath, filePath);
+            remoteAssetCache.set(url, savedPath || filePath);
+            resolve(savedPath || filePath);
+            return;
+          } catch {
+            // Fall through to the temporary path when saving is unavailable.
+          }
+        }
+        remoteAssetCache.set(url, localPath);
+        resolve(localPath);
+      },
+      fail: () => resolve(url)
+    });
+  }).finally(() => {
+    remoteAssetDownloads.delete(url);
+  });
+  remoteAssetDownloads.set(url, promise);
+  return promise;
+};
+
+const hashString = (value: string) => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+};
 
 const setImageComplete = (image: MiniImage, value: boolean) => {
   try {
@@ -319,7 +421,24 @@ const makeImage = () => {
       configurable: true,
       get: () => currentSrc,
       set: (value: string) => {
-        currentSrc = normalizeAssetUrl(value);
+        const normalized = normalizeAssetUrl(value);
+        currentSrc = normalized;
+        if (isRemoteUrl(normalized)) {
+          const requestedSrc = normalized;
+          setImageComplete(rawImage, false);
+          void cacheRemoteAsset(normalized).then((localSrc) => {
+            if (currentSrc !== requestedSrc) return;
+            currentSrc = localSrc;
+            if (srcDescriptor?.set) {
+              srcDescriptor.set.call(rawImage, localSrc);
+              return;
+            }
+            Reflect.set(rawImage, '__src', localSrc);
+            setImageComplete(rawImage, true);
+            rawImage.onload?.();
+          });
+          return;
+        }
         if (srcDescriptor?.set) {
           srcDescriptor.set.call(rawImage, currentSrc);
           return;
