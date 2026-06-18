@@ -1,4 +1,4 @@
-import { isValid, Node, resources, Sprite, SpriteFrame, UITransform } from 'cc';
+import { isValid, Node, Rect, resources, Size, Sprite, SpriteFrame, UITransform } from 'cc';
 
 interface ImageOptions {
   x?: number;
@@ -9,6 +9,14 @@ interface ImageOptions {
   anchorY?: number;
   siblingIndex?: number;
   onClick?: () => void;
+  trim?: boolean;
+}
+
+interface FrameRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export async function addImage(parent: Node, path: string, options: ImageOptions): Promise<Node | undefined> {
@@ -18,6 +26,20 @@ export async function addImage(parent: Node, path: string, options: ImageOptions
     return createImage(parent, path, frame, options);
   } catch (error) {
     console.warn(`[assets] failed to load ${path}`, error);
+    return undefined;
+  }
+}
+
+export async function addFrameImage(parent: Node, path: string, frameRect: FrameRect, options: ImageOptions): Promise<Node | undefined> {
+  try {
+    const source = await loadSpriteFrame(path);
+    if (!isValid(parent)) return undefined;
+    const frame = source.clone();
+    frame.rect = new Rect(frameRect.x, frameRect.y, frameRect.width, frameRect.height);
+    frame.originalSize = new Size(frameRect.width, frameRect.height);
+    return createImage(parent, path, frame, options);
+  } catch (error) {
+    console.warn(`[assets] failed to crop ${path}`, error);
     return undefined;
   }
 }
@@ -45,6 +67,7 @@ function createImage(parent: Node, path: string, frame: SpriteFrame, options: Im
   const sprite = node.addComponent(Sprite);
   sprite.sizeMode = Sprite.SizeMode.CUSTOM;
   sprite.spriteFrame = frame;
+  sprite.trim = options.trim ?? false;
   // Assigning a SpriteFrame can restore its native dimensions. Apply the
   // requested layout size last so every image keeps the intended proportions.
   transform.setContentSize(options.width, options.height);

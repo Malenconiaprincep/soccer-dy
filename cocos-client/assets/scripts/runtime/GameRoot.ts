@@ -3,11 +3,11 @@ import { GameState } from '../domain/GameState';
 import { formations } from '../domain/data';
 import type { BattleEvent, PlayerCardData } from '../domain/types';
 import { GameServerClient } from '../services/GameServerClient';
-import { addCoverImage, addImage } from './ImageUi';
+import { addCoverImage, addFrameImage, addImage } from './ImageUi';
 import { button, colors, DESIGN_HEIGHT, DESIGN_WIDTH, divider, formatNumber, layer, panel, text } from './UiFactory';
 
 const { ccclass } = _decorator;
-type ScreenName = 'loading' | 'home' | 'formation' | 'blindBox' | 'matchmaking' | 'matchup' | 'battle' | 'result';
+type ScreenName = 'loading' | 'home' | 'shop' | 'formation' | 'blindBox' | 'matchmaking' | 'matchup' | 'battle' | 'result';
 
 interface BattleMoment {
   title: string;
@@ -50,6 +50,8 @@ export class GameRoot extends Component {
   private followMessage = '';
   private selectedLineupSlotId?: string;
   private selectedBenchIndex?: number;
+  private revealedScoutIds = new Set<string>();
+  private shopMessage = '';
 
   onLoad(): void {
     console.info('[soccer] GameRoot starting');
@@ -97,6 +99,7 @@ export class GameRoot extends Component {
 
     if (name === 'loading') this.renderLoading();
     if (name === 'home') this.renderHome();
+    if (name === 'shop') this.renderShop();
     if (name === 'formation') this.renderFormation();
     if (name === 'blindBox') this.renderBlindBox();
     if (name === 'matchmaking') this.renderMatchmaking();
@@ -118,26 +121,136 @@ export class GameRoot extends Component {
     const root = this.screen!;
     const visible = view.getVisibleSize();
     void addCoverImage(this.screenHost!, 'home-bg', visible.width, visible.height);
-    void addImage(root, 'ui/top-button-v2', { x: 0, y: 550, width: 640, height: 69 });
-    text(root, formatNumber(this.state.gems), -160, 550, 20, colors.white, 120);
-    text(root, `${this.state.energy}/120`, 160, 550, 20, colors.white, 130);
-    void addImage(root, 'ui/hero', { x: 0, y: -55, width: 500, height: 750 });
-    void addImage(root, 'ui/start-v2', {
+    void addImage(root, 'players/generated/saka', { x: -305, y: 570, width: 58, height: 58 });
+    void addFrameImage(root, 'ui/avatar-bg', { x: 291, y: 118, width: 503, height: 503 }, { x: -305, y: 570, width: 94, height: 94 });
+    void addImage(root, 'ui/top-button-v2', { x: 50, y: 570, width: 580, height: 62 });
+    text(root, formatNumber(this.state.gems), -100, 570, 20, colors.white, 110);
+    text(root, `${this.state.energy}/120`, 200, 570, 20, colors.white, 125);
+    void addImage(root, 'ui/hero', { x: 0, y: -213, width: 628, height: 942 });
+    void addImage(root, 'ui/start', {
       x: 0,
-      y: -520,
-      width: 520,
-      height: 117,
+      y: -515,
+      width: 436,
+      height: 176,
       onClick: () => this.show('formation')
     });
-    text(root, this.state.nickname, -250, 470, 20, colors.white, 180);
-    this.homeShortcut(root, '七日签到', -265, 350, colors.gold, () => this.openSignModal());
-    this.homeShortcut(root, '商城', -265, 255, colors.primary, () => this.openShopModal());
-    this.homeShortcut(root, '关注领奖', 265, 350, colors.danger, () => this.openFollowModal());
-    this.homeShortcut(root, '每日任务', 265, 255, colors.success, () => this.openTasksModal());
+    this.homeImageShortcut(root, 0, '七日签到', -300, 430, () => this.openSignModal());
+    this.homeImageShortcut(root, 1, '商城', -300, 290, () => this.show('shop'));
+    this.homeImageShortcut(root, 2, '关注领奖', 300, 430, () => this.openFollowModal());
+    this.homeImageShortcut(root, 1, '每日任务', 300, 290, () => this.openTasksModal());
   }
 
-  private homeShortcut(parent: Node, title: string, x: number, y: number, color: typeof colors.gold, onClick: () => void): void {
-    button(parent, title, x, y, 150, 66, onClick, color);
+  private homeImageShortcut(parent: Node, iconIndex: number, title: string, x: number, y: number, onClick: () => void): void {
+    void addFrameImage(parent, 'ui/buttons', { x: iconIndex * 256, y: 96, width: 256, height: 280 }, {
+      x,
+      y,
+      width: 84,
+      height: 92,
+      onClick
+    });
+    text(parent, title, x, y - 67, 17, colors.white, 120);
+  }
+
+  private renderShop(): void {
+    const root = this.screen!;
+    const visible = view.getVisibleSize();
+    void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
+    const wash = root.addComponent(Graphics);
+    wash.fillColor = new Color(0, 16, 55, 190);
+    wash.rect(-visible.width / 2, -visible.height / 2, visible.width, visible.height);
+    wash.fill();
+
+    void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, {
+      x: -305,
+      y: 575,
+      width: 66,
+      height: 66,
+      onClick: () => this.show('home')
+    });
+    void addFrameImage(root, 'ui/headertitle', { x: 75, y: 52, width: 360, height: 110 }, {
+      x: -135,
+      y: 575,
+      width: 210,
+      height: 64
+    });
+    const balance = panel(root, 235, 575, 200, 58, new Color(6, 21, 47, 245), 28);
+    void addFrameImage(balance, 'ui/sevenday/diamond', { x: 423, y: 90, width: 229, height: 193 }, { x: -65, y: 0, width: 43, height: 36 });
+    text(balance, String(this.state.gems), 10, 0, 24, colors.white, 90);
+    text(balance, '+', 72, 0, 32, colors.white, 40);
+    if (this.shopMessage) text(root, this.shopMessage, 0, 520, 18, colors.gold, 520);
+
+    const daily = new Date().getDate() % 2 === 0
+      ? { title: '体力补给', count: '×1', sub: '恢复 30 点体力', cost: 20, reward: { energy: 30 } }
+      : { title: '球探券', count: '×5', sub: '用于招募随机球员', cost: 120, reward: { scoutTickets: 5 } };
+    const feature = layer('DailyOffer', root, 660, 364);
+    feature.setPosition(0, 300);
+    void addFrameImage(feature, 'ui/everyday-active', { x: 30, y: 60, width: 1479, height: 816 }, { x: 0, y: 0, width: 660, height: 364, siblingIndex: 0 });
+    text(feature, `${daily.title}  ${daily.count}`, -210, 65, 29, colors.white, 280);
+    text(feature, daily.sub, -210, 25, 17, colors.white, 280);
+    void addFrameImage(feature, 'ui/sevenday/ticket', { x: 418, y: 79, width: 266, height: 207 }, { x: 140, y: 45, width: 150, height: 117 });
+    void addFrameImage(feature, 'ui/sevenday/diamond', { x: 423, y: 90, width: 229, height: 193 }, { x: -275, y: -60, width: 34, height: 29 });
+    text(feature, String(daily.cost), -230, -60, 27, colors.gold, 70);
+    text(feature, '原价 150', -125, -60, 15, colors.muted, 100);
+    text(feature, `刷新倒计时：${this.shopCountdown()}`, -180, -140, 18, colors.gold, 300);
+    const dailyBuy = layer('DailyBuy', feature, 190, 70);
+    dailyBuy.setPosition(205, -83);
+    dailyBuy.on(Node.EventType.TOUCH_END, () => this.purchaseShopItem(daily.title, daily.cost, daily.reward));
+
+    void addFrameImage(root, 'ui/toolstitle', { x: 82, y: 172, width: 923, height: 114 }, { x: -165, y: 75, width: 300, height: 37 });
+    const goods = [
+      { key: 'energy' as const, title: '体力补给', sub: '恢复 30 点体力', price: '20', cost: 20, reward: { energy: 30 }, limit: '今日限购 5/5' },
+      { key: 'ticket' as const, title: '球探券 ×1', sub: '用于招募随机球员', price: '30', cost: 30, reward: { scoutTickets: 1 }, limit: '今日限购 10/10' },
+      { key: 'gems' as const, title: '钻石 ×100', sub: '游戏通用货币', price: '¥6', reward: undefined, limit: '今日限购 1/1' }
+    ];
+    goods.forEach((item, index) => this.renderShopRow(root, item, -75 - index * 220));
+    text(root, 'ⓘ 适度娱乐，理性消费', 0, -610, 17, colors.muted, 400);
+  }
+
+  private renderShopRow(
+    parent: Node,
+    item: { key: 'energy' | 'ticket' | 'gems'; title: string; sub: string; price: string; cost?: number; reward?: { energy?: number; scoutTickets?: number }; limit: string },
+    y: number
+  ): void {
+    const row = layer(`ShopItem:${item.key}`, parent, 660, 202);
+    row.setPosition(0, y);
+    const frame = item.key === 'energy'
+      ? { x: 0, y: 0, width: 1080, height: 330 }
+      : item.key === 'ticket'
+        ? { x: 0, y: 330, width: 1080, height: 330 }
+        : { x: 0, y: 660, width: 1080, height: 310 };
+    void addFrameImage(row, 'ui/gift', frame, { x: 0, y: 0, width: 660, height: item.key === 'gems' ? 189 : 202, siblingIndex: 0 });
+    text(row, item.title, 0, 48, 27, colors.white, 250);
+    text(row, item.sub, 0, 5, 18, new Color(157, 200, 248, 255), 260);
+    if (item.key !== 'gems') {
+      void addFrameImage(row, 'ui/sevenday/diamond', { x: 423, y: 90, width: 229, height: 193 }, { x: -45, y: -45, width: 32, height: 27 });
+      text(row, item.price, 0, -45, 25, colors.gold, 90);
+    } else {
+      text(row, item.price, -10, -45, 27, colors.white, 100);
+    }
+    text(row, item.limit, 205, -65, 15, new Color(158, 201, 255, 255), 190);
+    const buy = layer('BuyHit', row, 185, 76);
+    buy.setPosition(210, 12);
+    buy.on(Node.EventType.TOUCH_END, () => {
+      if (item.cost != null && item.reward) this.purchaseShopItem(item.title, item.cost, item.reward);
+      else {
+        this.shopMessage = '抖音支付能力尚未接入 Cocos 客户端';
+        this.show('shop');
+      }
+    });
+  }
+
+  private purchaseShopItem(title: string, cost: number, reward: { energy?: number; scoutTickets?: number }): void {
+    const ok = this.state.spendGems(cost, reward);
+    this.shopMessage = ok ? `${title}购买成功，道具已发放` : '钻石不足';
+    this.show('shop');
+  }
+
+  private shopCountdown(): string {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setHours(24, 0, 0, 0);
+    const seconds = Math.max(0, Math.floor((tomorrow.getTime() - now.getTime()) / 1000));
+    return [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map((value) => String(value).padStart(2, '0')).join(':');
   }
 
   private createModal(title: string, subtitle: string): Node {
@@ -163,30 +276,112 @@ export class GameRoot extends Component {
   }
 
   private openSignModal(): void {
-    const card = this.createModal('七日签到', '每日登录领取球队成长资源');
+    this.modal?.destroy();
+    const visible = view.getVisibleSize();
+    const modal = layer('SignModal', this.screenHost!, visible.width, visible.height);
+    this.modal = modal;
+    modal.on(Node.EventType.TOUCH_START, () => undefined);
+    modal.on(Node.EventType.TOUCH_END, () => undefined);
+    const shade = modal.addComponent(Graphics);
+    shade.fillColor = new Color(0, 0, 0, 190);
+    shade.rect(-visible.width / 2, -visible.height / 2, visible.width, visible.height);
+    shade.fill();
+
+    const panelWidth = 636;
+    const panelHeight = 722;
+    const card = layer('SignPanel', modal, panelWidth, panelHeight);
+    void addImage(card, 'ui/qiandao', { x: 0, y: 0, width: panelWidth, height: panelHeight, siblingIndex: 0 });
     const rewards = [
-      { label: '体力 +30', reward: { energy: 30 } },
-      { label: '钻石 +20', reward: { gems: 20 } },
-      { label: '球探券 +1', reward: { scoutTickets: 1 } },
-      { label: '体力 +30', reward: { energy: 30 } },
-      { label: '钻石 +20', reward: { gems: 20 } },
-      { label: '球探券 +1', reward: { scoutTickets: 1 } },
-      { label: '体力 +50', reward: { energy: 50 } }
+      { label: '体力值 +30', kind: 'energy' as const, reward: { energy: 30 } },
+      { label: '钻石 +20', kind: 'gems' as const, reward: { gems: 20 } },
+      { label: '抽卡券 +1', kind: 'ticket' as const, reward: { scoutTickets: 1 } },
+      { label: '体力值 +30', kind: 'energy' as const, reward: { energy: 30 } },
+      { label: '钻石 +20', kind: 'gems' as const, reward: { gems: 20 } },
+      { label: '抽卡券 +1', kind: 'ticket' as const, reward: { scoutTickets: 1 } },
+      { label: '体力值 +50', kind: 'energy' as const, reward: { energy: 50 } }
     ];
     const day = ((new Date().getDate() - 1) % 7) + 1;
     const claimId = `signin-${this.state.dailyTaskDate}`;
     const claimed = this.state.claimedTasks.has(claimId);
     rewards.forEach((item, index) => {
-      const column = index % 4;
-      const row = Math.floor(index / 4);
-      const rewardCard = panel(card, -225 + column * 150, 235 - row * 190, 132, 155, index + 1 === day ? colors.primary : colors.panelSoft, 18);
-      text(rewardCard, `第 ${index + 1} 天`, 0, 42, 18, colors.white, 110);
-      text(rewardCard, item.label, 0, -25, 17, colors.gold, 112);
+      const today = index + 1 === day;
+      const alreadyClaimed = index + 1 < day || (today && claimed);
+      const stateIndex = alreadyClaimed ? 2 : today ? 0 : 1;
+      const topRow = index < 4;
+      const cardWidth = topRow ? 126.72 : 142.08;
+      const cardHeight = cardWidth * (470 / 290) * (topRow ? 1 : 0.9);
+      const gap = topRow ? 13.44 : 15.36;
+      const count = topRow ? 4 : 3;
+      const rowWidth = cardWidth * count + gap * (count - 1);
+      const localX = (panelWidth - rowWidth) / 2 + (topRow ? index : index - 4) * (cardWidth + gap);
+      const localY = topRow ? 168 : 168 + 126.72 * (470 / 290) + 8;
+      this.renderSignRewardCard(card, index + 1, item.label, item.kind, stateIndex, localX, localY, cardWidth, cardHeight);
     });
-    text(card, claimed ? '今日奖励已领取' : `今日是第 ${day} 天`, 0, -175, 23, claimed ? colors.muted : colors.white);
-    button(card, claimed ? '已领取' : '领取奖励', 0, -275, 320, 76, () => {
-      if (!claimed && this.state.claimReward(claimId, rewards[day - 1].reward)) this.openSignModal();
-    }, claimed ? colors.panelSoft : colors.primary);
+
+    const acceptPath = claimed ? 'ui/sevenday/accpet-end' : 'ui/sevenday/accpet';
+    const acceptFrame = claimed
+      ? { x: 46, y: 221, width: 985, height: 233 }
+      : { x: 56, y: 218, width: 959, height: 218 };
+    const buttonWidth = 360;
+    const buttonHeight = buttonWidth * acceptFrame.height / acceptFrame.width;
+    void addFrameImage(card, acceptPath, acceptFrame, {
+      x: 0,
+      y: -panelHeight / 2 + buttonHeight / 2 + 32,
+      width: buttonWidth,
+      height: buttonHeight,
+      onClick: () => {
+        if (!claimed && this.state.claimReward(claimId, rewards[day - 1].reward)) this.openSignModal();
+      }
+    });
+
+    const close = layer('SignClose', card, 90, 80);
+    close.setPosition(panelWidth * 0.39, panelHeight * 0.43);
+    close.on(Node.EventType.TOUCH_END, () => this.closeModal());
+  }
+
+  private renderSignRewardCard(
+    parent: Node,
+    day: number,
+    rewardText: string,
+    kind: 'energy' | 'gems' | 'ticket',
+    stateIndex: number,
+    localX: number,
+    localY: number,
+    width: number,
+    height: number
+  ): void {
+    const panelWidth = 636;
+    const panelHeight = 722;
+    const x = localX + width / 2 - panelWidth / 2;
+    const y = panelHeight / 2 - localY - height / 2;
+    const node = layer(`SignDay${day}`, parent, width, height);
+    node.setPosition(x, y);
+    const cardFrames = [
+      { x: 62, y: 16, width: 290, height: 470 },
+      { x: 394, y: 16, width: 290, height: 470 },
+      { x: 726, y: 16, width: 290, height: 470 }
+    ];
+    void addFrameImage(node, 'ui/sevenday/giftbg', cardFrames[stateIndex], { x: 0, y: 0, width, height, siblingIndex: 0 });
+    const tone = stateIndex === 0 ? new Color(255, 243, 163, 255) : stateIndex === 1 ? new Color(87, 185, 255, 255) : new Color(215, 219, 229, 255);
+    text(node, `第${day}天`, 0, height * 0.37, Math.round(width * 0.15), tone, width * 0.8);
+    this.renderSignRewardIcon(node, kind, stateIndex, 0, height * 0.10, width * 0.44);
+    text(node, rewardText, 0, -height * (day >= 5 ? 0.08 : 0.16), Math.round(width * 0.12), stateIndex === 2 ? tone : colors.white, width * 0.9);
+  }
+
+  private renderSignRewardIcon(parent: Node, kind: 'energy' | 'gems' | 'ticket', stateIndex: number, x: number, y: number, size: number): void {
+    const frames = kind === 'energy'
+      ? [{ x: 79, y: 144, width: 232, height: 329 }, { x: 433, y: 144, width: 231, height: 329 }, { x: 771, y: 144, width: 231, height: 328 }]
+      : kind === 'gems'
+        ? [{ x: 97, y: 92, width: 224, height: 190 }, { x: 423, y: 90, width: 229, height: 193 }, { x: 759, y: 93, width: 221, height: 188 }]
+        : [{ x: 78, y: 77, width: 268, height: 209 }, { x: 418, y: 79, width: 266, height: 207 }, { x: 750, y: 78, width: 264, height: 208 }];
+    const frame = frames[stateIndex];
+    const scale = (kind === 'ticket' ? size * 1.15 : size) / Math.max(frame.width, frame.height);
+    void addFrameImage(parent, `ui/sevenday/${kind === 'energy' ? 'flash' : kind === 'gems' ? 'diamond' : 'ticket'}`, frame, {
+      x,
+      y,
+      width: frame.width * scale,
+      height: frame.height * scale
+    });
   }
 
   private openFollowModal(): void {
@@ -227,25 +422,6 @@ export class GameRoot extends Component {
     });
   }
 
-  private openShopModal(message = ''): void {
-    const card = this.createModal('球队商城', `当前钻石 ${this.state.gems}${message ? `  ·  ${message}` : ''}`);
-    const goods = [
-      { title: '体力补给', detail: '体力 +30', cost: 20, reward: { energy: 30 } },
-      { title: '球探券', detail: '球探券 +1', cost: 30, reward: { scoutTickets: 1 } },
-      { title: '金币箱', detail: '金币 +5000', cost: 50, reward: { coins: 5000 } }
-    ];
-    goods.forEach((item, index) => {
-      const y = 245 - index * 190;
-      const row = panel(card, 0, y, 560, 150, colors.panelSoft, 20);
-      text(row, item.title, -145, 28, 25, colors.white, 220);
-      text(row, item.detail, -145, -30, 19, colors.muted, 220);
-      button(row, `${item.cost} 钻石`, 155, 0, 190, 64, () => {
-        const ok = this.state.spendGems(item.cost, item.reward);
-        this.openShopModal(ok ? '兑换成功' : '钻石不足');
-      }, colors.primary);
-    });
-  }
-
   private openTasksModal(): void {
     const card = this.createModal('每日任务', '完成比赛目标，领取每日奖励');
     const tasks = [
@@ -268,42 +444,113 @@ export class GameRoot extends Component {
     const root = this.screen!;
     const visible = view.getVisibleSize();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
-    void addImage(root, 'ui/football-backgrond', { x: 0, y: 40, width: 650, height: 720 });
-    text(root, '阵容调整', 0, 580, 34, colors.gold);
-    text(root, `战力 ${this.state.power}  ·  点击两张卡可互换`, 0, 535, 18, colors.white);
+    void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: 570, width: 66, height: 66, onClick: () => this.show('home') });
+    void addFrameImage(root, 'ui/headertitle', { x: 74, y: 228, width: 350, height: 104 }, { x: -135, y: 570, width: 210, height: 62 });
+    const recommend = panel(root, 260, 565, 135, 58, colors.panelSoft, 18);
+    text(recommend, `推荐\n最强阵容`, 0, 0, 16, colors.white, 120);
+    recommend.on(Node.EventType.TOUCH_END, () => this.autoFillStrongest());
     const formationIndex = formations.findIndex((item) => item.id === this.state.selectedFormation.id);
-    button(root, '‹', -255, 475, 70, 58, () => this.changeFormation(-1), colors.panelSoft);
-    text(root, `${this.state.selectedFormation.name}  ${this.state.selectedFormation.style}`, 0, 475, 25, colors.gold, 340);
-    button(root, '›', 255, 475, 70, 58, () => this.changeFormation(1), colors.panelSoft);
+    const previous = (formationIndex - 1 + formations.length) % formations.length;
+    const next = (formationIndex + 1) % formations.length;
+    this.renderFormationChoice(root, formations[previous], previous, -225, 440, 170, 145, false);
+    this.renderFormationChoice(root, this.state.selectedFormation, formationIndex, 0, 435, 215, 180, true);
+    this.renderFormationChoice(root, formations[next], next, 225, 440, 170, 145, false);
+    button(root, '‹', -320, 440, 54, 54, () => this.changeFormation(-1), colors.panelSoft);
+    button(root, '›', 320, 440, 54, 54, () => this.changeFormation(1), colors.panelSoft);
+
+    void addImage(root, 'ui/football-backgrond', { x: 0, y: -5, width: 690, height: 650, siblingIndex: 0 });
 
     this.state.lineup.forEach((slot) => {
       const x = (slot.x - 0.5) * 570;
-      const y = (0.52 - slot.y) * 570 + 65;
+      const y = (0.52 - slot.y) * 500 + 5;
       const selected = this.selectedLineupSlotId === slot.id;
-      const card = panel(root, x, y, 96, 66, selected ? colors.gold : colors.panelSoft, 12);
-      text(card, `${slot.position} ${slot.player?.rating ?? '--'}\n${slot.player?.name ?? '待选择'}`, 0, 0, 15, selected ? colors.background : colors.white, 88);
+      const card = this.playerHex(root, x, y, slot.player, slot.position, selected, 48);
       card.on(Node.EventType.TOUCH_END, () => this.selectLineupSlot(slot.id));
     });
 
-    text(root, '替补席', -275, -365, 18, colors.gold, 100);
+    void addImage(root, 'ui/players-bg', { x: 0, y: -410, width: 680, height: 205, siblingIndex: 1 });
+    text(root, '替补球员', -270, -345, 20, colors.white, 130);
     this.state.substitutes.forEach((player, index) => {
       const x = -200 + index * 105;
       const selected = this.selectedBenchIndex === index;
-      const card = panel(root, x, -415, 94, 72, selected ? colors.gold : colors.panelSoft, 12);
-      text(card, `${player?.position ?? '空'} ${player?.rating ?? ''}\n${player?.name ?? '待选择'}`, 0, 0, 14, selected ? colors.background : colors.white, 86);
+      const card = this.playerHex(root, x, -415, player, player?.position ?? '空', selected, 38);
       card.on(Node.EventType.TOUCH_END, () => this.selectBench(index));
     });
-    text(root, formationIndex >= 0 ? `阵型 ${formationIndex + 1}/${formations.length}` : '', 265, -365, 16, colors.muted, 120);
-    button(root, '球员仓库', -235, -500, 180, 62, () => this.openPlayerWarehouse(), colors.panelSoft);
-    button(root, `球探盲盒 ×${this.state.scoutTickets}`, -25, -500, 210, 62, () => this.show('blindBox'), colors.gold);
-    button(root, '返回', 185, -500, 150, 62, () => this.show('home'), colors.panelSoft);
-    void addImage(root, 'ui/button-ready', {
+    button(root, '球员仓库', -210, -520, 180, 58, () => this.openPlayerWarehouse(), colors.panelSoft);
+    button(root, `球探盲盒 ×${this.state.scoutTickets}`, 0, -520, 210, 58, () => this.show('blindBox'), colors.gold);
+    void addFrameImage(root, 'ui/button-ready', { x: 63, y: 203, width: 995, height: 275 }, {
       x: 0,
       y: -580,
       width: 330,
       height: 91,
       onClick: () => this.show('matchmaking')
     });
+  }
+
+  private renderFormationChoice(parent: Node, formation: typeof formations[number], index: number, x: number, y: number, width: number, height: number, selected: boolean): void {
+    const card = panel(parent, x, y, width, height, selected ? new Color(19, 36, 23, 245) : new Color(7, 18, 13, 230), 18);
+    const pitch = card.addComponent(Graphics);
+    pitch.strokeColor = new Color(207, 255, 240, 95);
+    pitch.lineWidth = 2;
+    pitch.rect(-width * 0.36, 10, width * 0.72, height * 0.34);
+    pitch.circle(0, height * 0.17, 12);
+    pitch.stroke();
+    formation.slots.forEach((slot) => {
+      const dot = panel(card, (slot.x - 0.5) * width * 0.65, height * 0.31 - slot.y * height * 0.27, selected ? 7 : 6, selected ? 7 : 6, slot.position === 'FW' ? colors.gold : colors.white, 4);
+      dot.getComponent(Graphics);
+    });
+    text(card, formation.name, 0, -height * 0.18, selected ? 27 : 22, colors.white, width - 20);
+    text(card, formation.style, 0, -height * 0.36, selected ? 19 : 16, selected ? colors.gold : colors.success, width - 20);
+    card.on(Node.EventType.TOUCH_END, () => {
+      this.state.setFormation(formations[index]);
+      this.show('formation');
+    });
+  }
+
+  private playerHex(parent: Node, x: number, y: number, player: PlayerCardData | undefined, position: string, selected: boolean, radius: number): Node {
+    const node = layer('PlayerHex', parent, radius * 2.2, radius * 2.35);
+    node.setPosition(x, y);
+    const graphics = node.addComponent(Graphics);
+    graphics.fillColor = selected ? colors.gold : new Color(7, 24, 34, 245);
+    graphics.strokeColor = selected ? colors.white : new Color(91, 225, 220, 255);
+    graphics.lineWidth = 3;
+    for (let index = 0; index < 6; index += 1) {
+      const angle = Math.PI / 3 * index + Math.PI / 6;
+      const px = Math.cos(angle) * radius;
+      const py = Math.sin(angle) * radius;
+      if (index === 0) graphics.moveTo(px, py);
+      else graphics.lineTo(px, py);
+    }
+    graphics.close();
+    graphics.fill();
+    graphics.stroke();
+    if (player) {
+      void addImage(node, this.playerResourcePath(player), {
+        x: 0,
+        y: 8,
+        width: radius * 1.3,
+        height: radius * 1.3,
+        siblingIndex: 0
+      });
+      text(node, String(player.rating), -radius * 0.52, radius * 0.48, Math.max(13, radius * 0.34), colors.white, radius * 0.62);
+      text(node, player.name, 0, -radius * 0.62, Math.max(12, radius * 0.27), colors.white, radius * 1.7);
+    } else {
+      text(node, '+', 0, 5, 30, selected ? colors.background : colors.gold, radius * 1.7);
+    }
+    text(node, position, 0, -radius - 14, 14, colors.white, radius * 1.8);
+    return node;
+  }
+
+  private autoFillStrongest(): void {
+    const used = new Set<string>();
+    this.state.lineup.forEach((slot) => {
+      const player = this.state.ownedPlayers(slot.position).find((candidate) => !used.has(candidate.id));
+      if (player) {
+        this.state.fillSlot(slot.id, player);
+        used.add(player.id);
+      }
+    });
+    this.show('formation');
   }
 
   private changeFormation(direction: number): void {
@@ -365,26 +612,47 @@ export class GameRoot extends Component {
     const root = this.screen!;
     const visible = view.getVisibleSize();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
-    text(root, '球探盲盒', 0, 535, 42, colors.gold);
-    text(root, `球探券 ${this.state.scoutTickets}  ·  三选一签下球员`, 0, 475, 22, colors.white);
+    void addImage(root, 'ui/football-backgrond', { x: 0, y: -20, width: 690, height: 900 });
+    const shade = root.addComponent(Graphics);
+    shade.fillColor = new Color(2, 6, 19, 185);
+    shade.rect(-360, -640, 720, 1280);
+    shade.fill();
+    text(root, '球探盲盒 3选1', 0, 520, 42, colors.white);
+    text(root, `球探券 ${this.state.scoutTickets}  ·  先翻开全部卡牌，再选择球员`, 0, 465, 21, colors.muted);
     if (!this.state.pendingScoutChoices.length) {
       text(root, '消耗 1 张球探券，随机发现 3 名球员', 0, 120, 24, colors.muted);
       button(root, this.state.scoutTickets > 0 ? '开启盲盒' : '球探券不足', 0, -20, 360, 88, () => {
         if (this.state.startScoutDraw()) this.show('blindBox');
       }, this.state.scoutTickets > 0 ? colors.gold : colors.panelSoft);
     } else {
+      const allRevealed = this.state.pendingScoutChoices.every((player) => this.revealedScoutIds.has(player.id));
       this.state.pendingScoutChoices.forEach((player, index) => {
         const x = -220 + index * 220;
+        if (!this.revealedScoutIds.has(player.id)) {
+          void addFrameImage(root, 'ui/card-guess1', { x: 185, y: 298, width: 350, height: 488 }, {
+            x,
+            y: 10,
+            width: 205,
+            height: 286,
+            onClick: () => {
+              this.revealedScoutIds.add(player.id);
+              this.show('blindBox');
+            }
+          });
+          return;
+        }
         const playerCard = panel(root, x, 80, 195, 360, colors.panelSoft, 22);
         text(playerCard, player.position, 0, 145, 20, colors.gold, 160);
         text(playerCard, player.name, 0, 105, 23, colors.white, 170);
         void addImage(playerCard, this.playerResourcePath(player), { x: 0, y: 28, width: 110, height: 110 });
         text(playerCard, String(player.rating), 0, -55, 40, colors.gold, 150);
         text(playerCard, `${player.skill}\n攻 ${player.attack}  防 ${player.defense}  速 ${player.speed}`, 0, -120, 15, colors.muted, 165);
-        button(playerCard, '签下', 0, -220, 150, 60, () => {
+        button(playerCard, allRevealed ? '签下' : '继续翻牌', 0, -220, 150, 60, () => {
+          if (!allRevealed) return;
           this.state.claimScoutPlayer(player);
+          this.revealedScoutIds.clear();
           this.show('formation');
-        }, colors.primary);
+        }, allRevealed ? colors.primary : colors.panelSoft);
       });
     }
     button(root, '返回阵容', 0, -520, 260, 68, () => this.show('formation'), colors.panelSoft);
@@ -398,20 +666,38 @@ export class GameRoot extends Component {
     const root = this.screen!;
     this.matchCancelled = false;
     this.matchTicket = undefined;
-    text(root, '正在匹配对手', 0, 400, 42);
-    text(root, String(this.state.power), 0, 180, 86, colors.gold);
-    text(root, '当前球队战力', 0, 105, 22, colors.muted);
-    text(root, `${this.state.selectedFormation.name}  ·  首发 ${this.state.lineup.filter((slot) => !!slot.player).length}/11  ·  替补 ${this.state.substitutes.filter(Boolean).length}/5`, 0, 55, 18, colors.muted);
-    const status = text(root, '搜索实力相近的球队…', 0, -40, 25, colors.white);
-    button(root, '取消匹配', 0, -390, 360, 82, () => {
+    const visible = view.getVisibleSize();
+    void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
+    void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: 570, width: 66, height: 66, onClick: () => this.show('formation') });
+    void addFrameImage(root, 'ui/headertitle', { x: 588, y: 54, width: 448, height: 108 }, { x: -120, y: 570, width: 250, height: 60 });
+    const spinner = layer('MatchSpinner', root, 330, 330);
+    spinner.setPosition(0, 215);
+    const rings = spinner.addComponent(Graphics);
+    rings.lineWidth = 8;
+    rings.strokeColor = new Color(30, 220, 255, 255);
+    rings.arc(0, 0, 145, 0.35, 3.8, false);
+    rings.stroke();
+    rings.lineWidth = 4;
+    rings.strokeColor = new Color(90, 190, 255, 210);
+    rings.circle(0, 0, 95);
+    rings.stroke();
+    text(spinner, 'VS', 0, 0, 42, colors.gold, 100);
+    text(root, '正在寻找对手', 0, 5, 40, colors.white);
+    const status = text(root, '正在为你寻找在线玩家', 0, -50, 23, colors.success);
+    const info = panel(root, 0, -195, 630, 155, new Color(8, 25, 55, 240), 18);
+    text(info, `阵型   ${this.state.selectedFormation.name}`, -170, 35, 21, colors.gold, 230);
+    text(info, `战力   ${this.state.power}`, -170, -25, 31, colors.white, 230);
+    text(info, '实时对战准备中', 170, 0, 24, new Color(80, 220, 255, 255), 250);
+    button(root, '取消匹配', 0, -405, 300, 78, () => {
       void this.cancelMatch();
-      this.show('home');
-    }, colors.panelSoft);
+      this.show('formation');
+    }, new Color(22, 55, 102, 255));
+    text(root, '搜索时间过长可尝试更换阵型，可更快匹配', 0, -500, 17, colors.muted);
 
     let dots = 0;
     this.schedule(() => {
       dots = (dots + 1) % 4;
-      status.string = `搜索实力相近的球队${'.'.repeat(dots)}`;
+      status.string = `正在为你寻找在线玩家${'.'.repeat(dots)}`;
     }, 0.45);
     void this.findOpponent();
   }
@@ -463,7 +749,10 @@ export class GameRoot extends Component {
   private renderMatchup(): void {
     const root = this.screen!;
     const opponentPower = this.lineupPower(this.state.opponentLineup);
-    text(root, '比赛对阵', 0, 560, 36, colors.gold);
+    const visible = view.getVisibleSize();
+    void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
+    void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: 570, width: 66, height: 66, onClick: () => this.show('formation') });
+    void addFrameImage(root, 'ui/headertitle', { x: 588, y: 54, width: 448, height: 108 }, { x: -120, y: 570, width: 250, height: 60 });
     const left = panel(root, -180, 285, 320, 360, colors.panelSoft);
     const right = panel(root, 180, 285, 320, 360, colors.panelSoft);
     this.renderTeamSummary(left, '我方', '蓝焰俱乐部', this.state.selectedFormation.name, this.state.power, this.state.lineup, colors.success);
@@ -480,8 +769,9 @@ export class GameRoot extends Component {
     const core = [...lineup].sort((a, b) => (b.player?.rating ?? 0) - (a.player?.rating ?? 0))[0]?.player;
     text(parent, side, 0, 135, 18, accent, 260);
     text(parent, club, 0, 90, 24, colors.white, 280);
-    text(parent, String(power), 0, 20, 48, colors.gold, 240);
-    text(parent, `${formation}  ·  核心 ${core?.name ?? '待定'} ${core?.rating ?? ''}`, 0, -55, 17, colors.muted, 280);
+    if (core) void addImage(parent, this.playerResourcePath(core), { x: -80, y: 5, width: 78, height: 78 });
+    text(parent, String(power), 55, 15, 43, colors.gold, 140);
+    text(parent, `${formation}  ·  核心 ${core?.name ?? '待定'} ${core?.rating ?? ''}`, 0, -65, 17, colors.muted, 280);
   }
 
   private renderMiniLineup(parent: Node, lineup: typeof this.state.lineup, centerX: number): void {
@@ -489,8 +779,9 @@ export class GameRoot extends Component {
     lineup.forEach((slot) => {
       const x = (slot.x - 0.5) * 270;
       const y = (0.5 - slot.y) * 350;
-      const chip = panel(pitch, x, y, 48, 36, slot.player ? colors.primary : colors.panelSoft, 8);
-      text(chip, `${slot.player?.rating ?? '--'}`, 0, 0, 13, colors.white, 44);
+      const chip = panel(pitch, x, y, 48, 52, slot.player ? colors.primary : colors.panelSoft, 10);
+      if (slot.player) void addImage(chip, this.playerResourcePath(slot.player), { x: 0, y: 5, width: 34, height: 34 });
+      text(chip, `${slot.player?.rating ?? '--'}`, 0, -18, 12, colors.white, 44);
     });
   }
 
@@ -504,7 +795,9 @@ export class GameRoot extends Component {
     this.scoreB = 0;
     this.battleIndex = 0;
     this.battleEvents = [];
-    text(root, '实时战报', 0, 550, 34, colors.gold);
+    const visible = view.getVisibleSize();
+    void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
+    void addFrameImage(root, 'ui/headertitle', { x: 557, y: 226, width: 474, height: 124 }, { x: -115, y: 570, width: 245, height: 64 });
     text(root, `蓝焰俱乐部     ${this.state.opponent.nickname}`, 0, 470, 22, colors.muted);
     text(root, `${this.state.selectedFormation.name}                         ${this.state.opponentFormation.name}`, 0, 430, 17, colors.muted);
     this.battleScore = text(root, '0  :  0', 0, 370, 72);
@@ -572,6 +865,9 @@ export class GameRoot extends Component {
     const result = this.state.battleResult;
     const won = result.scoreA > result.scoreB;
     const draw = result.scoreA === result.scoreB;
+    const visible = view.getVisibleSize();
+    void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
+    void addFrameImage(root, 'ui/headertitle', { x: 55, y: 408, width: 463, height: 116 }, { x: -115, y: 570, width: 245, height: 61 });
     text(root, won ? '比赛胜利' : draw ? '握手言和' : '比赛结束', 0, 470, 52, won ? colors.gold : colors.white);
     text(root, `${result.scoreA}  :  ${result.scoreB}`, 0, 300, 110, colors.white);
     text(root, `蓝焰俱乐部     ${this.state.opponent.nickname}`, 0, 205, 23, colors.muted);

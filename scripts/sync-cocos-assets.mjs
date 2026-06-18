@@ -21,7 +21,17 @@ const files = [
   'ui/buttons.png',
   'ui/gameevents.png',
   'ui/matchtitle.png',
-  'ui/playerscore.png'
+  'ui/playerscore.png',
+  'ui/qiandao.png',
+  'ui/toolstitle.png',
+  'ui/everyday-active.png',
+  'ui/gift.png',
+  'ui/sevenday/giftbg.png',
+  'ui/sevenday/flash.png',
+  'ui/sevenday/diamond.png',
+  'ui/sevenday/ticket.png',
+  'ui/sevenday/accpet.png',
+  'ui/sevenday/accpet-end.png'
 ];
 
 const sourceRoot = resolve('public/assets');
