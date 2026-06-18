@@ -18,6 +18,10 @@
     "build:douyin:debug": "tsc && vite build --mode douyin-debug",
     "debug:douyin:watch": "vite build --mode douyin-debug --watch",
     "debug:all": "node scripts/dev-sync.mjs --douyin-debug",
+    "cocos:sync-assets": "node scripts/sync-cocos-assets.mjs",
+    "cocos:generate": "node scripts/generate-cocos-project.mjs",
+    "cocos:prepare": "npm run cocos:sync-assets && npm run cocos:generate",
+    "cocos:open": "open -a '/Applications/Cocos/Creator/3.8.8/CocosCreator.app' cocos-client",
     "build:douyin:watch": "vite build --mode douyin --watch",
     "package:douyin": "npm run build:douyin && node -e \"require('fs').rmSync('douyin-game-clean.zip',{force:true})\" && cd douyin-game && zip -r ../douyin-game-clean.zip . -x \"*.DS_Store\" -x \"__MACOSX/*\" -x \"*/._*\" -x \"._*\"",
     "preview": "vite preview --host 0.0.0.0"
@@ -34,5 +38,9 @@
     "@types/react-dom": "^19.2.3",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
-  }
+  },
+  "creator": {
+    "version": "3.8.8"
+  },
+  "uuid": "8aeca609-c3d2-4abb-9e99-60488871ec99"
 }

@@ -1,0 +1,10 @@
+{
+  "name": "soccer-game-cocos-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cocos Creator 3.8 client for Soccer Game",
+  "creator": {
+    "version": "3.8.8"
+  },
+  "uuid": "4e1b2d2d-ec82-40be-9f1f-efbd7a28b79b"
+}
