@@ -19,8 +19,15 @@ const files = [
   'ui/players-bg.png',
   'ui/bottom-menu.png',
   'ui/buttons.png',
+  'ui/card-guess1.png',
+  'ui/cardbg.png',
   'ui/gameevents.png',
   'ui/matchtitle.png',
+  'ui/vs.png',
+  'ui/vs-squard.png',
+  'ui/squard-qc.png',
+  'ui/playercore.png',
+  'ui/playbutton.png',
   'ui/playerscore.png',
   'ui/qiandao.png',
   'ui/toolstitle.png',
@@ -36,9 +43,16 @@ const files = [
 
 const sourceRoot = resolve('public/assets');
 const targetRoot = resolve('cocos-client/assets/resources');
-const playerFiles = (await readdir(resolve(sourceRoot, 'players/generated')))
-  .filter((name) => name.endsWith('.png'))
-  .map((name) => `players/generated/${name}`);
+const collectPngFiles = async (relativeDir) => {
+  const entries = await readdir(resolve(sourceRoot, relativeDir), { withFileTypes: true });
+  const nested = await Promise.all(entries.map(async (entry) => {
+    const relativePath = `${relativeDir}/${entry.name}`;
+    if (entry.isDirectory()) return collectPngFiles(relativePath);
+    return entry.isFile() && entry.name.endsWith('.png') ? [relativePath] : [];
+  }));
+  return nested.flat();
+};
+const playerFiles = await collectPngFiles('players/generated');
 files.push(...playerFiles);
 
 for (const file of files) {

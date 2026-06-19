@@ -67,9 +67,10 @@ export class GameState {
         ...slot,
         player: players.find((player) => save.lineup?.find((item) => item.slotId === slot.id)?.playerId === player.id)
       }));
-      this.fillEmptyLineup();
+      if (!Array.isArray(save.lineup) || save.lineup.length === 0) this.fillEmptyLineup();
       this.substitutes = Array.from({ length: 5 }, (_, index) => players.find((player) => player.id === save.substitutes?.[index]));
-      this.fillEmptySubstitutes();
+      // Older Cocos saves auto-filled the bench even after starting an empty draft.
+      if (this.lineup.every((slot) => !slot.player)) this.substitutes = Array.from({ length: 5 });
     } catch (error) {
       console.warn('[save] ignoring invalid local save', error);
       this.resetLineup();
@@ -130,7 +131,7 @@ export class GameState {
   }
 
   setFormation(formation: FormationData): void {
-    const available = [...this.lineup.map((slot) => slot.player), ...this.substitutes].filter((player): player is PlayerCardData => !!player);
+    const available = this.lineup.map((slot) => slot.player).filter((player): player is PlayerCardData => !!player);
     const used = new Set<string>();
     const take = (position: Position) => {
       const exact = available.find((player) => !used.has(player.id) && player.position === position);
@@ -141,10 +142,12 @@ export class GameState {
     };
     this.selectedFormation = formation;
     this.lineup = formation.slots.map((slot) => ({ ...slot, player: take(slot.position) }));
-    const remaining = available.filter((player) => !used.has(player.id));
-    this.substitutes = Array.from({ length: 5 }, (_, index) => remaining[index]);
-    this.fillEmptyLineup();
-    this.fillEmptySubstitutes();
+    this.save();
+  }
+
+  clearLineup(): void {
+    this.lineup = this.selectedFormation.slots.map((slot) => ({ ...slot, player: undefined }));
+    this.substitutes = Array.from({ length: 5 });
     this.save();
   }
 
@@ -172,7 +175,6 @@ export class GameState {
     this.lineup.forEach((item) => { if (item.player?.id === player.id) item.player = undefined; });
     this.substitutes = this.substitutes.map((item) => item?.id === player.id ? undefined : item);
     slot.player = player;
-    this.fillEmptySubstitutes();
     this.save();
     return true;
   }
@@ -202,7 +204,6 @@ export class GameState {
     if (!this.pendingScoutChoices.some((item) => item.id === player.id)) return;
     this.collectionIds.add(player.id);
     this.pendingScoutChoices = [];
-    this.fillEmptySubstitutes();
     this.save();
   }
 
@@ -230,7 +231,6 @@ export class GameState {
       if (player) used.add(player.id);
       return { ...slot, player };
     });
-    this.fillEmptySubstitutes();
   }
 
   private fillEmptyLineup(): void {
@@ -245,15 +245,6 @@ export class GameState {
         used.add(player.id);
       }
     }
-  }
-
-  private fillEmptySubstitutes(): void {
-    const used = new Set([
-      ...this.lineup.flatMap((slot) => slot.player ? [slot.player.id] : []),
-      ...this.substitutes.flatMap((player) => player ? [player.id] : [])
-    ]);
-    const pool = this.ownedPlayers().filter((player) => !used.has(player.id));
-    this.substitutes = Array.from({ length: 5 }, (_, index) => this.substitutes[index] ?? pool.shift());
   }
 
   private canPlace(player: PlayerCardData, position: Position): boolean {

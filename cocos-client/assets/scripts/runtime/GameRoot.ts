@@ -43,7 +43,8 @@ export class GameRoot extends Component {
   private battleIndex = 0;
   private battleClock?: Label;
   private battleScore?: Label;
-  private battleFeed?: Label;
+  private battleEventLayer?: Node;
+  private battlePossession?: Graphics;
   private screenMount?: Node;
   private modal?: Node;
   private followVisitStarted = false;
@@ -79,8 +80,8 @@ export class GameRoot extends Component {
     this.modal = undefined;
     this.current = name;
     (globalThis as typeof globalThis & { __SOCCER_COCOS_SCREEN__?: ScreenName }).__SOCCER_COCOS_SCREEN__ = name;
-    const canvas = globalThis.document?.querySelector('canvas');
-    if (canvas) canvas.dataset.soccerScreen = name;
+    const canvas = globalThis.document?.querySelector('canvas') as { dataset?: Record<string, string> } | null | undefined;
+    if (canvas?.dataset) canvas.dataset.soccerScreen = name;
     const visible = view.getVisibleSize();
     const safe = sys.getSafeAreaRect(false);
     this.screenHost = layer(`Screen:${name}`, this.screenMount ?? this.node, visible.width, visible.height);
@@ -120,24 +121,77 @@ export class GameRoot extends Component {
   private renderHome(): void {
     const root = this.screen!;
     const visible = view.getVisibleSize();
+    const hud = this.homeHudLayout();
     void addCoverImage(this.screenHost!, 'home-bg', visible.width, visible.height);
-    void addImage(root, 'players/generated/saka', { x: -305, y: 570, width: 58, height: 58 });
-    void addFrameImage(root, 'ui/avatar-bg', { x: 291, y: 118, width: 503, height: 503 }, { x: -305, y: 570, width: 94, height: 94 });
-    void addImage(root, 'ui/top-button-v2', { x: 50, y: 570, width: 580, height: 62 });
-    text(root, formatNumber(this.state.gems), -100, 570, 20, colors.white, 110);
-    text(root, `${this.state.energy}/120`, 200, 570, 20, colors.white, 125);
+    void addImage(root, 'players/generated/saka', { x: hud.avatarX, y: hud.y, width: hud.avatarSize * 0.64, height: hud.avatarSize * 0.64, siblingIndex: 0 });
+    void addFrameImage(root, 'ui/avatar-bg', { x: 291, y: 118, width: 503, height: 503 }, {
+      x: hud.avatarX,
+      y: hud.y,
+      width: hud.avatarSize,
+      height: hud.avatarSize,
+      siblingIndex: 1
+    });
+    void addImage(root, 'ui/top-button-v2', { x: hud.barX, y: hud.y, width: hud.barWidth, height: hud.barHeight });
+    text(root, formatNumber(this.state.gems), hud.barX - hud.barWidth * 0.25, hud.y, 19, colors.white, hud.barWidth * 0.27);
+    text(root, `${this.state.energy}/120`, hud.barX + hud.barWidth * 0.25, hud.y, 19, colors.white, hud.barWidth * 0.29);
     void addImage(root, 'ui/hero', { x: 0, y: -213, width: 628, height: 942 });
     void addImage(root, 'ui/start', {
       x: 0,
       y: -515,
       width: 436,
       height: 176,
-      onClick: () => this.show('formation')
+      onClick: () => {
+        this.state.clearLineup();
+        this.selectedLineupSlotId = undefined;
+        this.selectedBenchIndex = undefined;
+        this.show('formation');
+      }
     });
     this.homeImageShortcut(root, 0, '七日签到', -300, 430, () => this.openSignModal());
     this.homeImageShortcut(root, 1, '商城', -300, 290, () => this.show('shop'));
     this.homeImageShortcut(root, 2, '关注领奖', 300, 430, () => this.openFollowModal());
     this.homeImageShortcut(root, 1, '每日任务', 300, 290, () => this.openTasksModal());
+  }
+
+  private homeHudLayout(): { y: number; avatarX: number; avatarSize: number; barX: number; barWidth: number; barHeight: number } {
+    type MiniProgramLayoutApi = {
+      getSystemInfoSync?: () => { windowWidth?: number };
+      getMenuButtonBoundingClientRect?: () => { left?: number; top?: number; right?: number; bottom?: number };
+    };
+    const visible = view.getVisibleSize();
+    const rootX = this.screen?.position.x ?? 0;
+    const rootY = this.screen?.position.y ?? 0;
+    let right = DESIGN_WIDTH / 2 - 18;
+    let y = 590;
+    try {
+      const api = (globalThis as typeof globalThis & { tt?: MiniProgramLayoutApi }).tt;
+      const info = api?.getSystemInfoSync?.();
+      const menu = api?.getMenuButtonBoundingClientRect?.();
+      if (info?.windowWidth && menu?.left != null) {
+        const designPerPixel = visible.width / info.windowWidth;
+        right = -visible.width / 2 + menu.left * designPerPixel - rootX - 14;
+        if (menu.top != null && menu.bottom != null) {
+          const worldY = visible.height / 2 - ((menu.top + menu.bottom) / 2) * designPerPixel;
+          y = worldY - rootY + 18;
+        }
+      }
+    } catch (error) {
+      console.warn('[layout] unable to read Douyin menu button bounds', error);
+    }
+    const left = -DESIGN_WIDTH / 2 + 18;
+    const gap = 8;
+    const avatarSize = Math.max(66, Math.min(76, right - left - 350));
+    const barWidth = Math.max(330, Math.min(430, right - left - avatarSize - gap));
+    const avatarX = left + avatarSize / 2;
+    const barX = left + avatarSize + gap + barWidth / 2;
+    return {
+      y: Math.max(575, Math.min(650, y)),
+      avatarX,
+      avatarSize,
+      barX,
+      barWidth,
+      barHeight: Math.max(64, barWidth * (180 / 1280))
+    };
   }
 
   private homeImageShortcut(parent: Node, iconIndex: number, title: string, x: number, y: number, onClick: () => void): void {
@@ -476,8 +530,6 @@ export class GameRoot extends Component {
       const card = this.playerHex(root, x, -415, player, player?.position ?? '空', selected, 38);
       card.on(Node.EventType.TOUCH_END, () => this.selectBench(index));
     });
-    button(root, '球员仓库', -210, -520, 180, 58, () => this.openPlayerWarehouse(), colors.panelSoft);
-    button(root, `球探盲盒 ×${this.state.scoutTickets}`, 0, -520, 210, 58, () => this.show('blindBox'), colors.gold);
     void addFrameImage(root, 'ui/button-ready', { x: 63, y: 203, width: 995, height: 275 }, {
       x: 0,
       y: -580,
@@ -563,6 +615,12 @@ export class GameRoot extends Component {
   }
 
   private selectLineupSlot(slotId: string): void {
+    const slot = this.state.lineup.find((item) => item.id === slotId);
+    if (!slot) return;
+    if (!slot.player && this.selectedBenchIndex == null && !this.selectedLineupSlotId) {
+      this.openPositionBlindBox({ slotId });
+      return;
+    }
     if (this.selectedBenchIndex != null) {
       this.state.swapLineupWithSubstitute(slotId, this.selectedBenchIndex);
       this.selectedBenchIndex = undefined;
@@ -577,6 +635,11 @@ export class GameRoot extends Component {
   }
 
   private selectBench(index: number): void {
+    const player = this.state.substitutes[index];
+    if (!player && !this.selectedLineupSlotId && this.selectedBenchIndex == null) {
+      this.openPositionBlindBox({ benchIndex: index });
+      return;
+    }
     if (this.selectedLineupSlotId) {
       this.state.swapLineupWithSubstitute(this.selectedLineupSlotId, index);
       this.selectedLineupSlotId = undefined;
@@ -587,25 +650,91 @@ export class GameRoot extends Component {
     this.show('formation');
   }
 
-  private openPlayerWarehouse(): void {
-    const card = this.createModal('球员仓库', this.selectedLineupSlotId ? '选择球员替换当前首发' : this.selectedBenchIndex != null ? '选择球员加入替补席' : '请先选择一个首发或替补位置');
-    if (!this.selectedLineupSlotId && this.selectedBenchIndex == null) return;
-    const target = this.state.lineup.find((slot) => slot.id === this.selectedLineupSlotId);
-    const pool = this.state.ownedPlayers(target?.position).slice(0, 12);
-    pool.forEach((player, index) => {
-      const column = index % 3;
-      const row = Math.floor(index / 3);
-      const playerCard = panel(card, -190 + column * 190, 275 - row * 150, 170, 125, colors.panelSoft, 16);
-      text(playerCard, `${player.position}  ${player.rating}\n${player.name}\n${player.skill}`, 0, 0, 17, colors.white, 155);
+  private openPositionBlindBox(
+    target: { slotId?: string; benchIndex?: number },
+    candidates?: PlayerCardData[],
+    revealed = new Set<string>()
+  ): void {
+    const slot = target.slotId ? this.state.lineup.find((item) => item.id === target.slotId) : undefined;
+    const used = new Set([
+      ...this.state.lineup.flatMap((item) => item.player ? [item.player.id] : []),
+      ...this.state.substitutes.flatMap((item, index) => item && index !== target.benchIndex ? [item.id] : [])
+    ]);
+    const choices = candidates ?? this.state.ownedPlayers()
+      .filter((player) => !used.has(player.id) && (!slot || (slot.position === 'GK' ? player.position === 'GK' : player.position !== 'GK')))
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
+
+    this.modal?.destroy();
+    const visible = view.getVisibleSize();
+    const modal = layer('PositionBlindBox', this.screenHost!, visible.width, visible.height);
+    this.modal = modal;
+    modal.on(Node.EventType.TOUCH_START, () => undefined);
+    modal.on(Node.EventType.TOUCH_END, () => undefined);
+    const shade = modal.addComponent(Graphics);
+    shade.fillColor = new Color(2, 6, 19, 184);
+    shade.rect(-visible.width / 2, -visible.height / 2, visible.width, visible.height);
+    shade.fill();
+    const positionName = slot ? this.positionName(slot.position) : `替补${(target.benchIndex ?? 0) + 1}`;
+    text(modal, `${positionName} 3选1`, 0, 515, 42, colors.white);
+    text(modal, '点击卡片全部开启后，再选择球员', 0, 458, 21, new Color(207, 224, 255, 255));
+    if (!choices.length) {
+      text(modal, '当前没有可用球员，请返回调整已选阵容', 0, 40, 24, colors.gold, 600);
+      button(modal, '返回阵容', 0, -90, 240, 66, () => this.closeModal(), colors.panelSoft);
+      return;
+    }
+    const allRevealed = choices.length > 0 && choices.every((player) => revealed.has(player.id));
+    choices.forEach((player, index) => {
+      const x = -220 + index * 220;
+      if (!revealed.has(player.id)) {
+        void addFrameImage(modal, 'ui/card-guess1', { x: 185, y: 298, width: 350, height: 488 }, {
+          x,
+          y: 25,
+          width: 218,
+          height: 304,
+          onClick: () => {
+            revealed.add(player.id);
+            this.openPositionBlindBox(target, choices, revealed);
+          }
+        });
+        return;
+      }
+      const playerCard = this.renderBlindPlayerCard(modal, player, x, 25, allRevealed);
       playerCard.on(Node.EventType.TOUCH_END, () => {
-        if (this.selectedLineupSlotId) this.state.fillSlot(this.selectedLineupSlotId, player);
-        else if (this.selectedBenchIndex != null) this.state.fillSubstitute(this.selectedBenchIndex, player);
+        if (!allRevealed) return;
+        if (target.slotId) this.state.fillSlot(target.slotId, player);
+        else if (target.benchIndex != null) this.state.fillSubstitute(target.benchIndex, player);
         this.closeModal();
-        this.selectedLineupSlotId = undefined;
-        this.selectedBenchIndex = undefined;
         this.show('formation');
       });
     });
+  }
+
+  private renderBlindPlayerCard(parent: Node, player: PlayerCardData, x: number, y: number, selectable: boolean): Node {
+    const width = 188;
+    const height = 262;
+    const card = layer(`BlindCard:${player.id}`, parent, width, height);
+    card.setPosition(x, y);
+    const frames: Record<PlayerCardData['rarity'], { x: number; y: number; width: number; height: number }> = {
+      bronze: { x: 77, y: 0, width: 249, height: 347 },
+      silver: { x: 413, y: 0, width: 251, height: 347 },
+      purple: { x: 747, y: 0, width: 250, height: 347 },
+      gold: { x: 76, y: 350, width: 253, height: 327 },
+      legend: { x: 399, y: 348, width: 276, height: 331 },
+      orange: { x: 721, y: 347, width: 304, height: 337 }
+    };
+    void addFrameImage(card, 'ui/cardbg', frames[player.rarity], { x: 0, y: 0, width, height, siblingIndex: 0 });
+    void addImage(card, this.playerResourcePath(player), { x: 10, y: 28, width: 118, height: 118, siblingIndex: 1 });
+    text(card, String(player.rating), -58, 100, 29, colors.white, 58);
+    text(card, this.positionName(player.position), -58, 68, 14, colors.white, 62);
+    text(card, player.name, 0, -65, 21, colors.white, 155);
+    text(card, `#${player.skill}`, 0, -96, 14, colors.white, 160);
+    text(card, selectable ? '点击选择' : '继续翻牌', 0, -126, 14, selectable ? colors.gold : colors.muted, 155);
+    return card;
+  }
+
+  private positionName(position: PlayerCardData['position']): string {
+    return position === 'GK' ? '门将' : position === 'DF' ? '后卫' : position === 'MF' ? '中场' : '前锋';
   }
 
   private renderBlindBox(): void {
@@ -751,38 +880,85 @@ export class GameRoot extends Component {
     const opponentPower = this.lineupPower(this.state.opponentLineup);
     const visible = view.getVisibleSize();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
+    const shade = root.addComponent(Graphics);
+    shade.fillColor = new Color(2, 8, 24, 90);
+    shade.rect(-DESIGN_WIDTH / 2, -DESIGN_HEIGHT / 2, DESIGN_WIDTH, DESIGN_HEIGHT);
+    shade.fill();
     void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: 570, width: 66, height: 66, onClick: () => this.show('formation') });
-    void addFrameImage(root, 'ui/headertitle', { x: 588, y: 54, width: 448, height: 108 }, { x: -120, y: 570, width: 250, height: 60 });
-    const left = panel(root, -180, 285, 320, 360, colors.panelSoft);
-    const right = panel(root, 180, 285, 320, 360, colors.panelSoft);
+    void addFrameImage(root, 'ui/headertitle', { x: 588, y: 54, width: 448, height: 108 }, { x: -125, y: 570, width: 255, height: 61 });
+
+    const left = panel(root, -185, 420, 322, 190, new Color(15, 43, 86, 235), 22);
+    const right = panel(root, 185, 420, 322, 190, new Color(15, 43, 86, 235), 22);
     this.renderTeamSummary(left, '我方', '蓝焰俱乐部', this.state.selectedFormation.name, this.state.power, this.state.lineup, colors.success);
     this.renderTeamSummary(right, '对手', this.state.opponent.nickname, this.state.opponentFormation.name, opponentPower, this.state.opponentLineup, colors.danger);
-    text(root, 'VS', 0, 290, 42, colors.gold, 90);
-    text(root, '首发阵容预览', 0, 55, 22, colors.gold);
-    this.renderMiniLineup(root, this.state.lineup, -180);
-    this.renderMiniLineup(root, this.state.opponentLineup, 180);
-    button(root, '调整阵容', -175, -500, 260, 72, () => this.show('formation'), colors.panelSoft);
-    button(root, '进入比赛', 175, -500, 260, 72, () => this.show('battle'), colors.primary);
+    void addImage(root, 'ui/vs', { x: 0, y: 420, width: 76, height: 71 });
+    this.renderPowerComparison(root, this.state.power, opponentPower, 292);
+
+    text(root, '首发阵容预览', 0, 220, 22, colors.gold);
+    this.renderMiniLineup(root, this.state.lineup, -180, '我方阵型', this.state.selectedFormation.name, true);
+    this.renderMiniLineup(root, this.state.opponentLineup, 180, '对方阵型', this.state.opponentFormation.name, false);
+    this.renderCoreDuel(root);
+    button(root, '调整阵容', -175, -574, 270, 70, () => this.show('formation'), colors.panelSoft);
+    button(root, '进入比赛', 175, -574, 270, 70, () => this.show('battle'), colors.primary);
   }
 
   private renderTeamSummary(parent: Node, side: string, club: string, formation: string, power: number, lineup: typeof this.state.lineup, accent: Color): void {
     const core = [...lineup].sort((a, b) => (b.player?.rating ?? 0) - (a.player?.rating ?? 0))[0]?.player;
-    text(parent, side, 0, 135, 18, accent, 260);
-    text(parent, club, 0, 90, 24, colors.white, 280);
-    if (core) void addImage(parent, this.playerResourcePath(core), { x: -80, y: 5, width: 78, height: 78 });
-    text(parent, String(power), 55, 15, 43, colors.gold, 140);
-    text(parent, `${formation}  ·  核心 ${core?.name ?? '待定'} ${core?.rating ?? ''}`, 0, -65, 17, colors.muted, 280);
+    text(parent, side, 0, 67, 16, accent, 260);
+    text(parent, club, 0, 36, 21, colors.white, 280);
+    if (core) void addImage(parent, this.playerResourcePath(core), { x: -82, y: -31, width: 62, height: 62 });
+    text(parent, String(power), 50, -25, 38, colors.gold, 135);
+    text(parent, `${formation} · 核心 ${core?.name ?? '待定'} ${core?.rating ?? ''}`, 0, -76, 15, colors.muted, 280);
   }
 
-  private renderMiniLineup(parent: Node, lineup: typeof this.state.lineup, centerX: number): void {
-    const pitch = panel(parent, centerX, -205, 310, 430, new Color(15, 92, 70, 235), 18);
+  private renderPowerComparison(parent: Node, home: number, away: number, y: number): void {
+    const box = panel(parent, 0, y, 610, 92, new Color(8, 25, 57, 232), 18);
+    text(box, '我方战力', -218, 22, 15, colors.success, 120);
+    text(box, String(home), -215, -12, 27, colors.white, 120);
+    text(box, '对方战力', 218, 22, 15, colors.danger, 120);
+    text(box, String(away), 215, -12, 27, colors.white, 120);
+    const total = Math.max(1, home + away);
+    const leftWidth = 330 * home / total;
+    const bar = box.addComponent(Graphics);
+    bar.fillColor = new Color(25, 54, 91, 255);
+    bar.roundRect(-165, -25, 330, 15, 7);
+    bar.fill();
+    bar.fillColor = colors.primary;
+    bar.roundRect(-165, -25, leftWidth, 15, 7);
+    bar.fill();
+    bar.fillColor = colors.danger;
+    bar.roundRect(-165 + leftWidth, -25, 330 - leftWidth, 15, 7);
+    bar.fill();
+  }
+
+  private renderMiniLineup(parent: Node, lineup: typeof this.state.lineup, centerX: number, titleValue: string, formation: string, home: boolean): void {
+    const holder = layer(`Lineup:${home ? 'home' : 'away'}`, parent, 344, 690);
+    holder.setPosition(centerX, -158);
+    void addFrameImage(holder, 'ui/vs-squard', home ? { x: 0, y: 0, width: 520, height: 733 } : { x: 560, y: 0, width: 520, height: 733 }, { x: 0, y: 0, width: 344, height: 486, siblingIndex: 0 });
+    text(holder, titleValue, 0, 208, 18, colors.white, 280);
+    text(holder, formation, 0, 178, 17, home ? colors.success : colors.gold, 280);
+    void addFrameImage(holder, 'ui/squard-qc', { x: 24, y: 24, width: 816, height: 1032 }, { x: 0, y: -38, width: 278, height: 352, siblingIndex: 1 });
     lineup.forEach((slot) => {
-      const x = (slot.x - 0.5) * 270;
-      const y = (0.5 - slot.y) * 350;
-      const chip = panel(pitch, x, y, 48, 52, slot.player ? colors.primary : colors.panelSoft, 10);
-      if (slot.player) void addImage(chip, this.playerResourcePath(slot.player), { x: 0, y: 5, width: 34, height: 34 });
-      text(chip, `${slot.player?.rating ?? '--'}`, 0, -18, 12, colors.white, 44);
+      const x = (slot.x - 0.5) * 245;
+      const y = 115 - slot.y * 300;
+      const chip = panel(holder, x, y, 48, 58, slot.player ? colors.primary : colors.panelSoft, 9);
+      if (slot.player) void addImage(chip, this.playerResourcePath(slot.player), { x: 0, y: 7, width: 39, height: 39 });
+      text(chip, `${slot.player?.rating ?? '--'}`, 0, -20, 12, colors.white, 44);
     });
+  }
+
+  private renderCoreDuel(parent: Node): void {
+    const home = [...this.state.lineup].sort((a, b) => (b.player?.rating ?? 0) - (a.player?.rating ?? 0))[0]?.player;
+    const away = [...this.state.opponentLineup].sort((a, b) => (b.player?.rating ?? 0) - (a.player?.rating ?? 0))[0]?.player;
+    const duel = layer('CoreDuel', parent, 650, 104);
+    duel.setPosition(0, -462);
+    void addImage(duel, 'ui/playercore', { x: 0, y: 0, width: 650, height: 104, siblingIndex: 0 });
+    text(duel, '核心对位', 0, 31, 16, colors.gold, 140);
+    if (home) void addImage(duel, this.playerResourcePath(home), { x: -247, y: -9, width: 54, height: 54, siblingIndex: 1 });
+    if (away) void addImage(duel, this.playerResourcePath(away), { x: 247, y: -9, width: 54, height: 54, siblingIndex: 1 });
+    text(duel, `${home?.name ?? '待定'}  ${home?.rating ?? '--'}`, -135, -8, 17, colors.white, 180);
+    text(duel, 'VS', 0, -12, 23, colors.white, 70);
+    text(duel, `${away?.rating ?? '--'}  ${away?.name ?? '待定'}`, 135, -8, 17, colors.white, 180);
   }
 
   private lineupPower(lineup: typeof this.state.lineup): number {
@@ -798,16 +974,83 @@ export class GameRoot extends Component {
     const visible = view.getVisibleSize();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
     void addFrameImage(root, 'ui/headertitle', { x: 557, y: 226, width: 474, height: 124 }, { x: -115, y: 570, width: 245, height: 64 });
-    text(root, `蓝焰俱乐部     ${this.state.opponent.nickname}`, 0, 470, 22, colors.muted);
-    text(root, `${this.state.selectedFormation.name}                         ${this.state.opponentFormation.name}`, 0, 430, 17, colors.muted);
-    this.battleScore = text(root, '0  :  0', 0, 370, 72);
-    this.battleClock = text(root, "00'", 0, 300, 22, colors.gold);
-    const feed = panel(root, 0, -80, 650, 650, colors.panelSoft);
-    this.battleFeed = text(feed, '裁判正在确认双方阵容…', 0, 0, 25, colors.white, 570);
-    this.battleFeed.horizontalAlign = Label.HorizontalAlign.LEFT;
-    this.battleFeed.verticalAlign = Label.VerticalAlign.TOP;
-    this.battleFeed.node.getComponent(UITransform)?.setContentSize(570, 570);
+    this.renderBattleTeamMark(root, -245, 450, '蓝', colors.primary, '我方球队', '蓝焰俱乐部');
+    this.renderBattleTeamMark(root, 245, 450, 'AI', colors.danger, '对手球队', this.state.opponent.nickname);
+    this.battleScore = text(root, '0  :  0', 0, 465, 66, colors.white, 250);
+    const clockBox = panel(root, 0, 380, 174, 54, new Color(5, 21, 49, 240), 8);
+    this.battleClock = text(clockBox, "00'", 0, 0, 28, colors.gold, 140);
+    this.renderPossession(root);
+    const feed = panel(root, 0, -190, 666, 670, new Color(6, 20, 47, 224), 16);
+    text(feed, '实时战报', 0, 300, 22, colors.white, 560);
+    this.battleEventLayer = layer('BattleEvents', feed, 620, 590);
+    this.battleEventLayer.setPosition(0, -20);
+    this.renderBattleEventCards();
     this.schedule(this.pushBattleMoment, 1.35, LOCAL_MOMENTS.length - 1, 0.7);
+  }
+
+  private renderBattleTeamMark(parent: Node, x: number, y: number, mark: string, accent: Color, titleValue: string, club: string): void {
+    const badge = panel(parent, x, y + 25, 92, 92, new Color(7, 23, 53, 245), 18);
+    const outline = badge.addComponent(Graphics);
+    outline.strokeColor = accent;
+    outline.lineWidth = 4;
+    outline.roundRect(-44, -44, 88, 88, 17);
+    outline.stroke();
+    text(badge, mark, 0, 0, mark.length > 1 ? 22 : 30, colors.white, 70);
+    text(parent, titleValue, x, y - 48, 19, colors.white, 180);
+    text(parent, club, x, y - 76, 15, accent, 200);
+  }
+
+  private renderPossession(parent: Node): void {
+    const box = panel(parent, 0, 278, 650, 142, new Color(6, 20, 47, 224), 14);
+    text(box, '比赛势头', 0, 46, 21, colors.white, 220);
+    text(box, '我方压制', -225, 5, 17, colors.primary, 130);
+    text(box, '对方反击', 225, 5, 17, colors.danger, 130);
+    this.battlePossession = box.addComponent(Graphics);
+    this.updateBattlePossession();
+    text(box, '双方拉锯中，寻找下一次机会', 0, -45, 15, colors.muted, 500);
+  }
+
+  private updateBattlePossession(): void {
+    if (!this.battlePossession) return;
+    const home = Math.max(0.32, Math.min(0.68, 0.5 + (this.state.power - this.lineupPower(this.state.opponentLineup)) / 1800 + (this.scoreA - this.scoreB) * 0.025));
+    const width = 330;
+    const split = width * home;
+    this.battlePossession.clear();
+    this.battlePossession.fillColor = colors.primary;
+    this.battlePossession.roundRect(-width / 2, -13, split, 25, 12);
+    this.battlePossession.fill();
+    this.battlePossession.fillColor = colors.danger;
+    this.battlePossession.roundRect(-width / 2 + split, -13, width - split, 25, 12);
+    this.battlePossession.fill();
+  }
+
+  private renderBattleEventCards(): void {
+    const layerNode = this.battleEventLayer;
+    if (!layerNode) return;
+    layerNode.removeAllChildren();
+    const entries = this.battleEvents.length ? this.battleEvents.slice(-5) : [{ time: 0, title: '比赛准备', text: '裁判正在确认双方阵容…', mood: 'normal', scoreA: 0, scoreB: 0 } as BattleEvent];
+    entries.forEach((event, index) => {
+      const card = layer(`Event:${event.time}`, layerNode, 600, 96);
+      card.setPosition(0, 230 - index * 112);
+      const frame = this.battleEventFrame(event);
+      void addFrameImage(card, 'ui/gameevents', frame, { x: 0, y: 0, width: 600, height: 96, siblingIndex: 0 });
+      text(card, `${String(event.time).padStart(2, '0')}'`, -220, 0, 20, colors.gold, 76);
+      const titleValue = event.title ?? '比赛动态';
+      text(card, `${titleValue}${event.actor ? ` · ${event.actor}` : ''}`, 35, 19, 18, colors.white, 400);
+      text(card, event.text, 35, -20, 14, colors.muted, 400);
+    });
+  }
+
+  private battleEventFrame(event: BattleEvent): { x: number; y: number; width: number; height: number } {
+    const titleValue = event.title ?? '';
+    const key = titleValue.includes('进球') ? 'goal' : titleValue.includes('扑救') || titleValue.includes('门将') ? 'save' : titleValue.includes('角球') ? 'corner' : 'shot';
+    const frames = {
+      shot: { x: 25, y: 44, width: 675, height: 110 },
+      goal: { x: 25, y: 165, width: 675, height: 110 },
+      save: { x: 25, y: 286, width: 675, height: 110 },
+      corner: { x: 25, y: 407, width: 675, height: 109 }
+    };
+    return frames[key];
   }
 
   private readonly pushBattleMoment = (): void => {
@@ -834,7 +1077,8 @@ export class GameRoot extends Component {
     this.battleEvents.push(event);
     this.battleClock!.string = `${minute}'`;
     this.battleScore!.string = `${this.scoreA}  :  ${this.scoreB}`;
-    this.battleFeed!.string = this.battleEvents.slice(-7).map((item) => `${String(item.time).padStart(2, '0')}'  ${item.title}${item.actor ? ` · ${item.actor}` : ''}\n      ${item.text}`).join('\n\n');
+    this.updateBattlePossession();
+    this.renderBattleEventCards();
     this.battleIndex += 1;
     if (this.battleIndex >= LOCAL_MOMENTS.length) this.scheduleOnce(() => this.finishBattle(), 0.9);
   };
