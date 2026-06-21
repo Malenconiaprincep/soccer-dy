@@ -3,6 +3,17 @@ dist/
 douyin-game/
 douyin-game-clean/
 douyin-game-clean.zip
+cocos-client/library/
+cocos-client/temp/
+cocos-client/local/
+cocos-client/build/
+cocos-client/profiles/
+/library/
+/temp/
+/local/
+/build/
+/profiles/
+/settings/
 .env
 .env.local
 .env.*.local
