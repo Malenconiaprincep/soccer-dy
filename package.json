@@ -21,6 +21,7 @@
     "cocos:sync-assets": "node scripts/sync-cocos-assets.mjs",
     "cocos:generate": "node scripts/generate-cocos-project.mjs",
     "cocos:prepare": "npm run cocos:sync-assets && npm run cocos:generate",
+    "cocos:verify": "node scripts/verify-cocos-release.mjs",
     "cocos:open": "open -a '/Applications/Cocos/Creator/3.8.8/CocosCreator.app' cocos-client",
     "build:douyin:watch": "vite build --mode douyin --watch",
     "package:douyin": "npm run build:douyin && node -e \"require('fs').rmSync('douyin-game-clean.zip',{force:true})\" && cd douyin-game && zip -r ../douyin-game-clean.zip . -x \"*.DS_Store\" -x \"__MACOSX/*\" -x \"*/._*\" -x \"._*\"",

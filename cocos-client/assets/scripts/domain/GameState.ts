@@ -61,7 +61,10 @@ export class GameState {
       this.dailyTaskDate = today;
       this.claimedTasks = new Set(save.dailyTaskDate === today ? (save.claimedTasks ?? []) : []);
       this.permanentClaims = new Set(save.permanentClaims ?? []);
-      this.collectionIds = new Set(save.collection?.length ? save.collection : defaultCollectionIds);
+      const knownPlayerIds = new Set(players.map((player) => player.id));
+      this.collectionIds = new Set(
+        [...defaultCollectionIds, ...(save.collection ?? [])].filter((id) => knownPlayerIds.has(id))
+      );
       this.selectedFormation = formations.find((item) => item.id === save.selectedFormationId) ?? formations[1];
       this.lineup = this.selectedFormation.slots.map((slot) => ({
         ...slot,
@@ -100,7 +103,7 @@ export class GameState {
   }
 
   get power(): number {
-    return this.lineup.reduce((sum, slot) => sum + (slot.player?.rating ?? 60), 0);
+    return this.lineup.reduce((sum, slot) => sum + (slot.player?.rating ?? 70), 0);
   }
 
   applyBattleResult(result: BattleResult): void {
@@ -108,7 +111,7 @@ export class GameState {
     this.matchesPlayed += 1;
     if (result.scoreA > result.scoreB) this.wins += 1;
     this.coins += result.scoreA > result.scoreB ? 1200 : 520;
-    this.energy = Math.max(0, this.energy - 6);
+    this.energy = Math.max(0, this.energy - 5);
     if (result.scoreA > result.scoreB) this.scoutTickets += 1;
     this.save();
   }
@@ -148,6 +151,21 @@ export class GameState {
   clearLineup(): void {
     this.lineup = this.selectedFormation.slots.map((slot) => ({ ...slot, player: undefined }));
     this.substitutes = Array.from({ length: 5 });
+    this.save();
+  }
+
+  autoFillStrongestSquad(): void {
+    const owned = this.ownedPlayers();
+    const used = new Set<string>();
+    this.lineup = this.selectedFormation.slots.map((slot) => {
+      const exact = owned.find((player) => !used.has(player.id) && player.position === slot.position);
+      const fallback = owned.find((player) => !used.has(player.id) && this.canPlace(player, slot.position));
+      const player = exact ?? fallback;
+      if (player) used.add(player.id);
+      return { ...slot, player };
+    });
+    const bench = owned.filter((player) => !used.has(player.id)).slice(0, 5);
+    this.substitutes = Array.from({ length: 5 }, (_, index) => bench[index]);
     this.save();
   }
 

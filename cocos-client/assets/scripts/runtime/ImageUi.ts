@@ -1,4 +1,5 @@
 import { isValid, Node, Rect, resources, Size, Sprite, SpriteFrame, UITransform } from 'cc';
+import { GameAudio } from './GameAudio';
 
 interface ImageOptions {
   x?: number;
@@ -78,6 +79,7 @@ function createImage(parent: Node, path: string, frame: SpriteFrame, options: Im
     node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(1, 1, 1));
     node.on(Node.EventType.TOUCH_END, () => {
       node.setScale(1, 1, 1);
+      GameAudio.play('tap');
       options.onClick?.();
     });
   }

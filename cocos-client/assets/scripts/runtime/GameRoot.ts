@@ -1,10 +1,11 @@
-import { _decorator, Color, Component, Graphics, Label, macro, Node, ResolutionPolicy, sys, UITransform, view } from 'cc';
+import { _decorator, Color, Component, Graphics, Label, macro, Node, ResolutionPolicy, sys, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
 import { GameState } from '../domain/GameState';
 import { formations } from '../domain/data';
 import type { BattleEvent, PlayerCardData } from '../domain/types';
 import { GameServerClient } from '../services/GameServerClient';
+import { GameAudio } from './GameAudio';
 import { addCoverImage, addFrameImage, addImage } from './ImageUi';
-import { button, colors, DESIGN_HEIGHT, DESIGN_WIDTH, divider, formatNumber, layer, panel, text } from './UiFactory';
+import { button, colors, DESIGN_HEIGHT, DESIGN_WIDTH, divider, formatNumber, layer, panel, sectionTitle, text } from './UiFactory';
 
 const { ccclass } = _decorator;
 type ScreenName = 'loading' | 'home' | 'shop' | 'formation' | 'blindBox' | 'matchmaking' | 'matchup' | 'battle' | 'result';
@@ -14,18 +15,20 @@ interface BattleMoment {
   detail: string;
   team?: 'home' | 'away';
   goal?: boolean;
+  eventType?: string;
   mood: BattleEvent['mood'];
 }
 
 const LOCAL_MOMENTS: BattleMoment[] = [
-  { title: '比赛开始', detail: '双方在中场展开争夺。', mood: 'normal' },
-  { title: '快速推进', detail: '边路连续传递，进攻进入危险区域。', team: 'home', mood: 'good' },
-  { title: '门将扑救', detail: '对方射门被门将稳稳抱住。', team: 'away', mood: 'good' },
-  { title: '进球', detail: '禁区内冷静推射，皮球滚入网窝！', team: 'home', goal: true, mood: 'good' },
-  { title: '反击', detail: '对手抓住身后空间形成单刀。', team: 'away', mood: 'bad' },
-  { title: '角球', detail: '高球传入禁区，双方争抢第一点。', team: 'home', mood: 'normal' },
-  { title: '远射', detail: '禁区外突然起脚，皮球擦柱而出。', team: 'away', mood: 'bad' },
-  { title: '全场结束', detail: '裁判吹响终场哨。', mood: 'normal' }
+  { title: '比赛开始', detail: '双方在中场展开争夺。', eventType: 'shot', mood: 'normal' },
+  { title: '快速推进', detail: '边路连续传递，进攻进入危险区域。', team: 'home', eventType: 'shot', mood: 'good' },
+  { title: '门将扑救', detail: '对方射门被门将稳稳抱住。', team: 'away', eventType: 'save', mood: 'good' },
+  { title: '进球', detail: '禁区内冷静推射，皮球滚入网窝！', team: 'home', goal: true, eventType: 'goal', mood: 'good' },
+  { title: '黄牌', detail: '防守动作过大，裁判出示黄牌。', team: 'away', eventType: 'yellow', mood: 'bad' },
+  { title: '反击', detail: '对手抓住身后空间形成单刀。', team: 'away', eventType: 'shot', mood: 'bad' },
+  { title: '角球', detail: '高球传入禁区，双方争抢第一点。', team: 'home', eventType: 'corner', mood: 'normal' },
+  { title: '远射', detail: '禁区外突然起脚，皮球擦柱而出。', team: 'away', eventType: 'shot', mood: 'bad' },
+  { title: '全场结束', detail: '裁判吹响终场哨。', eventType: 'shot', mood: 'normal' }
 ];
 
 @ccclass('GameRoot')
@@ -42,9 +45,14 @@ export class GameRoot extends Component {
   private scoreB = 0;
   private battleIndex = 0;
   private battleClock?: Label;
-  private battleScore?: Label;
+  private battleScoreHome?: Label;
+  private battleScoreAway?: Label;
   private battleEventLayer?: Node;
   private battlePossession?: Graphics;
+  private battlePossessionBall?: Label;
+  private battlePossessionHint?: Label;
+  private battlePossessionLeft?: Label;
+  private battlePossessionRight?: Label;
   private screenMount?: Node;
   private modal?: Node;
   private followVisitStarted = false;
@@ -56,6 +64,7 @@ export class GameRoot extends Component {
 
   onLoad(): void {
     console.info('[soccer] GameRoot starting');
+    GameAudio.attach(this.node);
     view.setOrientation(macro.ORIENTATION_PORTRAIT);
     view.setDesignResolutionSize(DESIGN_WIDTH, DESIGN_HEIGHT, ResolutionPolicy.FIXED_WIDTH);
     this.state.load();
@@ -131,9 +140,10 @@ export class GameRoot extends Component {
       height: hud.avatarSize,
       siblingIndex: 1
     });
-    void addImage(root, 'ui/top-button-v2', { x: hud.barX, y: hud.y, width: hud.barWidth, height: hud.barHeight });
-    text(root, formatNumber(this.state.gems), hud.barX - hud.barWidth * 0.25, hud.y, 19, colors.white, hud.barWidth * 0.27);
-    text(root, `${this.state.energy}/120`, hud.barX + hud.barWidth * 0.25, hud.y, 19, colors.white, hud.barWidth * 0.29);
+    const resourceGap = 8;
+    const resourceWidth = (hud.barWidth - resourceGap) / 2;
+    this.renderHomeResourceBar(root, hud.barX - (resourceWidth + resourceGap) / 2, hud.y, resourceWidth, hud.barHeight, 'gems', formatNumber(this.state.gems));
+    this.renderHomeResourceBar(root, hud.barX + (resourceWidth + resourceGap) / 2, hud.y, resourceWidth, hud.barHeight, 'energy', `${this.state.energy}/120`);
     void addImage(root, 'ui/hero', { x: 0, y: -213, width: 628, height: 942 });
     void addImage(root, 'ui/start', {
       x: 0,
@@ -151,6 +161,42 @@ export class GameRoot extends Component {
     this.homeImageShortcut(root, 1, '商城', -300, 290, () => this.show('shop'));
     this.homeImageShortcut(root, 2, '关注领奖', 300, 430, () => this.openFollowModal());
     this.homeImageShortcut(root, 1, '每日任务', 300, 290, () => this.openTasksModal());
+  }
+
+  private renderHomeResourceBar(
+    parent: Node,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    kind: 'gems' | 'energy',
+    value: string
+  ): void {
+    const bar = layer(`HomeResource:${kind}`, parent, width, height);
+    bar.setPosition(x, y);
+    const graphics = bar.addComponent(Graphics);
+    graphics.fillColor = new Color(4, 19, 49, 242);
+    graphics.strokeColor = new Color(38, 143, 255, 255);
+    graphics.lineWidth = 3;
+    graphics.roundRect(-width / 2, -height / 2, width, height, height / 2);
+    graphics.fill();
+    graphics.stroke();
+    graphics.strokeColor = new Color(31, 88, 174, 190);
+    graphics.lineWidth = 2;
+    graphics.circle(width / 2 - height * 0.48, 0, height * 0.37);
+    graphics.stroke();
+    const iconFrame = kind === 'gems'
+      ? { x: 30, y: 18, width: 112, height: 102 }
+      : { x: 700, y: 17, width: 92, height: 105 };
+    void addFrameImage(bar, 'ui/top-button-v2', iconFrame, {
+      x: -width / 2 + height * 0.53,
+      y: 0,
+      width: kind === 'gems' ? height * 0.7 : height * 0.5,
+      height: height * 0.7,
+      siblingIndex: 1
+    });
+    text(bar, value, 2, 0, 19, colors.white, Math.max(60, width - height * 1.75));
+    text(bar, '+', width / 2 - height * 0.48, 1, 30, colors.white, height * 0.62);
   }
 
   private homeHudLayout(): { y: number; avatarX: number; avatarSize: number; barX: number; barWidth: number; barHeight: number } {
@@ -184,14 +230,19 @@ export class GameRoot extends Component {
     const barWidth = Math.max(330, Math.min(430, right - left - avatarSize - gap));
     const avatarX = left + avatarSize / 2;
     const barX = left + avatarSize + gap + barWidth / 2;
+    const topLimit = Math.max(650, visible.height / 2 - rootY - 36);
     return {
-      y: Math.max(575, Math.min(650, y)),
+      y: Math.max(575, Math.min(topLimit, y)),
       avatarX,
       avatarSize,
       barX,
       barWidth,
       barHeight: Math.max(64, barWidth * (180 / 1280))
     };
+  }
+
+  private topControlY(): number {
+    return this.homeHudLayout().y;
   }
 
   private homeImageShortcut(parent: Node, iconIndex: number, title: string, x: number, y: number, onClick: () => void): void {
@@ -208,6 +259,7 @@ export class GameRoot extends Component {
   private renderShop(): void {
     const root = this.screen!;
     const visible = view.getVisibleSize();
+    const headerY = this.topControlY();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
     const wash = root.addComponent(Graphics);
     wash.fillColor = new Color(0, 16, 55, 190);
@@ -216,18 +268,18 @@ export class GameRoot extends Component {
 
     void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, {
       x: -305,
-      y: 575,
+      y: headerY,
       width: 66,
       height: 66,
       onClick: () => this.show('home')
     });
     void addFrameImage(root, 'ui/headertitle', { x: 75, y: 52, width: 360, height: 110 }, {
       x: -135,
-      y: 575,
+      y: headerY,
       width: 210,
       height: 64
     });
-    const balance = panel(root, 235, 575, 200, 58, new Color(6, 21, 47, 245), 28);
+    const balance = panel(root, 90, headerY, 180, 58, new Color(6, 21, 47, 245), 28);
     void addFrameImage(balance, 'ui/sevenday/diamond', { x: 423, y: 90, width: 229, height: 193 }, { x: -65, y: 0, width: 43, height: 36 });
     text(balance, String(this.state.gems), 10, 0, 24, colors.white, 90);
     text(balance, '+', 72, 0, 32, colors.white, 40);
@@ -295,6 +347,7 @@ export class GameRoot extends Component {
 
   private purchaseShopItem(title: string, cost: number, reward: { energy?: number; scoutTickets?: number }): void {
     const ok = this.state.spendGems(cost, reward);
+    GameAudio.play(ok ? 'reward' : 'danger');
     this.shopMessage = ok ? `${title}购买成功，道具已发放` : '钻石不足';
     this.show('shop');
   }
@@ -384,13 +437,19 @@ export class GameRoot extends Component {
       width: buttonWidth,
       height: buttonHeight,
       onClick: () => {
-        if (!claimed && this.state.claimReward(claimId, rewards[day - 1].reward)) this.openSignModal();
+        if (!claimed && this.state.claimReward(claimId, rewards[day - 1].reward)) {
+          GameAudio.play('reward');
+          this.openSignModal();
+        }
       }
     });
 
     const close = layer('SignClose', card, 90, 80);
     close.setPosition(panelWidth * 0.39, panelHeight * 0.43);
-    close.on(Node.EventType.TOUCH_END, () => this.closeModal());
+    close.on(Node.EventType.TOUCH_END, () => {
+      GameAudio.play('tap');
+      this.closeModal();
+    });
   }
 
   private renderSignRewardCard(
@@ -497,46 +556,188 @@ export class GameRoot extends Component {
   private renderFormation(): void {
     const root = this.screen!;
     const visible = view.getVisibleSize();
+    const headerY = this.topControlY();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
-    void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: 570, width: 66, height: 66, onClick: () => this.show('home') });
-    void addFrameImage(root, 'ui/headertitle', { x: 74, y: 228, width: 350, height: 104 }, { x: -135, y: 570, width: 210, height: 62 });
-    const recommend = panel(root, 260, 565, 135, 58, colors.panelSoft, 18);
-    text(recommend, `推荐\n最强阵容`, 0, 0, 16, colors.white, 120);
-    recommend.on(Node.EventType.TOUCH_END, () => this.autoFillStrongest());
+    void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: headerY, width: 66, height: 66, onClick: () => this.show('home') });
+    void addFrameImage(root, 'ui/headertitle', { x: 74, y: 228, width: 350, height: 104 }, { x: -135, y: headerY, width: 210, height: 62 });
     const formationIndex = formations.findIndex((item) => item.id === this.state.selectedFormation.id);
     const previous = (formationIndex - 1 + formations.length) % formations.length;
     const next = (formationIndex + 1) % formations.length;
-    this.renderFormationChoice(root, formations[previous], previous, -225, 440, 170, 145, false);
-    this.renderFormationChoice(root, this.state.selectedFormation, formationIndex, 0, 435, 215, 180, true);
-    this.renderFormationChoice(root, formations[next], next, 225, 440, 170, 145, false);
-    button(root, '‹', -320, 440, 54, 54, () => this.changeFormation(-1), colors.panelSoft);
-    button(root, '›', 320, 440, 54, 54, () => this.changeFormation(1), colors.panelSoft);
+    const contentOffsetY = -48;
+    this.renderFormationChoice(root, formations[previous], previous, -225, 448 + contentOffsetY, 174, 152, false);
+    this.renderFormationChoice(root, this.state.selectedFormation, formationIndex, 0, 450 + contentOffsetY, 216, 190, true);
+    this.renderFormationChoice(root, formations[next], next, 225, 448 + contentOffsetY, 174, 152, false);
+    button(root, '‹', -318, 448 + contentOffsetY, 54, 54, () => this.changeFormation(-1), colors.panelSoft);
+    button(root, '›', 318, 448 + contentOffsetY, 54, 54, () => this.changeFormation(1), colors.panelSoft);
 
-    void addImage(root, 'ui/football-backgrond', { x: 0, y: -5, width: 690, height: 650, siblingIndex: 0 });
+    const fieldY = 20 + contentOffsetY;
+    const fieldHeight = 760;
+    void addImage(root, 'ui/football-backgrond', { x: 0, y: fieldY, width: 740, height: fieldHeight, siblingIndex: 0 });
 
     this.state.lineup.forEach((slot) => {
-      const x = (slot.x - 0.5) * 570;
-      const y = (0.52 - slot.y) * 500 + 5;
+      const x = (slot.x - 0.5) * 608;
+      const y = fieldY + (0.5 - slot.y) * 610;
       const selected = this.selectedLineupSlotId === slot.id;
-      const card = this.playerHex(root, x, y, slot.player, slot.position, selected, 48);
+      const card = this.playerHex(root, x, y, slot.player, slot.position, selected, 52);
       card.on(Node.EventType.TOUCH_END, () => this.selectLineupSlot(slot.id));
     });
+    this.renderFormationBench(root, contentOffsetY);
+    this.renderFormationRecommend(root, headerY);
+  }
 
-    void addImage(root, 'ui/players-bg', { x: 0, y: -410, width: 680, height: 205, siblingIndex: 1 });
-    text(root, '替补球员', -270, -345, 20, colors.white, 130);
+  private renderFormationRecommend(parent: Node, y: number): void {
+    const recommend = panel(parent, 120, y, 135, 58, colors.panelSoft, 18);
+    recommend.name = 'Button:RecommendStrongest';
+    text(recommend, '推荐\n最强阵容', 0, 0, 16, colors.white, 120);
+    recommend.on(Node.EventType.TOUCH_START, () => recommend.setScale(0.96, 0.96, 1));
+    recommend.on(Node.EventType.TOUCH_CANCEL, () => recommend.setScale(1, 1, 1));
+    recommend.on(Node.EventType.TOUCH_END, () => {
+      recommend.setScale(1, 1, 1);
+      this.autoFillStrongest();
+    });
+    recommend.setSiblingIndex(parent.children.length - 1);
+  }
+
+  private renderFormationBench(parent: Node, offsetY = 0): void {
+    const bench = layer('FormationBench', parent, 682, 250);
+    bench.setPosition(0, -442 + offsetY);
+    void addFrameImage(bench, 'ui/replace_player', { x: 37, y: 47, width: 1006, height: 449 }, {
+      x: 0,
+      y: 0,
+      width: 682,
+      height: 250,
+      siblingIndex: 0
+    });
+    sectionTitle(bench, '替补球员', -240, 88, 190, colors.cyan, 20);
+    this.renderFormationReadyButton(bench);
     this.state.substitutes.forEach((player, index) => {
-      const x = -200 + index * 105;
+      const x = -245 + index * 122.5;
       const selected = this.selectedBenchIndex === index;
-      const card = this.playerHex(root, x, -415, player, player?.position ?? '空', selected, 38);
+      const card = this.playerHex(bench, x, -32, player, player ? this.positionName(player.position) : '空位', selected, 42);
       card.on(Node.EventType.TOUCH_END, () => this.selectBench(index));
     });
-    void addFrameImage(root, 'ui/button-ready', { x: 63, y: 203, width: 995, height: 275 }, {
-      x: 0,
-      y: -580,
-      width: 330,
-      height: 91,
-      onClick: () => this.show('matchmaking')
+  }
+
+  private renderFormationReadyButton(parent: Node): void {
+    const lineupFilled = this.state.lineup.filter((slot) => slot.player).length;
+    const benchFilled = this.state.substitutes.filter(Boolean).length;
+    const lineupMissing = this.state.lineup.length - lineupFilled;
+    const benchMissing = this.state.substitutes.length - benchFilled;
+    const ready = lineupMissing === 0 && benchMissing === 0;
+    if (ready) {
+      void addFrameImage(parent, 'ui/button-ready', { x: 63, y: 203, width: 995, height: 275 }, {
+        x: 193,
+        y: 69,
+        width: 236,
+        height: 65,
+        onClick: () => this.openFormationConfirmModal()
+      });
+      return;
+    }
+    const missing = lineupMissing + benchMissing;
+    const disabled = panel(parent, 205, 74, 214, 54, new Color(16, 35, 75, 205), 14);
+    text(disabled, `还差${missing}人`, 0, 10, 19, colors.muted, 180);
+    text(disabled, lineupMissing > 0 ? '补满首发' : '补满替补', 0, -13, 13, new Color(108, 232, 255, 255), 180);
+  }
+
+  private openFormationConfirmModal(): void {
+    this.modal?.destroy();
+    const visible = view.getVisibleSize();
+    const modal = layer('FormationConfirm', this.screenHost!, visible.width, visible.height);
+    this.modal = modal;
+    const shade = modal.addComponent(Graphics);
+    shade.fillColor = new Color(1, 5, 17, 205);
+    shade.rect(-visible.width / 2, -visible.height / 2, visible.width, visible.height);
+    shade.fill();
+    const card = layer('FormationConfirmCard', modal, 640, 760);
+    void addImage(card, 'ui/gamereadybg', { x: 0, y: 0, width: 640, height: 754, siblingIndex: 0 });
+    const close = layer('FormationConfirmClose', card, 92, 82);
+    close.setPosition(270, 326);
+    close.on(Node.EventType.TOUCH_END, () => this.closeModal());
+    text(card, '赛前确认', 0, 300, 44, colors.white, 500);
+    text(card, `${this.state.selectedFormation.name}  ${this.state.selectedFormation.style}`, 0, 245, 27, colors.gold, 480);
+    sectionTitle(card, '核心球员', 0, 180, 300, colors.cyan, 26);
+    this.renderConfirmTitleMark(card, -165, 180, false);
+    this.renderConfirmTitleMark(card, 165, 180, true);
+    const cores = this.state.lineup
+      .flatMap((slot) => slot.player ? [slot.player] : [])
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 3);
+    cores.forEach((player, index) => {
+      const x = -170 + index * 170;
+      this.renderConfirmCoreCard(card, player, x, 56);
     });
+    const power = panel(card, 0, -130, 488, 100, new Color(6, 26, 56, 225), 18);
+    void addFrameImage(power, 'ui/playerscore', { x: 416, y: 172, width: 246, height: 288 }, {
+      x: -162,
+      y: 0,
+      width: 58,
+      height: 68,
+      siblingIndex: 1
+    });
+    text(power, '当前战力', -42, 12, 25, colors.white, 190);
+    text(power, String(this.state.power), 123, 12, 40, colors.gold, 150);
+    text(power, '阵容已保存，状态良好', 45, -27, 18, colors.muted, 330);
+    void addFrameImage(card, 'ui/readybutton', { x: 31, y: 132, width: 489, height: 182 }, {
+      x: -150,
+      y: -292,
+      width: 250,
+      height: 93,
+      onClick: () => this.closeModal()
+    });
+    void addFrameImage(card, 'ui/readybutton', { x: 557, y: 132, width: 489, height: 180 }, {
+      x: 150,
+      y: -292,
+      width: 250,
+      height: 92,
+      onClick: () => {
+        this.closeModal();
+        GameAudio.play('confirm');
+        this.show('matchmaking');
+      }
+    });
+  }
+
+  private renderConfirmTitleMark(parent: Node, x: number, y: number, flip: boolean): void {
+    const mark = layer('CoreTitleMark', parent, 96, 20);
+    mark.setPosition(x, y);
+    if (flip) mark.setScale(-1, 1, 1);
+    const graphics = mark.addComponent(Graphics);
+    graphics.fillColor = new Color(11, 101, 255, 185);
+    graphics.moveTo(-48, 8);
+    graphics.lineTo(30, 8);
+    graphics.lineTo(46, 0);
+    graphics.lineTo(30, -8);
+    graphics.lineTo(-48, -8);
+    graphics.close();
+    graphics.fill();
+    graphics.fillColor = new Color(102, 234, 255, 220);
+    graphics.rect(-30, -8, 14, 16);
+    graphics.fill();
+  }
+
+  private renderConfirmCoreCard(parent: Node, player: PlayerCardData, x: number, y: number): void {
+    const core = layer(`ConfirmCore:${player.id}`, parent, 146, 205);
+    core.setPosition(x, y);
+    const frames: Record<PlayerCardData['rarity'], { x: number; y: number; width: number; height: number }> = {
+      bronze: { x: 77, y: 0, width: 249, height: 347 },
+      silver: { x: 413, y: 0, width: 251, height: 347 },
+      purple: { x: 747, y: 0, width: 250, height: 347 },
+      gold: { x: 76, y: 350, width: 253, height: 327 },
+      legend: { x: 399, y: 348, width: 276, height: 331 },
+      orange: { x: 721, y: 347, width: 304, height: 337 }
+    };
+    void addFrameImage(core, 'ui/cardbg', frames[player.rarity], { x: 0, y: 18, width: 122, height: 156, siblingIndex: 0 });
+    void addImage(core, this.playerResourcePath(player), { x: 0, y: 29, width: 84, height: 84, siblingIndex: 1 });
+    text(core, String(player.rating), -43, 72, 25, colors.white, 54);
+    text(core, this.positionName(player.position), -39, 45, 17, colors.white, 66);
+    const nameBg = panel(core, 0, -80, 136, 42, new Color(7, 30, 65, 240), 9);
+    const outline = nameBg.getComponent(Graphics)!;
+    outline.strokeColor = new Color(86, 168, 255, 150);
+    outline.lineWidth = 2;
+    outline.roundRect(-67, -20, 134, 40, 8);
+    outline.stroke();
+    text(nameBg, player.name, 0, 0, 20, colors.white, 120);
   }
 
   private renderFormationChoice(parent: Node, formation: typeof formations[number], index: number, x: number, y: number, width: number, height: number, selected: boolean): void {
@@ -554,6 +755,7 @@ export class GameRoot extends Component {
     text(card, formation.name, 0, -height * 0.18, selected ? 27 : 22, colors.white, width - 20);
     text(card, formation.style, 0, -height * 0.36, selected ? 19 : 16, selected ? colors.gold : colors.success, width - 20);
     card.on(Node.EventType.TOUCH_END, () => {
+      GameAudio.play('select');
       this.state.setFormation(formations[index]);
       this.show('formation');
     });
@@ -594,18 +796,15 @@ export class GameRoot extends Component {
   }
 
   private autoFillStrongest(): void {
-    const used = new Set<string>();
-    this.state.lineup.forEach((slot) => {
-      const player = this.state.ownedPlayers(slot.position).find((candidate) => !used.has(candidate.id));
-      if (player) {
-        this.state.fillSlot(slot.id, player);
-        used.add(player.id);
-      }
-    });
+    GameAudio.play('confirm');
+    this.state.autoFillStrongestSquad();
+    this.selectedLineupSlotId = undefined;
+    this.selectedBenchIndex = undefined;
     this.show('formation');
   }
 
   private changeFormation(direction: number): void {
+    GameAudio.play('select');
     const current = formations.findIndex((item) => item.id === this.state.selectedFormation.id);
     const next = formations[(current + direction + formations.length) % formations.length];
     this.selectedLineupSlotId = undefined;
@@ -615,6 +814,7 @@ export class GameRoot extends Component {
   }
 
   private selectLineupSlot(slotId: string): void {
+    GameAudio.play('select');
     const slot = this.state.lineup.find((item) => item.id === slotId);
     if (!slot) return;
     if (!slot.player && this.selectedBenchIndex == null && !this.selectedLineupSlotId) {
@@ -635,6 +835,7 @@ export class GameRoot extends Component {
   }
 
   private selectBench(index: number): void {
+    GameAudio.play('select');
     const player = this.state.substitutes[index];
     if (!player && !this.selectedLineupSlotId && this.selectedBenchIndex == null) {
       this.openPositionBlindBox({ benchIndex: index });
@@ -693,6 +894,7 @@ export class GameRoot extends Component {
           width: 218,
           height: 304,
           onClick: () => {
+            GameAudio.play('reveal');
             revealed.add(player.id);
             this.openPositionBlindBox(target, choices, revealed);
           }
@@ -702,6 +904,7 @@ export class GameRoot extends Component {
       const playerCard = this.renderBlindPlayerCard(modal, player, x, 25, allRevealed);
       playerCard.on(Node.EventType.TOUCH_END, () => {
         if (!allRevealed) return;
+        GameAudio.play('reward');
         if (target.slotId) this.state.fillSlot(target.slotId, player);
         else if (target.benchIndex != null) this.state.fillSubstitute(target.benchIndex, player);
         this.closeModal();
@@ -740,18 +943,24 @@ export class GameRoot extends Component {
   private renderBlindBox(): void {
     const root = this.screen!;
     const visible = view.getVisibleSize();
+    const headerY = this.topControlY();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
     void addImage(root, 'ui/football-backgrond', { x: 0, y: -20, width: 690, height: 900 });
     const shade = root.addComponent(Graphics);
     shade.fillColor = new Color(2, 6, 19, 185);
     shade.rect(-360, -640, 720, 1280);
     shade.fill();
-    text(root, '球探盲盒 3选1', 0, 520, 42, colors.white);
-    text(root, `球探券 ${this.state.scoutTickets}  ·  先翻开全部卡牌，再选择球员`, 0, 465, 21, colors.muted);
+    text(root, '球探盲盒 3选1', 0, headerY - 70, 42, colors.white);
+    text(root, `球探券 ${this.state.scoutTickets}  ·  先翻开全部卡牌，再选择球员`, 0, headerY - 125, 21, colors.muted);
     if (!this.state.pendingScoutChoices.length) {
       text(root, '消耗 1 张球探券，随机发现 3 名球员', 0, 120, 24, colors.muted);
       button(root, this.state.scoutTickets > 0 ? '开启盲盒' : '球探券不足', 0, -20, 360, 88, () => {
-        if (this.state.startScoutDraw()) this.show('blindBox');
+        if (this.state.startScoutDraw()) {
+          GameAudio.play('reveal');
+          this.show('blindBox');
+        } else {
+          GameAudio.play('danger');
+        }
       }, this.state.scoutTickets > 0 ? colors.gold : colors.panelSoft);
     } else {
       const allRevealed = this.state.pendingScoutChoices.every((player) => this.revealedScoutIds.has(player.id));
@@ -764,6 +973,7 @@ export class GameRoot extends Component {
             width: 205,
             height: 286,
             onClick: () => {
+              GameAudio.play('reveal');
               this.revealedScoutIds.add(player.id);
               this.show('blindBox');
             }
@@ -778,6 +988,7 @@ export class GameRoot extends Component {
         text(playerCard, `${player.skill}\n攻 ${player.attack}  防 ${player.defense}  速 ${player.speed}`, 0, -120, 15, colors.muted, 165);
         button(playerCard, allRevealed ? '签下' : '继续翻牌', 0, -220, 150, 60, () => {
           if (!allRevealed) return;
+          GameAudio.play('reward');
           this.state.claimScoutPlayer(player);
           this.revealedScoutIds.clear();
           this.show('formation');
@@ -796,39 +1007,146 @@ export class GameRoot extends Component {
     this.matchCancelled = false;
     this.matchTicket = undefined;
     const visible = view.getVisibleSize();
+    const headerY = this.topControlY();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
-    void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: 570, width: 66, height: 66, onClick: () => this.show('formation') });
-    void addFrameImage(root, 'ui/headertitle', { x: 588, y: 54, width: 448, height: 108 }, { x: -120, y: 570, width: 250, height: 60 });
-    const spinner = layer('MatchSpinner', root, 330, 330);
-    spinner.setPosition(0, 215);
-    const rings = spinner.addComponent(Graphics);
-    rings.lineWidth = 8;
-    rings.strokeColor = new Color(30, 220, 255, 255);
-    rings.arc(0, 0, 145, 0.35, 3.8, false);
-    rings.stroke();
-    rings.lineWidth = 4;
-    rings.strokeColor = new Color(90, 190, 255, 210);
-    rings.circle(0, 0, 95);
-    rings.stroke();
-    text(spinner, 'VS', 0, 0, 42, colors.gold, 100);
-    text(root, '正在寻找对手', 0, 5, 40, colors.white);
-    const status = text(root, '正在为你寻找在线玩家', 0, -50, 23, colors.success);
-    const info = panel(root, 0, -195, 630, 155, new Color(8, 25, 55, 240), 18);
-    text(info, `阵型   ${this.state.selectedFormation.name}`, -170, 35, 21, colors.gold, 230);
-    text(info, `战力   ${this.state.power}`, -170, -25, 31, colors.white, 230);
-    text(info, '实时对战准备中', 170, 0, 24, new Color(80, 220, 255, 255), 250);
-    button(root, '取消匹配', 0, -405, 300, 78, () => {
-      void this.cancelMatch();
-      this.show('formation');
-    }, new Color(22, 55, 102, 255));
-    text(root, '搜索时间过长可尝试更换阵型，可更快匹配', 0, -500, 17, colors.muted);
+    const shade = root.addComponent(Graphics);
+    shade.fillColor = new Color(2, 6, 19, 52);
+    shade.rect(-visible.width / 2, -visible.height / 2, visible.width, visible.height);
+    shade.fill();
+    void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: headerY, width: 66, height: 66, onClick: () => this.show('formation') });
+    void addFrameImage(root, 'ui/headertitle', { x: 557, y: 226, width: 474, height: 124 }, { x: -115, y: headerY, width: 245, height: 64 });
+    this.renderMatchSearchSpinner(root, 0, 210);
+    text(root, '正在寻找对手', 0, 25, 40, colors.white);
+    const status = text(root, '正在为你寻找在线玩家', 0, -28, 23, colors.success);
+    this.renderMatchInfo(root, -160);
+    this.renderMatchCancelButton(root, -355);
+    text(root, '预计等待时间', -62, -455, 21, colors.white, 210);
+    const waitValue = text(root, '00:00', 118, -455, 25, new Color(94, 255, 111, 255), 130);
+    text(root, '搜索时间过长可尝试更换阵型，可更快匹配', 0, -505, 18, colors.muted);
 
     let dots = 0;
+    let waitSeconds = 0;
     this.schedule(() => {
       dots = (dots + 1) % 4;
       status.string = `正在为你寻找在线玩家${'.'.repeat(dots)}`;
     }, 0.45);
+    this.schedule(() => {
+      waitSeconds += 1;
+      waitValue.string = `${String(Math.floor(waitSeconds / 60)).padStart(2, '0')}:${String(waitSeconds % 60).padStart(2, '0')}`;
+    }, 1);
     void this.findOpponent();
+  }
+
+  private renderMatchSearchSpinner(parent: Node, x: number, y: number): void {
+    const spinner = layer('MatchSearchSpinner', parent, 360, 360);
+    spinner.setPosition(x, y);
+    const sparkles = layer('MatchSparkles', spinner, 360, 360);
+    const sparkleGraphics = sparkles.addComponent(Graphics);
+    for (let index = 0; index < 16; index += 1) {
+      const angle = Math.PI * 2 * index / 16 + (index % 3) * 0.09;
+      const distance = 164 + (index % 4) * 8;
+      const px = Math.cos(angle) * distance;
+      const py = Math.sin(angle) * distance;
+      sparkleGraphics.fillColor = [new Color(27, 188, 255, 120), new Color(255, 226, 45, 115), new Color(121, 255, 56, 110), new Color(255, 55, 126, 105)][index % 4];
+      sparkleGraphics.moveTo(px - 3, py - 7);
+      sparkleGraphics.lineTo(px + 5, py - 2);
+      sparkleGraphics.lineTo(px + 2, py + 7);
+      sparkleGraphics.lineTo(px - 5, py + 2);
+      sparkleGraphics.close();
+      sparkleGraphics.fill();
+    }
+    const orbit = layer('MatchOrbit', spinner, 320, 320);
+    const orbitGraphics = orbit.addComponent(Graphics);
+    for (let index = 0; index < 10; index += 1) {
+      const angle = Math.PI * 2 * index / 10 - Math.PI / 2;
+      orbitGraphics.fillColor = index === 2 || index === 7 ? new Color(255, 221, 37, 245) : new Color(33, 183, 244, 238);
+      orbitGraphics.circle(Math.cos(angle) * 126, Math.sin(angle) * 126, 10);
+      orbitGraphics.fill();
+    }
+    const blueArc = layer('MatchBlueArc', spinner, 360, 360);
+    const blue = blueArc.addComponent(Graphics);
+    blue.strokeColor = new Color(25, 170, 255, 245);
+    blue.lineWidth = 10;
+    blue.arc(0, 0, 160, -0.15, 1.82, false);
+    blue.stroke();
+    const greenArc = layer('MatchGreenArc', spinner, 360, 360);
+    const green = greenArc.addComponent(Graphics);
+    green.strokeColor = new Color(149, 255, 49, 245);
+    green.lineWidth = 9;
+    green.arc(0, 0, 160, 1.0, 2.66, false);
+    green.stroke();
+    const inner = spinner.addComponent(Graphics);
+    inner.strokeColor = new Color(34, 185, 255, 145);
+    inner.lineWidth = 3;
+    inner.circle(0, 0, 118);
+    inner.stroke();
+    inner.fillColor = new Color(6, 25, 54, 238);
+    inner.circle(0, 0, 58);
+    inner.fill();
+    inner.strokeColor = new Color(40, 191, 255, 245);
+    inner.lineWidth = 4;
+    inner.circle(0, 0, 58);
+    inner.stroke();
+    text(spinner, 'VS', 0, 0, 39, colors.gold, 100);
+    this.schedule(() => {
+      blueArc.angle -= 3.1;
+      greenArc.angle += 1.6;
+      orbit.angle -= 1;
+      sparkles.angle += 0.7;
+    }, 1 / 60);
+  }
+
+  private renderMatchInfo(parent: Node, y: number): void {
+    const width = 628;
+    const height = 156;
+    const info = layer('MatchInfo', parent, width, height);
+    info.setPosition(0, y);
+    const graphics = info.addComponent(Graphics);
+    graphics.fillColor = new Color(6, 21, 45, 225);
+    graphics.strokeColor = new Color(31, 123, 255, 235);
+    graphics.lineWidth = 4;
+    graphics.moveTo(-width / 2 + 28, height / 2);
+    graphics.lineTo(width / 2 - 18, height / 2);
+    graphics.lineTo(width / 2, height / 2 - 22);
+    graphics.lineTo(width / 2, -height / 2 + 30);
+    graphics.lineTo(width / 2 - 28, -height / 2);
+    graphics.lineTo(-width / 2, -height / 2);
+    graphics.lineTo(-width / 2, height / 2 - 22);
+    graphics.close();
+    graphics.fill();
+    graphics.stroke();
+    text(info, '阵型', -230, 32, 23, colors.gold, 90);
+    text(info, this.state.selectedFormation.name, -115, 32, 23, colors.gold, 150);
+    text(info, '战力', -230, -25, 29, colors.white, 90);
+    text(info, String(this.state.power), -105, -25, 31, colors.white, 160);
+    text(info, '实时对战准备中', 175, -2, 24, new Color(96, 238, 255, 255), 260);
+  }
+
+  private renderMatchCancelButton(parent: Node, y: number): void {
+    const cancel = layer('Button:CancelMatch', parent, 300, 78);
+    cancel.setPosition(0, y);
+    const graphics = cancel.addComponent(Graphics);
+    graphics.fillColor = new Color(16, 42, 93, 242);
+    graphics.strokeColor = new Color(43, 140, 255, 220);
+    graphics.lineWidth = 4;
+    graphics.moveTo(-118, 39);
+    graphics.lineTo(118, 39);
+    graphics.lineTo(150, 0);
+    graphics.lineTo(118, -39);
+    graphics.lineTo(-118, -39);
+    graphics.lineTo(-150, 0);
+    graphics.close();
+    graphics.fill();
+    graphics.stroke();
+    text(cancel, '取消匹配', 0, 0, 28, colors.white, 240);
+    cancel.on(Node.EventType.TOUCH_START, () => cancel.setScale(0.97, 0.97, 1));
+    cancel.on(Node.EventType.TOUCH_CANCEL, () => cancel.setScale(1, 1, 1));
+    cancel.on(Node.EventType.TOUCH_END, () => {
+      cancel.setScale(1, 1, 1);
+      GameAudio.play('tap');
+      void this.cancelMatch();
+      this.show('formation');
+    });
   }
 
   private async findOpponent(): Promise<void> {
@@ -863,6 +1181,7 @@ export class GameRoot extends Component {
     if (this.matchCancelled || this.current !== 'matchmaking') return;
     this.state.opponent = opponent;
     this.state.prepareOpponent();
+    GameAudio.play('confirm');
     this.show('matchup');
   }
 
@@ -879,90 +1198,177 @@ export class GameRoot extends Component {
     const root = this.screen!;
     const opponentPower = this.lineupPower(this.state.opponentLineup);
     const visible = view.getVisibleSize();
+    const headerY = this.topControlY();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
     const shade = root.addComponent(Graphics);
     shade.fillColor = new Color(2, 8, 24, 90);
     shade.rect(-DESIGN_WIDTH / 2, -DESIGN_HEIGHT / 2, DESIGN_WIDTH, DESIGN_HEIGHT);
     shade.fill();
-    void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: 570, width: 66, height: 66, onClick: () => this.show('formation') });
-    void addFrameImage(root, 'ui/headertitle', { x: 588, y: 54, width: 448, height: 108 }, { x: -125, y: 570, width: 255, height: 61 });
+    void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: headerY, width: 66, height: 66, onClick: () => this.show('formation') });
+    void addFrameImage(root, 'ui/headertitle', { x: 588, y: 54, width: 448, height: 108 }, { x: -125, y: headerY, width: 255, height: 61 });
 
-    const left = panel(root, -185, 420, 322, 190, new Color(15, 43, 86, 235), 22);
-    const right = panel(root, 185, 420, 322, 190, new Color(15, 43, 86, 235), 22);
-    this.renderTeamSummary(left, '我方', '蓝焰俱乐部', this.state.selectedFormation.name, this.state.power, this.state.lineup, colors.success);
-    this.renderTeamSummary(right, '对手', this.state.opponent.nickname, this.state.opponentFormation.name, opponentPower, this.state.opponentLineup, colors.danger);
-    void addImage(root, 'ui/vs', { x: 0, y: 420, width: 76, height: 71 });
-    this.renderPowerComparison(root, this.state.power, opponentPower, 292);
+    this.renderMatchTeamHero(root, false, this.state.lineup, '我方球队', '蓝焰俱乐部', this.state.selectedFormation.name);
+    this.renderMatchTeamHero(root, true, this.state.opponentLineup, '对手球队', this.state.opponent.nickname, this.state.opponentFormation.name);
+    void addImage(root, 'ui/vs', { x: 0, y: 465, width: 128, height: 119 });
+    this.renderPowerComparison(root, this.state.power, opponentPower, 320);
 
-    text(root, '首发阵容预览', 0, 220, 22, colors.gold);
     this.renderMiniLineup(root, this.state.lineup, -180, '我方阵型', this.state.selectedFormation.name, true);
     this.renderMiniLineup(root, this.state.opponentLineup, 180, '对方阵型', this.state.opponentFormation.name, false);
     this.renderCoreDuel(root);
-    button(root, '调整阵容', -175, -574, 270, 70, () => this.show('formation'), colors.panelSoft);
-    button(root, '进入比赛', 175, -574, 270, 70, () => this.show('battle'), colors.primary);
+    void addImage(root, 'ui/playbutton', {
+      x: 0,
+      y: -580,
+      width: 370,
+      height: 140,
+      onClick: () => {
+        GameAudio.play('kickoff');
+        this.show('battle');
+      }
+    });
   }
 
-  private renderTeamSummary(parent: Node, side: string, club: string, formation: string, power: number, lineup: typeof this.state.lineup, accent: Color): void {
+  private renderMatchTeamHero(parent: Node, right: boolean, lineup: typeof this.state.lineup, titleValue: string, club: string, formation: string): void {
     const core = [...lineup].sort((a, b) => (b.player?.rating ?? 0) - (a.player?.rating ?? 0))[0]?.player;
-    text(parent, side, 0, 67, 16, accent, 260);
-    text(parent, club, 0, 36, 21, colors.white, 280);
-    if (core) void addImage(parent, this.playerResourcePath(core), { x: -82, y: -31, width: 62, height: 62 });
-    text(parent, String(power), 50, -25, 38, colors.gold, 135);
-    text(parent, `${formation} · 核心 ${core?.name ?? '待定'} ${core?.rating ?? ''}`, 0, -76, 15, colors.muted, 280);
+    const accent = right ? colors.danger : colors.success;
+    const avatarX = right ? 275 : -275;
+    const labelX = right ? 170 : -170;
+    const avatar = panel(parent, avatarX, 470, 88, 88, new Color(7, 17, 38, 245), 18);
+    const border = avatar.getComponent(Graphics)!;
+    border.strokeColor = accent;
+    border.lineWidth = 4;
+    border.roundRect(-42, -42, 84, 84, 16);
+    border.stroke();
+    if (core) void addImage(avatar, this.playerResourcePath(core), { x: 0, y: 0, width: 74, height: 74, siblingIndex: 0 });
+    const badge = panel(avatar, -31, 31, 30, 30, colors.white, 15);
+    text(badge, String(core?.rating ?? '--'), 0, 0, 12, new Color(21, 33, 58, 255), 28);
+    text(parent, titleValue, labelX, 496, 24, colors.white, 185);
+    text(parent, club, labelX, 461, 17, accent, 200);
+    text(parent, `🏆 ${this.teamTrophy(formation)}`, labelX, 430, 16, new Color(248, 232, 175, 255), 190);
   }
 
   private renderPowerComparison(parent: Node, home: number, away: number, y: number): void {
-    const box = panel(parent, 0, y, 610, 92, new Color(8, 25, 57, 232), 18);
-    text(box, '我方战力', -218, 22, 15, colors.success, 120);
-    text(box, String(home), -215, -12, 27, colors.white, 120);
-    text(box, '对方战力', 218, 22, 15, colors.danger, 120);
-    text(box, String(away), 215, -12, 27, colors.white, 120);
+    const box = panel(parent, 0, y, 680, 106, new Color(7, 17, 38, 235), 18);
+    const shade = box.getComponent(Graphics)!;
+    shade.fillColor = new Color(50, 148, 255, 210);
+    shade.roundRect(-338, -35, 5, 70, 3);
+    shade.fill();
+    shade.fillColor = new Color(255, 77, 103, 210);
+    shade.roundRect(333, -35, 5, 70, 3);
+    shade.fill();
+    text(box, '战力对比', 0, 35, 13, colors.muted, 100);
+    text(box, '我方战力', -270, 24, 17, new Color(207, 224, 255, 255), 120);
+    text(box, String(home), -265, -16, 32, new Color(77, 157, 255, 255), 120);
+    text(box, '对方战力', 270, 24, 17, new Color(255, 200, 200, 255), 120);
+    text(box, String(away), 265, -16, 32, new Color(255, 113, 133, 255), 120);
     const total = Math.max(1, home + away);
-    const leftWidth = 330 * home / total;
-    const bar = box.addComponent(Graphics);
+    const leftWidth = 360 * home / total;
+    const bar = layer('PowerBar', box, 360, 24).addComponent(Graphics);
     bar.fillColor = new Color(25, 54, 91, 255);
-    bar.roundRect(-165, -25, 330, 15, 7);
+    bar.roundRect(-180, -8, 360, 20, 10);
     bar.fill();
     bar.fillColor = colors.primary;
-    bar.roundRect(-165, -25, leftWidth, 15, 7);
+    bar.roundRect(-176, -4, Math.max(6, leftWidth - 4), 12, 6);
     bar.fill();
     bar.fillColor = colors.danger;
-    bar.roundRect(-165 + leftWidth, -25, 330 - leftWidth, 15, 7);
+    bar.roundRect(-180 + leftWidth, -4, Math.max(6, 356 - leftWidth), 12, 6);
+    bar.fill();
+    bar.fillColor = new Color(255, 255, 255, 180);
+    bar.circle(-180 + leftWidth, 2, 10);
     bar.fill();
   }
 
   private renderMiniLineup(parent: Node, lineup: typeof this.state.lineup, centerX: number, titleValue: string, formation: string, home: boolean): void {
-    const holder = layer(`Lineup:${home ? 'home' : 'away'}`, parent, 344, 690);
-    holder.setPosition(centerX, -158);
-    void addFrameImage(holder, 'ui/vs-squard', home ? { x: 0, y: 0, width: 520, height: 733 } : { x: 560, y: 0, width: 520, height: 733 }, { x: 0, y: 0, width: 344, height: 486, siblingIndex: 0 });
+    const holder = layer(`Lineup:${home ? 'home' : 'away'}`, parent, 344, 520);
+    holder.setPosition(centerX, -18);
+    const pitchOffsetX = home ? 8 : -8;
+    void addFrameImage(holder, 'ui/vs-squard', home ? { x: 0, y: 0, width: 520, height: 733 } : { x: 560, y: 0, width: 520, height: 733 }, { x: 0, y: -4, width: 344, height: 500, siblingIndex: 0 });
     text(holder, titleValue, 0, 208, 18, colors.white, 280);
     text(holder, formation, 0, 178, 17, home ? colors.success : colors.gold, 280);
-    void addFrameImage(holder, 'ui/squard-qc', { x: 24, y: 24, width: 816, height: 1032 }, { x: 0, y: -38, width: 278, height: 352, siblingIndex: 1 });
+    void addFrameImage(holder, 'ui/squard-qc', { x: 24, y: 24, width: 816, height: 1032 }, { x: pitchOffsetX, y: -48, width: 306, height: 386, siblingIndex: 1 });
     lineup.forEach((slot) => {
-      const x = (slot.x - 0.5) * 245;
-      const y = 115 - slot.y * 300;
-      const chip = panel(holder, x, y, 48, 58, slot.player ? colors.primary : colors.panelSoft, 9);
-      if (slot.player) void addImage(chip, this.playerResourcePath(slot.player), { x: 0, y: 7, width: 39, height: 39 });
-      text(chip, `${slot.player?.rating ?? '--'}`, 0, -20, 12, colors.white, 44);
+      const x = pitchOffsetX + (slot.x - 0.5) * 268;
+      const y = 132 - slot.y * 338;
+      this.renderMiniPlayerCard(holder, slot.player, x, y, home);
     });
+  }
+
+  private renderMiniPlayerCard(parent: Node, player: PlayerCardData | undefined, x: number, y: number, home: boolean): void {
+    const chip = layer(`MiniPlayer:${player?.id ?? 'empty'}`, parent, 62, 76);
+    chip.setPosition(x, y);
+    const frame = chip.addComponent(Graphics);
+    const accent = player ? this.colorFromNumber(player.color) : (home ? colors.primary : colors.danger);
+    frame.fillColor = new Color(4, 17, 39, 248);
+    frame.strokeColor = accent;
+    frame.lineWidth = 2;
+    frame.moveTo(0, 37);
+    frame.lineTo(29, 22);
+    frame.lineTo(29, -19);
+    frame.lineTo(0, -37);
+    frame.lineTo(-29, -19);
+    frame.lineTo(-29, 22);
+    frame.close();
+    frame.fill();
+    frame.stroke();
+    if (player) {
+      void addImage(chip, this.playerResourcePath(player), { x: 0, y: 7, width: 48, height: 48, siblingIndex: 0 });
+    } else {
+      text(chip, '+', 0, 5, 24, colors.muted, 36);
+    }
+    const ratingBg = panel(chip, 0, -25, 44, 22, new Color(6, 27, 59, 245), 7);
+    text(ratingBg, `${player?.rating ?? '--'}`, 0, 0, 13, colors.white, 38);
   }
 
   private renderCoreDuel(parent: Node): void {
     const home = [...this.state.lineup].sort((a, b) => (b.player?.rating ?? 0) - (a.player?.rating ?? 0))[0]?.player;
     const away = [...this.state.opponentLineup].sort((a, b) => (b.player?.rating ?? 0) - (a.player?.rating ?? 0))[0]?.player;
-    const duel = layer('CoreDuel', parent, 650, 104);
-    duel.setPosition(0, -462);
-    void addImage(duel, 'ui/playercore', { x: 0, y: 0, width: 650, height: 104, siblingIndex: 0 });
-    text(duel, '核心对位', 0, 31, 16, colors.gold, 140);
-    if (home) void addImage(duel, this.playerResourcePath(home), { x: -247, y: -9, width: 54, height: 54, siblingIndex: 1 });
-    if (away) void addImage(duel, this.playerResourcePath(away), { x: 247, y: -9, width: 54, height: 54, siblingIndex: 1 });
-    text(duel, `${home?.name ?? '待定'}  ${home?.rating ?? '--'}`, -135, -8, 17, colors.white, 180);
-    text(duel, 'VS', 0, -12, 23, colors.white, 70);
-    text(duel, `${away?.rating ?? '--'}  ${away?.name ?? '待定'}`, 135, -8, 17, colors.white, 180);
+    const duel = layer('CoreDuel', parent, 680, 230);
+    duel.setPosition(0, -385);
+    void addImage(duel, 'ui/playercore', { x: 0, y: 0, width: 680, height: 230, siblingIndex: 0 });
+    sectionTitle(duel, '核心对位', -225, 72, 210, colors.gold, 18);
+    const leftCard = panel(duel, -210, 35, 205, 72, new Color(7, 17, 38, 235), 13);
+    const rightCard = panel(duel, 210, 35, 205, 72, new Color(7, 17, 38, 235), 13);
+    if (home) void addImage(leftCard, this.playerResourcePath(home), { x: -68, y: 0, width: 52, height: 52, siblingIndex: 0 });
+    if (away) void addImage(rightCard, this.playerResourcePath(away), { x: 68, y: 0, width: 52, height: 52, siblingIndex: 0 });
+    text(leftCard, `${home?.rating ?? '--'}  ${home?.name ?? '待定'}`, 25, 12, 17, colors.white, 135);
+    text(leftCard, home ? `${this.positionName(home.position)} · ${home.role}` : '核心球员', 25, -16, 13, colors.muted, 135);
+    text(rightCard, `${away?.name ?? '待定'}  ${away?.rating ?? '--'}`, -25, 12, 17, colors.white, 135);
+    text(rightCard, away ? `${this.positionName(away.position)} · ${away.role}` : '核心球员', -25, -16, 13, colors.muted, 135);
+    text(duel, 'VS', 0, 36, 31, colors.white, 70);
+    this.renderCoreStat(duel, '进攻', home?.attack ?? 0, away?.attack ?? 0, -12);
+    this.renderCoreStat(duel, '中场', home?.speed ?? 0, away?.speed ?? 0, -48);
+    this.renderCoreStat(duel, '防守', home?.defense ?? 0, away?.defense ?? 0, -84);
+  }
+
+  private renderCoreStat(parent: Node, titleValue: string, home: number, away: number, y: number): void {
+    const max = Math.max(1, home, away);
+    text(parent, String(home), -290, y, 16, new Color(92, 166, 255, 255), 60);
+    text(parent, titleValue, 0, y, 15, colors.white, 80);
+    text(parent, String(away), 290, y, 16, new Color(255, 113, 133, 255), 60);
+    const bars = layer(`CoreStat:${titleValue}`, parent, 420, 14);
+    bars.setPosition(0, y);
+    const graphics = bars.addComponent(Graphics);
+    graphics.fillColor = new Color(7, 17, 38, 150);
+    graphics.roundRect(-210, -5, 160, 10, 5);
+    graphics.roundRect(50, -5, 160, 10, 5);
+    graphics.fill();
+    graphics.fillColor = colors.primary;
+    graphics.roundRect(-210, -5, 160 * home / max, 10, 5);
+    graphics.fill();
+    graphics.fillColor = colors.danger;
+    graphics.roundRect(50, -5, 160 * away / max, 10, 5);
+    graphics.fill();
   }
 
   private lineupPower(lineup: typeof this.state.lineup): number {
-    return lineup.reduce((sum, slot) => sum + (slot.player?.rating ?? 0), 0);
+    return lineup.reduce((sum, slot) => sum + (slot.player?.rating ?? 70), 0);
+  }
+
+  private teamTrophy(formation: string): string {
+    return formation.replace(/-/g, '').slice(0, 4).padEnd(4, '0');
+  }
+
+  private colorFromNumber(value: number): Color {
+    return new Color((value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff, 255);
   }
 
   private renderBattle(): void {
@@ -972,56 +1378,89 @@ export class GameRoot extends Component {
     this.battleIndex = 0;
     this.battleEvents = [];
     const visible = view.getVisibleSize();
+    const headerY = this.topControlY();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
-    void addFrameImage(root, 'ui/headertitle', { x: 557, y: 226, width: 474, height: 124 }, { x: -115, y: 570, width: 245, height: 64 });
-    this.renderBattleTeamMark(root, -245, 450, '蓝', colors.primary, '我方球队', '蓝焰俱乐部');
-    this.renderBattleTeamMark(root, 245, 450, 'AI', colors.danger, '对手球队', this.state.opponent.nickname);
-    this.battleScore = text(root, '0  :  0', 0, 465, 66, colors.white, 250);
+    const shade = root.addComponent(Graphics);
+    shade.fillColor = new Color(2, 8, 23, 62);
+    shade.rect(-visible.width / 2, -visible.height / 2, visible.width, visible.height);
+    shade.fill();
+    void addFrameImage(root, 'ui/headertitle', { x: 557, y: 226, width: 474, height: 124 }, { x: -115, y: headerY, width: 245, height: 64 });
+    this.renderBattleTeamMark(root, -274, 470, '蓝', colors.primary, '我方球队', '蓝焰俱乐部');
+    this.renderBattleTeamMark(root, 274, 470, 'AI', colors.danger, '对手球队', this.state.opponent.nickname);
+    this.battleScoreHome = text(root, '0', -62, 470, 78, colors.primary, 90);
+    text(root, ':', 0, 470, 62, colors.white, 60);
+    this.battleScoreAway = text(root, '0', 62, 470, 78, colors.danger, 90);
     const clockBox = panel(root, 0, 380, 174, 54, new Color(5, 21, 49, 240), 8);
     this.battleClock = text(clockBox, "00'", 0, 0, 28, colors.gold, 140);
     this.renderPossession(root);
-    const feed = panel(root, 0, -190, 666, 670, new Color(6, 20, 47, 224), 16);
-    text(feed, '实时战报', 0, 300, 22, colors.white, 560);
-    this.battleEventLayer = layer('BattleEvents', feed, 620, 590);
-    this.battleEventLayer.setPosition(0, -20);
+    const feed = panel(root, 0, -245, 676, 680, new Color(6, 20, 47, 205), 16);
+    this.battleEventLayer = layer('BattleEvents', feed, 630, 640);
+    this.battleEventLayer.setPosition(0, 0);
     this.renderBattleEventCards();
     this.schedule(this.pushBattleMoment, 1.35, LOCAL_MOMENTS.length - 1, 0.7);
   }
 
   private renderBattleTeamMark(parent: Node, x: number, y: number, mark: string, accent: Color, titleValue: string, club: string): void {
-    const badge = panel(parent, x, y + 25, 92, 92, new Color(7, 23, 53, 245), 18);
-    const outline = badge.addComponent(Graphics);
-    outline.strokeColor = accent;
-    outline.lineWidth = 4;
-    outline.roundRect(-44, -44, 88, 88, 17);
-    outline.stroke();
-    text(badge, mark, 0, 0, mark.length > 1 ? 22 : 30, colors.white, 70);
-    text(parent, titleValue, x, y - 48, 19, colors.white, 180);
-    text(parent, club, x, y - 76, 15, accent, 200);
+    const badge = layer(`TeamMark:${mark}`, parent, 116, 116);
+    badge.setPosition(x, y);
+    const graphics = badge.addComponent(Graphics);
+    graphics.fillColor = new Color(7, 23, 53, 245);
+    graphics.strokeColor = accent;
+    graphics.lineWidth = 5;
+    graphics.roundRect(-56, -56, 112, 112, 18);
+    graphics.fill();
+    graphics.stroke();
+    graphics.fillColor = accent;
+    graphics.moveTo(0, 38);
+    graphics.lineTo(32, 20);
+    graphics.lineTo(23, -27);
+    graphics.lineTo(0, -40);
+    graphics.lineTo(-23, -27);
+    graphics.lineTo(-32, 20);
+    graphics.close();
+    graphics.fill();
+    text(badge, mark, 0, 0, mark.length > 1 ? 20 : 29, colors.white, 70);
+    text(parent, titleValue, x, 385, 22, colors.white, 180);
+    text(parent, club, x, 352, 16, mark === 'AI' ? colors.gold : colors.success, 200);
   }
 
   private renderPossession(parent: Node): void {
-    const box = panel(parent, 0, 278, 650, 142, new Color(6, 20, 47, 224), 14);
-    text(box, '比赛势头', 0, 46, 21, colors.white, 220);
-    text(box, '我方压制', -225, 5, 17, colors.primary, 130);
-    text(box, '对方反击', 225, 5, 17, colors.danger, 130);
-    this.battlePossession = box.addComponent(Graphics);
+    const box = panel(parent, 0, 220, 676, 206, new Color(6, 20, 47, 220), 12);
+    sectionTitle(box, '比赛势头', 0, 65, 360, colors.cyan, 23);
+    this.battlePossessionLeft = text(box, '我方稳控', -255, 8, 20, colors.primary, 135);
+    this.battlePossessionRight = text(box, '对方反击', 255, 8, 20, colors.danger, 135);
+    const fillLayer = layer('PossessionFill', box, 300, 36);
+    fillLayer.setPosition(0, 8);
+    this.battlePossession = fillLayer.addComponent(Graphics);
+    this.battlePossessionBall = text(box, '⚽', 0, 8, 27, colors.white, 45);
+    this.battlePossessionHint = text(box, '双方拉锯中，寻找下一次机会！', 0, -63, 18, colors.muted, 540);
     this.updateBattlePossession();
-    text(box, '双方拉锯中，寻找下一次机会', 0, -45, 15, colors.muted, 500);
   }
 
   private updateBattlePossession(): void {
     if (!this.battlePossession) return;
     const home = Math.max(0.32, Math.min(0.68, 0.5 + (this.state.power - this.lineupPower(this.state.opponentLineup)) / 1800 + (this.scoreA - this.scoreB) * 0.025));
-    const width = 330;
+    const width = 300;
     const split = width * home;
     this.battlePossession.clear();
+    this.battlePossession.fillColor = new Color(7, 17, 38, 220);
+    this.battlePossession.roundRect(-width / 2, -13, width, 26, 13);
+    this.battlePossession.fill();
     this.battlePossession.fillColor = colors.primary;
-    this.battlePossession.roundRect(-width / 2, -13, split, 25, 12);
+    this.battlePossession.roundRect(-width / 2, -13, split, 26, 13);
     this.battlePossession.fill();
     this.battlePossession.fillColor = colors.danger;
-    this.battlePossession.roundRect(-width / 2 + split, -13, width - split, 25, 12);
+    this.battlePossession.roundRect(-width / 2 + split, -13, width - split, 26, 13);
     this.battlePossession.fill();
+    if (this.battlePossessionBall) this.battlePossessionBall.node.setPosition(-width / 2 + split, 8);
+    const homeDominant = home >= 0.54;
+    const awayDominant = home <= 0.46;
+    if (this.battlePossessionLeft) this.battlePossessionLeft.string = homeDominant ? '我方压制' : '我方稳控';
+    if (this.battlePossessionRight) this.battlePossessionRight.string = awayDominant ? '对方压制' : '对方反击';
+    if (this.battlePossessionHint) {
+      this.battlePossessionHint.string = homeDominant ? '我方占据场上优势，继续保持！' : awayDominant ? '对方反击正在升温，注意回防！' : '双方拉锯中，寻找下一次机会！';
+      this.battlePossessionHint.color = homeDominant ? new Color(40, 245, 255, 255) : awayDominant ? colors.gold : colors.muted;
+    }
   }
 
   private renderBattleEventCards(): void {
@@ -1031,38 +1470,173 @@ export class GameRoot extends Component {
     const entries = this.battleEvents.length ? this.battleEvents.slice(-5) : [{ time: 0, title: '比赛准备', text: '裁判正在确认双方阵容…', mood: 'normal', scoreA: 0, scoreB: 0 } as BattleEvent];
     entries.forEach((event, index) => {
       const card = layer(`Event:${event.time}`, layerNode, 600, 96);
-      card.setPosition(0, 230 - index * 112);
+      const targetY = 260 - index * 112;
+      card.setPosition(index === entries.length - 1 ? 46 : 0, targetY);
       const frame = this.battleEventFrame(event);
       void addFrameImage(card, 'ui/gameevents', frame, { x: 0, y: 0, width: 600, height: 96, siblingIndex: 0 });
-      text(card, `${String(event.time).padStart(2, '0')}'`, -220, 0, 20, colors.gold, 76);
+      const accent = event.team === 'away' ? colors.danger : event.team === 'home' ? colors.primary : colors.gold;
+      text(card, `${String(event.time).padStart(2, '0')}'`, -165, 0, 22, accent, 82);
       const titleValue = event.title ?? '比赛动态';
-      text(card, `${titleValue}${event.actor ? ` · ${event.actor}` : ''}`, 35, 19, 18, colors.white, 400);
-      text(card, event.text, 35, -20, 14, colors.muted, 400);
+      const actor = this.battleActor(event.actor);
+      if (actor) void addImage(card, this.playerResourcePath(actor), { x: -96, y: 19, width: 34, height: 34, siblingIndex: 1 });
+      text(card, `${event.actor ? `${event.actor} · ` : ''}${titleValue}`, 92, 19, 18, accent, 400);
+      text(card, event.text, 92, -20, 14, colors.white, 400);
+      if (event.team === 'away') {
+        const borderNode = layer('AwayEventBorder', card, 600, 96);
+        const border = borderNode.addComponent(Graphics);
+        border.strokeColor = colors.danger;
+        border.lineWidth = 2;
+        border.roundRect(-299, -47, 598, 94, 13);
+        border.stroke();
+      }
+      if (index === entries.length - 1) {
+        card.setScale(0.96, 0.96, 1);
+        tween(card)
+          .to(0.24, { position: new Vec3(0, targetY, 0), scale: new Vec3(1, 1, 1) }, { easing: 'cubicOut' })
+          .start();
+      }
     });
+  }
+
+  private battleActor(name?: string): PlayerCardData | undefined {
+    if (!name) return undefined;
+    return [...this.state.lineup, ...this.state.opponentLineup].find((slot) => slot.player?.name === name)?.player;
   }
 
   private battleEventFrame(event: BattleEvent): { x: number; y: number; width: number; height: number } {
     const titleValue = event.title ?? '';
-    const key = titleValue.includes('进球') ? 'goal' : titleValue.includes('扑救') || titleValue.includes('门将') ? 'save' : titleValue.includes('角球') ? 'corner' : 'shot';
     const frames = {
       shot: { x: 25, y: 44, width: 675, height: 110 },
       goal: { x: 25, y: 165, width: 675, height: 110 },
       save: { x: 25, y: 286, width: 675, height: 110 },
-      corner: { x: 25, y: 407, width: 675, height: 109 }
+      corner: { x: 25, y: 407, width: 675, height: 109 },
+      yellow: { x: 25, y: 528, width: 675, height: 109 },
+      red: { x: 25, y: 648, width: 675, height: 110 },
+      injury: { x: 25, y: 769, width: 675, height: 110 },
+      sub: { x: 25, y: 889, width: 675, height: 111 }
     };
+    const aliases: Record<string, keyof typeof frames> = {
+      yellow_card: 'yellow',
+      red_card: 'red',
+      substitution: 'sub'
+    };
+    const explicit = event.eventType ? aliases[event.eventType] ?? event.eventType : undefined;
+    const key: keyof typeof frames = explicit && explicit in frames
+      ? explicit as keyof typeof frames
+      : titleValue.includes('进球') ? 'goal'
+        : titleValue.includes('扑救') || titleValue.includes('门将') ? 'save'
+          : titleValue.includes('角球') ? 'corner'
+            : titleValue.includes('黄牌') ? 'yellow'
+              : titleValue.includes('红牌') ? 'red'
+                : titleValue.includes('伤') ? 'injury'
+                  : titleValue.includes('换人') ? 'sub' : 'shot';
     return frames[key];
+  }
+
+  private playBattleEventEffect(event: BattleEvent): void {
+    const type = event.eventType ?? '';
+    const titleValue = event.title ?? '';
+    const isGoal = type === 'goal' || titleValue.includes('进球');
+    const isSave = type === 'save' || titleValue.includes('扑救') || titleValue.includes('门将');
+    const isYellow = type === 'yellow' || type === 'yellow_card' || titleValue.includes('黄牌');
+    const isRed = type === 'red' || type === 'red_card' || titleValue.includes('红牌');
+    if (!isGoal && !isSave && !isYellow && !isRed) return;
+
+    const accent = isGoal
+      ? (event.team === 'away' ? colors.danger : colors.primary)
+      : isSave ? new Color(61, 198, 255, 255)
+        : isRed ? new Color(255, 48, 69, 255) : colors.gold;
+    const headline = isGoal ? (event.team === 'away' ? '对手破门' : '破门！') : isSave ? '神扑！' : isRed ? '红牌！' : '黄牌！';
+    const displayTitle = event.actor && !isGoal ? `${event.actor} · ${headline}` : headline;
+    const subtitle = isGoal ? `${this.scoreA} : ${this.scoreB}` : event.text;
+    const overlay = layer(`BattleEffect:${headline}`, this.screen!, DESIGN_WIDTH, DESIGN_HEIGHT);
+    const opacity = overlay.addComponent(UIOpacity);
+    opacity.opacity = 0;
+    const shade = overlay.addComponent(Graphics);
+    shade.fillColor = new Color(1, 7, 22, isGoal ? 158 : 42);
+    shade.rect(-DESIGN_WIDTH / 2, -DESIGN_HEIGHT / 2, DESIGN_WIDTH, DESIGN_HEIGHT);
+    shade.fill();
+
+    const banner = layer('SpecialEventBanner', overlay, 590, 156);
+    banner.setPosition(0, 38);
+    const bannerGraphics = banner.addComponent(Graphics);
+    bannerGraphics.fillColor = new Color(3, 17, 43, 250);
+    bannerGraphics.strokeColor = accent;
+    bannerGraphics.lineWidth = 3;
+    bannerGraphics.roundRect(-285, -70, 570, 140, 18);
+    bannerGraphics.fill();
+    bannerGraphics.stroke();
+    bannerGraphics.fillColor = new Color(accent.r, accent.g, accent.b, 38);
+    bannerGraphics.moveTo(-174, 68);
+    bannerGraphics.lineTo(280, 68);
+    bannerGraphics.lineTo(215, 16);
+    bannerGraphics.lineTo(-174, -12);
+    bannerGraphics.close();
+    bannerGraphics.fill();
+    bannerGraphics.fillColor = accent;
+    bannerGraphics.roundRect(-282, -55, 6, 110, 3);
+    bannerGraphics.fill();
+
+    const iconPlate = layer('SpecialEventIcon', banner, 104, 104);
+    iconPlate.setPosition(-218, 0);
+    const iconGraphics = iconPlate.addComponent(Graphics);
+    iconGraphics.fillColor = new Color(3, 12, 31, 235);
+    iconGraphics.strokeColor = accent;
+    iconGraphics.lineWidth = 3;
+    iconGraphics.circle(0, 0, 48);
+    iconGraphics.fill();
+    iconGraphics.stroke();
+    if (isYellow || isRed) {
+      const cardIcon = layer('RefereeCard', iconPlate, 42, 62);
+      cardIcon.angle = -11;
+      const cardGraphics = cardIcon.addComponent(Graphics);
+      cardGraphics.fillColor = accent;
+      cardGraphics.roundRect(-17, -27, 34, 54, 5);
+      cardGraphics.fill();
+    } else {
+      void addImage(iconPlate, isSave ? 'ui/result/event-save' : 'ui/result/event-ball', {
+        x: 0,
+        y: 0,
+        width: 76,
+        height: 76,
+        siblingIndex: 0
+      });
+    }
+
+    text(banner, `${event.time}'`, -218, -52, 16, accent, 80);
+    text(banner, displayTitle, 68, 24, isGoal ? 43 : 31, accent, 390);
+    text(banner, subtitle, 68, -28, isGoal ? 31 : 18, isGoal ? colors.gold : colors.white, 390);
+    banner.setScale(0.82, 0.82, 1);
+
+    tween(banner)
+      .to(0.16, { scale: new Vec3(1.05, 1.05, 1) }, { easing: 'backOut' })
+      .to(0.1, { scale: new Vec3(1, 1, 1) })
+      .start();
+    tween(opacity)
+      .to(0.1, { opacity: 255 })
+      .delay(isGoal ? 1.1 : 0.82)
+      .to(0.22, { opacity: 0 })
+      .call(() => { if (overlay.isValid) overlay.destroy(); })
+      .start();
   }
 
   private readonly pushBattleMoment = (): void => {
     if (this.current !== 'battle') return;
     const moment = LOCAL_MOMENTS[this.battleIndex];
     const minute = this.battleIndex === LOCAL_MOMENTS.length - 1 ? 90 : Math.min(89, 4 + this.battleIndex * 12);
+    let eventTeam = moment.team;
     if (moment.goal) {
       const homeAdvantage = this.state.power >= 850 ? 0.62 : 0.5;
-      if (Math.random() < homeAdvantage) this.scoreA += 1;
-      else this.scoreB += 1;
-    } else if (this.battleIndex === 4 && Math.random() > 0.58) {
+      if (Math.random() < homeAdvantage) {
+        this.scoreA += 1;
+        eventTeam = 'home';
+      } else {
+        this.scoreB += 1;
+        eventTeam = 'away';
+      }
+    } else if (this.battleIndex === 5 && Math.random() > 0.58) {
       this.scoreB += 1;
+      eventTeam = 'away';
     }
     const event: BattleEvent = {
       time: minute,
@@ -1071,17 +1645,31 @@ export class GameRoot extends Component {
       scoreA: this.scoreA,
       scoreB: this.scoreB,
       mood: moment.mood,
-      team: moment.team,
-      actor: this.pickEventPlayer(moment.team)?.name
+      team: eventTeam,
+      eventType: moment.eventType,
+      actor: this.pickEventPlayer(eventTeam)?.name
     };
     this.battleEvents.push(event);
     this.battleClock!.string = `${minute}'`;
-    this.battleScore!.string = `${this.scoreA}  :  ${this.scoreB}`;
+    this.battleScoreHome!.string = String(this.scoreA);
+    this.battleScoreAway!.string = String(this.scoreB);
     this.updateBattlePossession();
     this.renderBattleEventCards();
+    this.playBattleEventSound(event);
+    this.playBattleEventEffect(event);
     this.battleIndex += 1;
     if (this.battleIndex >= LOCAL_MOMENTS.length) this.scheduleOnce(() => this.finishBattle(), 0.9);
   };
+
+  private playBattleEventSound(event: BattleEvent): void {
+    const type = event.eventType ?? '';
+    const titleValue = event.title ?? '';
+    if (titleValue.includes('全场结束')) return GameAudio.play('whistle');
+    if (type === 'goal' || titleValue.includes('进球')) return GameAudio.play('goal');
+    if (type === 'save' || titleValue.includes('扑救') || titleValue.includes('门将')) return GameAudio.play('save');
+    if (type === 'yellow' || type === 'red' || type === 'yellow_card' || type === 'red_card' || /黄牌|红牌/.test(titleValue)) return GameAudio.play('card');
+    GameAudio.play(event.mood === 'bad' ? 'danger' : event.mood === 'good' ? 'confirm' : 'tap');
+  }
 
   private pickEventPlayer(team?: 'home' | 'away'): PlayerCardData | undefined {
     const lineup = team === 'away' ? this.state.opponentLineup : this.state.lineup;
@@ -1109,27 +1697,148 @@ export class GameRoot extends Component {
     const result = this.state.battleResult;
     const won = result.scoreA > result.scoreB;
     const draw = result.scoreA === result.scoreB;
+    this.scheduleOnce(() => GameAudio.play(won ? 'win' : draw ? 'confirm' : 'lose'), 0.18);
+    this.scheduleOnce(() => GameAudio.play('reward'), 0.72);
     const visible = view.getVisibleSize();
+    const headerY = this.topControlY();
     void addCoverImage(this.screenHost!, 'page-bg', visible.width, visible.height);
-    void addFrameImage(root, 'ui/headertitle', { x: 55, y: 408, width: 463, height: 116 }, { x: -115, y: 570, width: 245, height: 61 });
-    text(root, won ? '比赛胜利' : draw ? '握手言和' : '比赛结束', 0, 470, 52, won ? colors.gold : colors.white);
-    text(root, `${result.scoreA}  :  ${result.scoreB}`, 0, 300, 110, colors.white);
-    text(root, `蓝焰俱乐部     ${this.state.opponent.nickname}`, 0, 205, 23, colors.muted);
-    const reward = panel(root, 0, -10, 600, 250, colors.panelSoft);
-    text(reward, '比赛奖励', 0, 72, 25, colors.gold);
-    text(reward, `金币 +${won ? 1200 : 520}`, -140, -20, 28, colors.white, 260);
-    text(reward, `体力 -6${won ? '   球探券 +1' : ''}`, 140, -20, 25, colors.white, 280);
+    const wash = root.addComponent(Graphics);
+    wash.fillColor = new Color(1, 8, 27, 80);
+    wash.rect(-visible.width / 2, -visible.height / 2, visible.width, visible.height);
+    wash.fill();
+    void addFrameImage(root, 'ui/headertitle', { x: 55, y: 408, width: 463, height: 116 }, { x: 0, y: headerY, width: 300, height: 75 });
+    text(root, won ? '比赛胜利' : draw ? '握手言和' : '比赛结束', 0, headerY - 82, 45, won ? colors.gold : colors.white, 520);
+    this.renderResultTeamBadge(root, -245, headerY - 190, '蓝', colors.primary, '蓝焰俱乐部');
+    this.renderResultTeamBadge(root, 245, headerY - 190, 'AI', colors.danger, this.state.opponent.nickname);
+    text(root, String(result.scoreA), -58, headerY - 188, 76, colors.primary, 90);
+    text(root, ':', 0, headerY - 188, 62, colors.white, 55);
+    text(root, String(result.scoreB), 58, headerY - 188, 76, colors.danger, 90);
+
     const homePower = this.state.power;
     const awayPower = this.lineupPower(this.state.opponentLineup);
-    const possession = Math.round(45 + (homePower - awayPower) / Math.max(20, homePower + awayPower) * 100);
-    const stats = panel(root, 0, -245, 600, 185, colors.panelSoft);
-    text(stats, '比赛数据', 0, 60, 20, colors.gold);
-    text(stats, `${Math.max(35, Math.min(65, possession))}%    控球率    ${100 - Math.max(35, Math.min(65, possession))}%`, 0, 10, 19, colors.white, 530);
-    text(stats, `${4 + result.scoreA * 2}       射门       ${4 + result.scoreB * 2}`, 0, -38, 19, colors.white, 530);
-    const keyEvent = result.events.filter((event) => event.scoreA || event.scoreB).slice(-2).map((event) => `${event.time}' ${event.actor ?? ''} ${event.title ?? ''}`).join('  ·  ');
-    text(root, keyEvent || '双方鏖战至终场', 0, -375, 17, colors.muted, 620);
-    button(root, '返回首页', 0, -475, 360, 72, () => this.show('home'), colors.primary);
-    text(root, `生涯战绩  ${this.state.matchesPlayed} 场 ${this.state.wins} 胜`, 0, -545, 18, colors.muted);
+    const possession = Math.max(35, Math.min(65, Math.round(50 + (homePower - awayPower) / Math.max(20, homePower + awayPower) * 100)));
+    const count = (team: 'home' | 'away', pattern: RegExp) => result.events.filter((event) => event.team === team && pattern.test(event.title ?? '')).length;
+    const matchStats = [
+      { label: '控球率', home: possession, away: 100 - possession, suffix: '%' },
+      { label: '射门', home: 4 + result.scoreA * 2 + count('home', /射门|远射|推进/), away: 4 + result.scoreB * 2 + count('away', /射门|远射|推进/), suffix: '' },
+      { label: '角球', home: 1 + count('home', /角球/), away: 1 + count('away', /角球/), suffix: '' },
+      { label: '黄牌', home: count('home', /黄牌/), away: count('away', /黄牌/), suffix: '' },
+      { label: '红牌', home: count('home', /红牌/), away: count('away', /红牌/), suffix: '' }
+    ];
+    this.renderResultStats(root, matchStats, headerY - 455);
+    this.renderResultTimeline(root, result.events, headerY - 760);
+    this.renderResultReward(root, won, headerY - 965);
+    this.renderResultHomeButton(root, headerY - 1080);
+    text(root, `生涯战绩  ${this.state.matchesPlayed} 场 ${this.state.wins} 胜`, 0, headerY - 1140, 17, colors.muted, 420);
+  }
+
+  private renderResultTeamBadge(parent: Node, x: number, y: number, mark: string, accent: Color, club: string): void {
+    const node = layer(`ResultTeam:${mark}`, parent, 210, 150);
+    node.setPosition(x, y);
+    void addImage(node, mark === 'AI' ? 'ui/result/team-away' : 'ui/result/team-home', {
+      x: 0,
+      y: 25,
+      width: mark === 'AI' ? 100 : 96,
+      height: 120,
+      siblingIndex: 0
+    });
+    text(node, club, 0, -55, 19, colors.white, 200);
+  }
+
+  private renderResultStats(
+    parent: Node,
+    rows: Array<{ label: string; home: number; away: number; suffix: string }>,
+    y: number
+  ): void {
+    const card = layer('ResultStatsPanel', parent, 650, 330);
+    card.setPosition(0, y);
+    void addImage(card, 'ui/result/stats-panel', { x: 0, y: 0, width: 650, height: 330, siblingIndex: 0 });
+    text(card, '比赛数据', 0, 133, 25, colors.gold, 240);
+    rows.forEach((row, index) => {
+      const rowY = 82 - index * 49;
+      const max = Math.max(1, row.home, row.away);
+      const homeWidth = 140 * row.home / max;
+      const awayWidth = 140 * row.away / max;
+      text(card, `${row.home}${row.suffix}`, -278, rowY, 21, colors.primary, 72);
+      text(card, row.label, 0, rowY, 18, colors.white, 100);
+      text(card, `${row.away}${row.suffix}`, 278, rowY, 21, colors.danger, 72);
+      const bars = layer(`ResultStat:${row.label}`, card, 430, 12);
+      bars.setPosition(0, rowY);
+      const graphics = bars.addComponent(Graphics);
+      graphics.fillColor = new Color(24, 49, 83, 220);
+      graphics.roundRect(-210, -5, 140, 10, 5);
+      graphics.roundRect(70, -5, 140, 10, 5);
+      graphics.fill();
+      graphics.fillColor = colors.primary;
+      graphics.roundRect(-70 - homeWidth, -5, homeWidth, 10, 5);
+      graphics.fill();
+      graphics.fillColor = colors.danger;
+      graphics.roundRect(70, -5, awayWidth, 10, 5);
+      graphics.fill();
+      if (index < rows.length - 1) divider(card, 0, rowY - 24, 560, new Color(49, 92, 137, 60));
+    });
+  }
+
+  private renderResultTimeline(parent: Node, events: BattleEvent[], y: number): void {
+    const card = layer('ResultTimelinePanel', parent, 650, 220);
+    card.setPosition(0, y);
+    void addImage(card, 'ui/result/timeline-panel', { x: 0, y: 0, width: 650, height: 220, siblingIndex: 0 });
+    text(card, '关键事件', 0, 82, 24, colors.gold, 240);
+    const useful = events.filter((event) => !/比赛开始/.test(event.title ?? ''));
+    const selected = useful.length <= 4
+      ? useful
+      : [useful[0], useful[Math.floor((useful.length - 1) / 3)], useful[Math.floor((useful.length - 1) * 2 / 3)], useful[useful.length - 1]];
+    const timelineLayer = layer('ResultTimelineLine', card, 520, 6);
+    timelineLayer.setPosition(0, 12);
+    const timeline = timelineLayer.addComponent(Graphics);
+    timeline.strokeColor = new Color(105, 144, 188, 180);
+    timeline.lineWidth = 3;
+    timeline.moveTo(-238, 0);
+    timeline.lineTo(238, 0);
+    timeline.stroke();
+    const entries = selected.length ? selected.slice(0, 4) : [{ time: 90, title: '全场结束', text: '比赛结束', scoreA: 0, scoreB: 0, mood: 'normal' } as BattleEvent];
+    entries.forEach((event, index) => {
+      const x = entries.length === 1 ? 0 : -225 + index * (450 / (entries.length - 1));
+      const accent = event.team === 'away' ? colors.danger : event.team === 'home' ? colors.primary : colors.gold;
+      const icon = /扑救/.test(event.title ?? '') ? 'ui/result/event-save' : /结束/.test(event.title ?? '') ? 'ui/result/event-whistle' : 'ui/result/event-ball';
+      const fullTime = /结束/.test(event.title ?? '');
+      void addImage(card, icon, { x, y: 12, width: 50, height: 50, siblingIndex: 1 });
+      text(card, `${event.time}'`, x, 52, 18, accent, 76);
+      text(card, fullTime ? '全场结束' : event.actor ?? event.title ?? '比赛事件', x, -34, 16, colors.white, 136);
+      text(card, fullTime ? '裁判终场哨' : event.title ?? '', x, -63, 13, colors.muted, 132);
+    });
+  }
+
+  private renderResultReward(parent: Node, won: boolean, y: number): void {
+    const reward = layer('ResultRewardPanel', parent, 650, 128);
+    reward.setPosition(0, y);
+    void addImage(reward, 'ui/result/reward-panel', { x: 0, y: 0, width: 650, height: 128, siblingIndex: 0 });
+    text(reward, '比赛奖励', 0, 42, 22, colors.gold, 240);
+    void addImage(reward, 'ui/result/reward-coin', { x: -248, y: -15, width: 48, height: 56, siblingIndex: 1 });
+    void addImage(reward, 'ui/result/reward-energy', { x: 58, y: -15, width: 48, height: 48, siblingIndex: 1 });
+    text(reward, `金币  +${won ? 1200 : 520}`, -145, -15, 23, colors.white, 180);
+    text(reward, '体力  -5', 160, won ? 0 : -15, 20, colors.white, 150);
+    if (won) text(reward, '球探券  +1', 160, -29, 17, colors.gold, 150);
+    const rewardSplit = layer('ResultRewardSplit', reward, 2, 54);
+    rewardSplit.setPosition(0, -15);
+    const splitGraphics = rewardSplit.addComponent(Graphics);
+    splitGraphics.fillColor = new Color(92, 137, 198, 105);
+    splitGraphics.rect(-1, -27, 2, 54);
+    splitGraphics.fill();
+  }
+
+  private renderResultHomeButton(parent: Node, y: number): void {
+    const buttonNode = layer('Button:ResultHome', parent, 380, 76);
+    buttonNode.setPosition(0, y);
+    void addImage(buttonNode, 'ui/result/primary-button', { x: 0, y: 0, width: 380, height: 65, siblingIndex: 0 });
+    text(buttonNode, '返回首页', 0, 0, 27, colors.white, 300);
+    buttonNode.on(Node.EventType.TOUCH_START, () => buttonNode.setScale(0.97, 0.97, 1));
+    buttonNode.on(Node.EventType.TOUCH_CANCEL, () => buttonNode.setScale(1, 1, 1));
+    buttonNode.on(Node.EventType.TOUCH_END, () => {
+      buttonNode.setScale(1, 1, 1);
+      GameAudio.play('tap');
+      this.show('home');
+    });
   }
 
   private delay(ms: number): Promise<void> {
