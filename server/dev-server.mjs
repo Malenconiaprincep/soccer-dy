@@ -3,20 +3,16 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defaultShopConfig, normalizeShopConfig } from './shop-config.mjs';
-import {
-  applyMatchResult,
-  cleanupOldMatches,
-  ensurePlayerState,
-  initCloudbaseDb,
-  insertMatch,
-  patchPlayerState,
-  randomBotProfile,
-  upsertProfile
-} from './cloudbase-db.mjs';
+import { initCloudbaseDb } from './cloudbase-db.mjs';
+import * as cloudbaseDb from './cloudbase-db.mjs';
+import { initSupabaseDb } from './supabase-db.mjs';
+import * as supabaseDb from './supabase-db.mjs';
 
 const env = loadEnv();
-const port = Number(env.SERVER_PORT ?? 8787);
+const port = Number(env.PORT ?? env.SERVER_PORT ?? 8787);
+const supabaseReady = initSupabaseDb(env);
 const cloudbaseReady = initCloudbaseDb(env);
+const db = supabaseReady ? supabaseDb : cloudbaseReady ? cloudbaseDb : supabaseDb;
 const douyinAppId = env.DOUYIN_APP_ID;
 const douyinAppSecret = env.DOUYIN_APP_SECRET;
 const dashscopeApiKey = env.DASHSCOPE_API_KEY;
@@ -28,8 +24,12 @@ const ticketTtlMs = Number(env.MATCH_TICKET_TTL_MS ?? 45000);
 const queue = new Map();
 const shopConfigPath = resolve(process.cwd(), 'server/shop-config.local.json');
 
-if (!cloudbaseReady) {
-  console.warn('[server] CLOUDBASE_ENV_ID and CLOUDBASE_API_KEY (or TENCENTCLOUD_SECRETID/SECRETKEY) are required for database writes.');
+if (supabaseReady) {
+  console.info('[server] database provider: supabase');
+} else if (cloudbaseReady) {
+  console.info('[server] database provider: cloudbase');
+} else {
+  console.warn('[server] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for database writes.');
 }
 if (dashscopeApiKey) {
   console.info(`[server] battle-ai provider: dashscope (${dashscopeModel})`);
@@ -94,7 +94,7 @@ const server = http.createServer(async (request, response) => {
       return;
     }
     if (request.method === 'POST' && url.pathname === '/api/admin/cleanup-matches') {
-      const removed = await cleanupOldMatches();
+      const removed = await db.cleanupOldMatches();
       sendJson(response, 200, { ok: true, removed });
       return;
     }
@@ -126,8 +126,8 @@ async function syncSession(body) {
   const douyinOpenId = platform === 'douyin'
     ? await resolveDouyinOpenId(loginCode, platformUserId)
     : `${platform}:${platformUserId}`;
-  const profile = await upsertProfile({ douyinOpenId, nickname, avatarUrl, isBot: false });
-  const state = await ensurePlayerState(profile.id);
+  const profile = await db.upsertProfile({ douyinOpenId, nickname, avatarUrl, isBot: false });
+  const state = await db.ensurePlayerState(profile.id);
   return {
     user: {
       userId: profile.id,
@@ -211,7 +211,7 @@ async function recordMatch(body) {
     energy: -6
   };
 
-  await insertMatch({
+  await db.insertMatch({
     player_id: playerId,
     opponent_id: body.opponentId || null,
     opponent_is_bot: body.opponentIsBot !== false,
@@ -228,15 +228,15 @@ async function recordMatch(body) {
     rewards
   });
 
-  await applyMatchResult({
+  await db.applyMatchResult({
     userId: playerId,
     win,
     coins: rewardCoins,
     scoutTickets: rewardScoutTickets,
     energyCost: 6
   }).catch(async () => {
-    const state = await ensurePlayerState(playerId);
-    await patchPlayerState(playerId, {
+    const state = await db.ensurePlayerState(playerId);
+    await db.patchPlayerState(playerId, {
       coins: Number(state.coins ?? 0) + rewardCoins,
       energy: Math.max(0, Number(state.energy ?? 0) - 6),
       scout_tickets: Number(state.scout_tickets ?? 0) + rewardScoutTickets,
@@ -620,12 +620,12 @@ function titleForBattleEvent(eventType) {
 
 async function grantShopReward(body) {
   const userId = requiredString(body.userId, 'userId');
-  const state = await ensurePlayerState(userId);
+  const state = await db.ensurePlayerState(userId);
   const coins = Number(body.coins ?? 0);
   const scoutTickets = Number(body.scoutTickets ?? 0);
   const gems = Number(body.gems ?? 0);
   const energy = Number(body.energy ?? 0);
-  await patchPlayerState(userId, {
+  await db.patchPlayerState(userId, {
     coins: Number(state.coins ?? 0) + Math.max(0, coins),
     scout_tickets: Number(state.scout_tickets ?? 0) + Math.max(0, scoutTickets),
     gems: Number(state.gems ?? 0) + Math.max(0, gems),
@@ -656,7 +656,7 @@ function createTicket(body) {
 }
 
 async function createBotOpponent(ticket) {
-  const bot = await randomBotProfile();
+  const bot = await db.randomBotProfile();
   return {
     userId: bot?.id ?? null,
     nickname: bot?.nickname ?? botName(ticket.power),

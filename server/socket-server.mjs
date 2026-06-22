@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { WebSocketServer } from 'ws';
 
 const env = loadEnv();
-const port = Number(env.SOCKET_PORT ?? env.PORT ?? 8788);
+const port = Number(env.PORT ?? env.SOCKET_PORT ?? 8788);
 const dashscopeApiKey = env.DASHSCOPE_API_KEY;
 const dashscopeBaseUrl = env.DASHSCOPE_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1';
 const dashscopeModel = env.DASHSCOPE_MODEL ?? 'qwen-flash';

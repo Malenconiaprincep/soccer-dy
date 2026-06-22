@@ -7,6 +7,8 @@
     "dev": "vite --host 0.0.0.0 --port 9527",
     "dev:server": "node server/dev-server.mjs",
     "dev:socket": "node server/socket-server.mjs",
+    "start:server": "node server/dev-server.mjs",
+    "start:socket": "node server/socket-server.mjs",
     "setup:cloudbase": "node scripts/setup-cloudbase.mjs",
     "upload:assets": "node scripts/upload-cloudbase-assets.mjs",
     "upload:douyin-assets": "node scripts/upload-douyin-assets.mjs",

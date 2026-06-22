@@ -12,6 +12,6 @@ const injected = globalThis.SOCCER_GAME_CONFIG ?? {};
 
 export const runtimeConfig: RuntimeConfig = {
   gameServerUrl: injected.gameServerUrl ?? 'http://localhost:8787',
-  battleSocketUrl: injected.battleSocketUrl ?? 'ws://localhost:8788',
+  battleSocketUrl: injected.battleSocketUrl ?? 'ws://localhost:8788/battle',
   matchmakingBotAfterMs: injected.matchmakingBotAfterMs ?? 5000
 };
