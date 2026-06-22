@@ -23,8 +23,13 @@ const roster = (prefix) => ({
 
 function connectPlayer(player, prefix) {
   const socket = new WebSocket(url);
-  let matched = false;
-  let events = 0;
+  const state = {
+    nickname: player.nickname,
+    matched: false,
+    events: 0,
+    done: false,
+    error: ''
+  };
 
   socket.on('open', () => {
     console.log(`[${player.nickname}] connected`);
@@ -44,7 +49,7 @@ function connectPlayer(player, prefix) {
       console.log(`[${player.nickname}] waiting ticket=${message.payload.ticketId}`);
     }
     if (message.type === 'match_found') {
-      matched = true;
+      state.matched = true;
       console.log(`[${player.nickname}] matched room=${message.payload.roomId} side=${message.payload.side} opponent=${message.payload.opponent.nickname}`);
       socket.send(JSON.stringify({ type: 'battle_ready', payload: { roomId: message.payload.roomId } }));
     }
@@ -52,38 +57,62 @@ function connectPlayer(player, prefix) {
       console.log(`[${player.nickname}] battle_start`);
     }
     if (message.type === 'battle_event') {
-      events += 1;
+      state.events += 1;
       const event = message.payload;
-      console.log(`[${player.nickname}] event#${events} ${event.minute}' ${event.scoreA}:${event.scoreB} ${event.title} ${event.detail}`);
+      console.log(`[${player.nickname}] event#${state.events} ${event.minute}' ${event.scoreA}:${event.scoreB} ${event.title} ${event.detail}`);
     }
     if (message.type === 'battle_done') {
-      console.log(`[${player.nickname}] battle_done events=${events}`);
+      state.done = true;
+      console.log(`[${player.nickname}] battle_done events=${state.events}`);
       socket.close();
     }
     if (message.type === 'battle_error' || message.type === 'error') {
+      state.error = message.payload?.message ?? message.type;
       console.error(`[${player.nickname}] ${message.type}`, message.payload);
       socket.close();
     }
   });
 
   socket.on('close', () => {
-    console.log(`[${player.nickname}] closed matched=${matched} events=${events}`);
+    console.log(`[${player.nickname}] closed matched=${state.matched} events=${state.events}`);
+    validateIfFinished();
   });
 
   socket.on('error', (error) => {
-    console.error(`[${player.nickname}] socket error`, error.message);
+    state.error = error.message || 'socket_error';
+    console.error(`[${player.nickname}] socket error`, state.error);
   });
 
-  return socket;
+  return { socket, state };
 }
 
-const sockets = [
+const clients = [
   connectPlayer(players[0], 'A'),
   connectPlayer(players[1], 'B')
 ];
 
-setTimeout(() => {
+const timeout = setTimeout(() => {
   console.error(`[socket-test] timeout after ${timeoutMs}ms`);
-  sockets.forEach((socket) => socket.close());
+  clients.forEach(({ socket }) => socket.close());
   process.exitCode = 1;
 }, timeoutMs).unref();
+
+function validateIfFinished() {
+  if (!clients.every(({ socket }) => socket.readyState === WebSocket.CLOSED)) return;
+  clearTimeout(timeout);
+  const failures = clients
+    .map(({ state }) => {
+      if (state.error) return `${state.nickname}: ${state.error}`;
+      if (!state.matched) return `${state.nickname}: not matched`;
+      if (!state.done) return `${state.nickname}: battle did not finish`;
+      if (state.events <= 0) return `${state.nickname}: no battle events`;
+      return '';
+    })
+    .filter(Boolean);
+  if (failures.length) {
+    console.error(`[socket-test] failed: ${failures.join('; ')}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log('[socket-test] passed');
+}

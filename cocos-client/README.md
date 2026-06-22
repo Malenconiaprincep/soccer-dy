@@ -17,14 +17,14 @@
 Web 预览默认连接：
 
 - HTTP: `http://localhost:8787`
-- WebSocket: `ws://localhost:8788`
+- WebSocket: `ws://localhost:8788/battle`
 
 可以在 Cocos 加载前注入配置：
 
 ```js
 globalThis.SOCCER_GAME_CONFIG = {
   gameServerUrl: 'https://game-api.example.com',
-  battleSocketUrl: 'wss://game-socket.example.com',
+  battleSocketUrl: 'wss://game-socket.example.com/battle',
   matchmakingBotAfterMs: 5000
 };
 ```
