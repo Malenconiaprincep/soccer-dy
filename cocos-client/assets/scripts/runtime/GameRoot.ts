@@ -157,10 +157,10 @@ export class GameRoot extends Component {
         this.show('formation');
       }
     });
-    this.homeImageShortcut(root, 0, '七日签到', -300, 430, () => this.openSignModal());
-    this.homeImageShortcut(root, 1, '商城', -300, 290, () => this.show('shop'));
-    this.homeImageShortcut(root, 2, '关注领奖', 300, 430, () => this.openFollowModal());
-    this.homeImageShortcut(root, 1, '每日任务', 300, 290, () => this.openTasksModal());
+    this.homeImageShortcut(root, 0, '七日签到', -300, 465, () => this.openSignModal());
+    this.homeImageShortcut(root, 1, '商城', -300, 325, () => this.show('shop'));
+    this.homeImageShortcut(root, 2, '关注领奖', 300, 465, () => this.openFollowModal());
+    this.homeImageShortcut(root, 1, '每日任务', 300, 325, () => this.openTasksModal());
   }
 
   private renderHomeResourceBar(
