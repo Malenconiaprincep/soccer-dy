@@ -161,6 +161,22 @@ export class GameRoot extends Component {
     this.homeImageShortcut(root, 1, '商城', -300, 325, () => this.show('shop'));
     this.homeImageShortcut(root, 2, '关注领奖', 300, 465, () => this.openFollowModal());
     this.homeImageShortcut(root, 1, '每日任务', 300, 325, () => this.openTasksModal());
+    this.renderMusicToggle(root);
+  }
+
+  private renderMusicToggle(parent: Node): void {
+    const enabled = GameAudio.isMusicEnabled();
+    const host = panel(parent, 300, 585, 64, 64, new Color(4, 19, 49, 242), 32);
+    host.name = 'MusicToggle';
+    void addImage(host, enabled ? 'ui/music-on' : 'ui/music-off', {
+      width: 52,
+      height: 52,
+      onClick: () => {
+        GameAudio.setMusicEnabled(!enabled);
+        host.destroy();
+        this.renderMusicToggle(parent);
+      }
+    });
   }
 
   private renderHomeResourceBar(
