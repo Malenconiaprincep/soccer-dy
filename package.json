@@ -11,6 +11,7 @@
     "start:socket": "node server/socket-server.mjs",
     "setup:cloudbase": "node scripts/setup-cloudbase.mjs",
     "upload:assets": "node scripts/upload-cloudbase-assets.mjs",
+    "upload:douyin-assets": "node scripts/upload-douyin-assets.mjs",
     "seed:cloudbase": "node scripts/seed-cloudbase.mjs",
     "test:cloudbase-login": "node scripts/test-cloudbase-login.mjs",
     "test:socket": "node scripts/test-socket-flow.mjs",
@@ -31,6 +32,7 @@
   },
   "dependencies": {
     "@cloudbase/node-sdk": "^3.18.1",
+    "@volcengine/tos-sdk": "^2.9.1",
     "pixi.js": "^8.8.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

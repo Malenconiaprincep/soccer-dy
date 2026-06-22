@@ -157,10 +157,26 @@ export class GameRoot extends Component {
         this.show('formation');
       }
     });
-    this.homeImageShortcut(root, 0, '七日签到', -300, 430, () => this.openSignModal());
-    this.homeImageShortcut(root, 1, '商城', -300, 290, () => this.show('shop'));
-    this.homeImageShortcut(root, 2, '关注领奖', 300, 430, () => this.openFollowModal());
-    this.homeImageShortcut(root, 1, '每日任务', 300, 290, () => this.openTasksModal());
+    this.homeImageShortcut(root, 0, '七日签到', -300, 465, () => this.openSignModal());
+    this.homeImageShortcut(root, 1, '商城', -300, 325, () => this.show('shop'));
+    this.homeImageShortcut(root, 2, '关注领奖', 300, 465, () => this.openFollowModal());
+    this.homeImageShortcut(root, 1, '每日任务', 300, 325, () => this.openTasksModal(), 'ui/daily-tasks');
+    this.renderMusicToggle(root);
+  }
+
+  private renderMusicToggle(parent: Node): void {
+    const enabled = GameAudio.isMusicEnabled();
+    const host = panel(parent, 300, 585, 64, 64, new Color(4, 19, 49, 242), 32);
+    host.name = 'MusicToggle';
+    void addImage(host, enabled ? 'ui/music-on' : 'ui/music-off', {
+      width: 52,
+      height: 52,
+      onClick: () => {
+        GameAudio.setMusicEnabled(!enabled);
+        host.destroy();
+        this.renderMusicToggle(parent);
+      }
+    });
   }
 
   private renderHomeResourceBar(
@@ -245,14 +261,9 @@ export class GameRoot extends Component {
     return this.homeHudLayout().y;
   }
 
-  private homeImageShortcut(parent: Node, iconIndex: number, title: string, x: number, y: number, onClick: () => void): void {
-    void addFrameImage(parent, 'ui/buttons', { x: iconIndex * 256, y: 96, width: 256, height: 280 }, {
-      x,
-      y,
-      width: 84,
-      height: 92,
-      onClick
-    });
+  private homeImageShortcut(parent: Node, iconIndex: number, title: string, x: number, y: number, onClick: () => void, imagePath?: string): void {
+    if (imagePath) void addImage(parent, imagePath, { x, y, width: 84, height: 84, onClick });
+    else void addFrameImage(parent, 'ui/buttons', { x: iconIndex * 256, y: 96, width: 256, height: 280 }, { x, y, width: 84, height: 92, onClick });
     text(parent, title, x, y - 67, 17, colors.white, 120);
   }
 
@@ -360,21 +371,64 @@ export class GameRoot extends Component {
     return [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map((value) => String(value).padStart(2, '0')).join(':');
   }
 
-  private createModal(title: string, subtitle: string): Node {
+  private createModal(title: string, subtitle: string, skinPath?: string): Node {
     this.modal?.destroy();
-    const modal = layer('Modal', this.screenHost!, DESIGN_WIDTH, DESIGN_HEIGHT);
+    const visible = view.getVisibleSize();
+    const modal = layer('Modal', this.screenHost!, visible.width, visible.height);
     this.modal = modal;
     modal.on(Node.EventType.TOUCH_START, () => undefined);
     modal.on(Node.EventType.TOUCH_END, () => undefined);
     const shade = modal.addComponent(Graphics);
     shade.fillColor = new Color(0, 0, 0, 190);
-    shade.rect(-DESIGN_WIDTH / 2, -DESIGN_HEIGHT / 2, DESIGN_WIDTH, DESIGN_HEIGHT);
+    shade.rect(-visible.width / 2, -visible.height / 2, visible.width, visible.height);
     shade.fill();
-    const card = panel(modal, 0, 0, 650, 1050, colors.panel, 30);
-    text(card, title, 0, 445, 38, colors.gold, 560);
-    text(card, subtitle, 0, 395, 19, colors.muted, 560);
-    button(card, '关闭', 0, -445, 220, 64, () => this.closeModal(), colors.panelSoft);
+    const width = 636;
+    const height = 900;
+    const card = layer('ModalPanel', modal, width, height);
+    if (skinPath) {
+      void addImage(card, skinPath, { width, height, siblingIndex: 0 });
+    } else {
+      const frame = card.addComponent(Graphics);
+      frame.fillColor = new Color(3, 18, 48, 252);
+      frame.roundRect(-width / 2, -height / 2, width, height, 30);
+      frame.fill();
+      frame.strokeColor = new Color(34, 125, 255, 230);
+      frame.lineWidth = 3;
+      frame.roundRect(-width / 2 + 2, -height / 2 + 2, width - 4, height - 4, 28);
+      frame.stroke();
+      frame.strokeColor = new Color(92, 198, 255, 105);
+      frame.lineWidth = 1;
+      frame.moveTo(-250, 280);
+      frame.lineTo(250, 280);
+      frame.stroke();
+      text(card, title, 0, 365, 40, colors.gold, 520);
+      text(card, subtitle, 0, 312, 20, new Color(173, 203, 239, 255), 520);
+    }
+    const close = layer('ModalClose', card, 86, 76);
+    close.setPosition(width / 2 - 52, height / 2 - 48);
+    if (!skinPath) text(close, '×', 0, 0, 54, colors.white, 70);
+    close.on(Node.EventType.TOUCH_END, () => {
+      GameAudio.play('tap');
+      this.closeModal();
+    });
     return card;
+  }
+
+  private modalActionButton(parent: Node, label: string, y: number, onClick: () => void, active = true, width = 360): Node {
+    const color = active ? colors.gold : new Color(32, 65, 111, 235);
+    const node = panel(parent, 0, y, width, 78, color, 18);
+    node.name = `ModalAction:${label}`;
+    text(node, label, 0, 1, 27, active ? new Color(12, 31, 62, 255) : colors.muted, width - 40);
+    if (active) {
+      node.on(Node.EventType.TOUCH_START, () => node.setScale(0.97, 0.97, 1));
+      node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(1, 1, 1));
+      node.on(Node.EventType.TOUCH_END, () => {
+        node.setScale(1, 1, 1);
+        GameAudio.play('tap');
+        onClick();
+      });
+    }
+    return node;
   }
 
   private closeModal(): void {
@@ -498,20 +552,28 @@ export class GameRoot extends Component {
   }
 
   private openFollowModal(): void {
-    const card = this.createModal('关注领奖', '关注后可领取一次专属奖励');
+    const card = this.createModal('关注领奖', '关注后可领取一次专属奖励', 'ui/follow-panel');
     const claimId = 'follow-reward-v1';
     const claimed = this.state.permanentClaims.has(claimId);
-    text(card, '关注官方账号', 0, 210, 34, colors.white);
-    text(card, '钻石 +100  ·  球探券 +1', 0, 100, 27, colors.gold);
-    text(card, claimed ? '奖励已领取' : this.followMessage || (this.followVisitStarted ? '返回游戏后可领取奖励' : '请先前往关注主页'), 0, -40, 22, colors.muted);
-    button(card, claimed ? '已领取' : this.followVisitStarted ? '领取奖励' : '前往关注', 0, -180, 360, 82, () => {
+    const rewardCard = panel(card, 0, 85, 540, 310, new Color(5, 29, 69, 248), 24);
+    text(rewardCard, '关注官方账号', 0, 112, 29, colors.white, 430);
+    const gem = panel(rewardCard, -120, -10, 180, 145, new Color(10, 45, 94, 245), 18);
+    const ticket = panel(rewardCard, 120, -10, 180, 145, new Color(10, 45, 94, 245), 18);
+    this.renderSignRewardIcon(gem, 'gems', claimed ? 2 : 0, 0, 28, 66);
+    this.renderSignRewardIcon(ticket, 'ticket', claimed ? 2 : 0, 0, 28, 72);
+    text(gem, '钻石 +100', 0, -47, 21, claimed ? colors.muted : colors.gold, 155);
+    text(ticket, '球探券 +1', 0, -47, 21, claimed ? colors.muted : colors.gold, 155);
+    const status = claimed ? '奖励已领取' : this.followMessage || (this.followVisitStarted ? '已访问关注页，现在可领取' : '完成关注后返回游戏领取');
+    text(card, status, 0, -115, 21, claimed ? colors.muted : new Color(139, 205, 255, 255), 520);
+    this.modalActionButton(card, claimed ? '已领取' : this.followVisitStarted ? '领取奖励' : '前往关注', -235, () => {
       if (claimed) return;
       if (!this.followVisitStarted) {
         this.openFollowProfile();
         return;
       }
       if (this.state.claimReward(claimId, { gems: 100, scoutTickets: 1 }, true)) this.openFollowModal();
-    }, claimed ? colors.panelSoft : colors.danger);
+    }, !claimed);
+    text(card, '每个账号仅可领取一次', 0, -315, 17, colors.muted, 420);
   }
 
   private openFollowProfile(): void {
@@ -536,7 +598,7 @@ export class GameRoot extends Component {
   }
 
   private openTasksModal(): void {
-    const card = this.createModal('每日任务', '完成比赛目标，领取每日奖励');
+    const card = this.createModal('每日任务', '完成比赛目标，领取每日奖励', 'ui/daily-tasks-panel');
     const tasks = [
       { id: 'task-play', title: '完成 1 场比赛', current: this.state.matchesPlayed, target: 1, rewardText: '球探券 +1', reward: { scoutTickets: 1 } },
       { id: 'task-win', title: '赢下 1 场比赛', current: this.state.wins, target: 1, rewardText: '金币 +800', reward: { coins: 800 } }
@@ -544,13 +606,25 @@ export class GameRoot extends Component {
     tasks.forEach((item, index) => {
       const claimed = this.state.claimedTasks.has(item.id);
       const ready = item.current >= item.target;
-      const row = panel(card, 0, 210 - index * 210, 560, 165, colors.panelSoft, 20);
-      text(row, item.title, -105, 35, 23, colors.white, 310);
-      text(row, `${Math.min(item.current, item.target)}/${item.target}  ·  ${item.rewardText}`, -105, -30, 19, colors.gold, 310);
-      button(row, claimed ? '已领取' : ready ? '领取' : '未完成', 180, 0, 145, 60, () => {
+      const row = panel(card, 0, 145 - index * 225, 550, 190, new Color(6, 34, 77, 250), 22);
+      const rewardIcon = panel(row, -215, 0, 96, 122, new Color(9, 50, 105, 245), 16);
+      if (index === 0) this.renderSignRewardIcon(rewardIcon, 'ticket', claimed ? 2 : ready ? 0 : 1, 0, 13, 58);
+      else void addImage(rewardIcon, 'ui/result/reward-coin', { x: 0, y: 13, width: 60, height: 60 });
+      text(rewardIcon, index === 0 ? '+1' : '+800', 0, -42, 18, claimed ? colors.muted : colors.gold, 80);
+      text(row, item.title, -62, 46, 24, colors.white, 270);
+      text(row, item.rewardText, -62, 4, 18, claimed ? colors.muted : colors.gold, 270);
+      const progress = Math.min(item.current, item.target) / item.target;
+      const bar = panel(row, -73, -50, 245, 18, new Color(10, 24, 53, 255), 9);
+      if (progress > 0) {
+        const fill = panel(bar, -(245 - 245 * progress) / 2, 0, 245 * progress, 18, colors.gold, 9);
+        fill.name = 'TaskProgressFill';
+      }
+      text(row, `${Math.min(item.current, item.target)}/${item.target}`, 70, -50, 16, colors.white, 52);
+      button(row, claimed ? '已领取' : ready ? '领取' : '未完成', 192, 0, 130, 58, () => {
         if (ready && !claimed && this.state.claimReward(item.id, item.reward)) this.openTasksModal();
-      }, ready && !claimed ? colors.success : colors.panelSoft);
+      }, ready && !claimed ? colors.gold : new Color(24, 62, 111, 245));
     });
+    text(card, '任务进度每日 00:00 刷新', 0, -320, 17, colors.muted, 420);
   }
 
   private renderFormation(): void {
