@@ -8,8 +8,39 @@ interface JoinResult {
   opponent?: OpponentState;
 }
 
+interface SessionPayload {
+  platform: string;
+  platformUserId: string;
+  nickname: string;
+  avatarUrl?: string;
+  loginCode?: string;
+}
+
+interface PlayerStateRow {
+  coins?: number;
+  gems?: number;
+  energy?: number;
+  scout_tickets?: number;
+  matches_played?: number;
+  wins?: number;
+  daily_task_date?: string;
+  claimed_tasks?: string[];
+}
+
 export class GameServerClient {
   constructor(private readonly baseUrl = runtimeConfig.gameServerUrl.replace(/\/$/, '')) {}
+
+  get enabled(): boolean {
+    return !!this.baseUrl;
+  }
+
+  async syncSession(payload: SessionPayload) {
+    if (!this.baseUrl) return undefined;
+    return this.post<{
+      user: { userId: string; nickname: string; avatarUrl?: string };
+      state: PlayerStateRow;
+    }>('/api/session', payload);
+  }
 
   async joinMatch(payload: {
     userId: string;
@@ -17,11 +48,15 @@ export class GameServerClient {
     power: number;
     formationId: string;
     lineup: LineupSlot[];
+    botAfterMs?: number;
   }): Promise<JoinResult | undefined> {
     if (!this.baseUrl) return undefined;
     return this.post('/api/matchmaking/join', {
-      ...payload,
-      botAfterMs: runtimeConfig.matchmakingBotAfterMs,
+      userId: payload.userId,
+      nickname: payload.nickname,
+      power: payload.power,
+      formationId: payload.formationId,
+      ...(payload.botAfterMs != null ? { botAfterMs: payload.botAfterMs } : {}),
       lineup: payload.lineup.map((slot) => ({
         slotId: slot.id,
         playerId: slot.player?.id,
@@ -30,7 +65,7 @@ export class GameServerClient {
     });
   }
 
-  async pollMatch(ticketId: string): Promise<(JoinResult & { status: 'waiting' | 'matched' | 'expired' }) | undefined> {
+  async pollMatch(ticketId: string): Promise<{ status: 'waiting' | 'matched' | 'expired'; ticketId?: string; opponent?: OpponentState } | undefined> {
     if (!this.baseUrl) return undefined;
     return this.get(`/api/matchmaking/poll?ticketId=${encodeURIComponent(ticketId)}`);
   }

@@ -20,6 +20,7 @@ export interface BattleResult {
 
 export class GameState {
   userId = 'cocos-local-001';
+  platformUserId = 'cocos-local-001';
   nickname = '本地经理';
   coins = 1286000;
   gems = 0;
@@ -49,17 +50,10 @@ export class GameState {
       const raw = sys.localStorage.getItem(SAVE_KEY);
       if (!raw) return;
       const save = JSON.parse(raw) as PlayerSaveData;
-      this.userId = save.userId || this.userId;
-      this.nickname = save.nickname || this.nickname;
-      this.coins = Number(save.coins ?? this.coins);
-      this.gems = Number(save.gems ?? this.gems);
-      this.energy = Number(save.energy ?? this.energy);
-      this.scoutTickets = Number(save.scoutTickets ?? this.scoutTickets);
-      this.matchesPlayed = Number(save.matchesPlayed ?? 0);
-      this.wins = Number(save.wins ?? 0);
+      this.platformUserId = save.platformUserId || save.userId || this.platformUserId;
+      // Lineup / collection stay local; nickname and economy come from /api/session.
       const today = this.todayKey();
       this.dailyTaskDate = today;
-      this.claimedTasks = new Set(save.dailyTaskDate === today ? (save.claimedTasks ?? []) : []);
       this.permanentClaims = new Set(save.permanentClaims ?? []);
       const knownPlayerIds = new Set(players.map((player) => player.id));
       this.collectionIds = new Set(
@@ -80,9 +74,34 @@ export class GameState {
     }
   }
 
+  applyServerSession(user: { userId: string; nickname: string }, state: {
+    coins?: number;
+    gems?: number;
+    energy?: number;
+    scout_tickets?: number;
+    matches_played?: number;
+    wins?: number;
+    daily_task_date?: string;
+    claimed_tasks?: string[];
+  }): void {
+    // Server profile is the source of truth for display name and economy.
+    this.userId = user.userId;
+    this.nickname = user.nickname || this.nickname;
+    this.coins = Number(state.coins ?? this.coins);
+    this.gems = Number(state.gems ?? this.gems);
+    this.energy = Number(state.energy ?? this.energy);
+    this.scoutTickets = Number(state.scout_tickets ?? this.scoutTickets);
+    this.matchesPlayed = Number(state.matches_played ?? this.matchesPlayed);
+    this.wins = Number(state.wins ?? this.wins);
+    this.dailyTaskDate = String(state.daily_task_date ?? this.dailyTaskDate);
+    this.claimedTasks = new Set(Array.isArray(state.claimed_tasks) ? state.claimed_tasks : []);
+    this.save();
+  }
+
   save(): void {
     const value: PlayerSaveData = {
       userId: this.userId,
+      platformUserId: this.platformUserId,
       nickname: this.nickname,
       coins: this.coins,
       gems: this.gems,

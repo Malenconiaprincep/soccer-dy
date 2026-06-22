@@ -1,8 +1,12 @@
-import { _decorator, Color, Component, Graphics, Label, LabelOutline, macro, Node, ResolutionPolicy, sys, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
+import { _decorator, Color, Component, Graphics, Label, macro, Node, ResolutionPolicy, Sprite, sys, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
 import { GameState } from '../domain/GameState';
-import { formations } from '../domain/data';
-import type { BattleEvent, PlayerCardData } from '../domain/types';
+import { formations, players } from '../domain/data';
+import type { BattleEvent, PlayerCardData, Position } from '../domain/types';
+import { BattleSocketClient, type MatchFoundPayload, type RealtimeBattleEvent, type RealtimeRosterItem } from '../services/BattleSocketClient';
 import { GameServerClient } from '../services/GameServerClient';
+import { loginPlatform, readPreviewPlatformUserId, rememberPlatformUserId } from '../services/PlatformService';
+import { devPanelEnabled, matchWaitMs, matchWithAiEnabled, writeDevTestUser } from './DevConfig';
+import { DevPanel } from './DevPanel';
 import { GameAudio } from './GameAudio';
 import { addCoverImage, addFrameImage, addImage } from './ImageUi';
 import { button, colors, DESIGN_HEIGHT, DESIGN_WIDTH, divider, formatNumber, layer, panel, sectionTitle, text } from './UiFactory';
@@ -35,6 +39,7 @@ const LOCAL_MOMENTS: BattleMoment[] = [
 export class GameRoot extends Component {
   private readonly state = new GameState();
   private readonly server = new GameServerClient();
+  private readonly realtime = new BattleSocketClient();
   private screenHost?: Node;
   private screen?: Node;
   private current: ScreenName = 'loading';
@@ -62,6 +67,11 @@ export class GameRoot extends Component {
   private revealedScoutIds = new Set<string>();
   private lastScoutRevealId?: string;
   private shopMessage = '';
+  private realtimeBattleDone = false;
+  private realtimeEventHandler?: (event: RealtimeBattleEvent) => void;
+  private realtimeDoneHandler?: () => void;
+  private realtimeErrorHandler?: (error: { message?: string }) => void;
+  private devPanel?: DevPanel;
 
   onLoad(): void {
     console.info('[soccer] GameRoot starting');
@@ -69,22 +79,46 @@ export class GameRoot extends Component {
     view.setOrientation(macro.ORIENTATION_PORTRAIT);
     view.setDesignResolutionSize(DESIGN_WIDTH, DESIGN_HEIGHT, ResolutionPolicy.FIXED_WIDTH);
     this.state.load();
+    this.applyPreviewUserFromUrl();
     this.screenMount = this.node.getChildByName('RuntimeScreens') ?? this.node;
 
-    // Creator applies the new design resolution at the end of the frame. Waiting
-    // here prevents the loading background from being sized with the old viewport.
     this.scheduleOnce(() => {
       this.show('loading');
-      this.scheduleOnce(() => this.show('home'), 0.8);
+      void this.bootstrapSession().then(() => {
+        this.installDevPanel();
+        this.scheduleOnce(() => this.show('home'), 0.5);
+      });
     }, 0);
   }
 
   onDestroy(): void {
     this.unscheduleAllCallbacks();
+    this.unbindRealtimeBattle();
     void this.cancelMatch();
+    this.realtime.close();
+    this.devPanel?.destroy();
+    this.devPanel = undefined;
+  }
+
+  private installDevPanel(): void {
+    if (!devPanelEnabled() || this.devPanel) return;
+    this.devPanel = new DevPanel(this.node, {
+      currentScene: () => this.current,
+      platformUserId: () => this.state.platformUserId,
+      nickname: () => this.state.nickname,
+      jumpScene: (scene) => this.show(scene),
+      reloadSession: () => this.bootstrapSession().then(() => this.devPanel?.refresh()),
+      applyTestUser: (testUser) => {
+        writeDevTestUser(testUser);
+        rememberPlatformUserId(testUser);
+        this.state.platformUserId = testUser;
+        void this.bootstrapSession().then(() => this.devPanel?.refresh());
+      }
+    });
   }
 
   private show(name: ScreenName): void {
+    if (this.current === 'battle' && name !== 'battle') this.unbindRealtimeBattle();
     this.unscheduleAllCallbacks();
     this.screenHost?.destroy();
     this.modal = undefined;
@@ -141,6 +175,7 @@ export class GameRoot extends Component {
       height: hud.avatarSize,
       siblingIndex: 1
     });
+    text(root, this.state.nickname, hud.avatarX + hud.avatarSize / 2 + 88, hud.y - 8, 28, colors.white, 220);
     const resourceGap = 8;
     const resourceWidth = (hud.barWidth - resourceGap) / 2;
     this.renderHomeResourceBar(root, hud.barX - (resourceWidth + resourceGap) / 2, hud.y, resourceWidth, hud.barHeight, 'gems', formatNumber(this.state.gems));
@@ -666,25 +701,104 @@ export class GameRoot extends Component {
     tasks.forEach((item, index) => {
       const claimed = this.state.claimedTasks.has(item.id);
       const ready = item.current >= item.target;
-      const row = panel(card, 0, 145 - index * 225, 550, 190, new Color(6, 34, 77, 250), 22);
-      const rewardIcon = panel(row, -215, 0, 96, 122, new Color(9, 50, 105, 245), 16);
-      if (index === 0) this.renderSignRewardIcon(rewardIcon, 'ticket', claimed ? 2 : ready ? 0 : 1, 0, 13, 58);
-      else void addImage(rewardIcon, 'ui/result/reward-coin', { x: 0, y: 13, width: 60, height: 60 });
-      text(rewardIcon, index === 0 ? '+1' : '+800', 0, -42, 18, claimed ? colors.muted : colors.gold, 80);
-      text(row, item.title, -62, 46, 24, colors.white, 270);
-      text(row, item.rewardText, -62, 4, 18, claimed ? colors.muted : colors.gold, 270);
+      const accent = claimed
+        ? new Color(63, 211, 155, 255)
+        : ready
+          ? colors.gold
+          : index === 0 ? new Color(151, 91, 255, 255) : new Color(255, 185, 45, 255);
+      const row = panel(card, 0, 145 - index * 225, 550, 190, new Color(5, 29, 69, 250), 24);
+      row.name = `DailyTask:${item.id}`;
+      const rowGraphics = row.getComponent(Graphics)!;
+      rowGraphics.strokeColor = new Color(accent.r, accent.g, accent.b, 105);
+      rowGraphics.lineWidth = 2;
+      rowGraphics.roundRect(-273, -93, 546, 186, 22);
+      rowGraphics.stroke();
+      rowGraphics.fillColor = new Color(accent.r, accent.g, accent.b, 225);
+      rowGraphics.roundRect(-274, -49, 5, 98, 2.5);
+      rowGraphics.fill();
+
+      const rewardIcon = panel(row, -213, 0, 102, 132, new Color(8, 44, 94, 250), 18);
+      rewardIcon.name = 'TaskRewardBadge';
+      const rewardGraphics = rewardIcon.getComponent(Graphics)!;
+      rewardGraphics.strokeColor = new Color(accent.r, accent.g, accent.b, 180);
+      rewardGraphics.lineWidth = 2;
+      rewardGraphics.roundRect(-49, -64, 98, 128, 16);
+      rewardGraphics.stroke();
+      rewardGraphics.fillColor = new Color(accent.r, accent.g, accent.b, 30);
+      rewardGraphics.circle(0, 18, 40);
+      rewardGraphics.fill();
+      if (index === 0) this.renderSignRewardIcon(rewardIcon, 'ticket', claimed ? 2 : ready ? 0 : 1, 0, 17, 62);
+      else void addImage(rewardIcon, 'ui/result/reward-coin', { x: 0, y: 18, width: 64, height: 64 });
+      text(rewardIcon, index === 0 ? '+1' : '+800', 2, -44, 18, claimed ? colors.muted : colors.gold, 82);
+
+      text(row, '比赛任务', -112, 65, 13, new Color(accent.r, accent.g, accent.b, 255), 120);
+      text(row, item.title, -55, 38, 24, colors.white, 275);
+      text(row, `奖励  ${item.rewardText}`, -55, 1, 17, claimed ? colors.muted : colors.gold, 275);
       const progress = Math.min(item.current, item.target) / item.target;
-      const bar = panel(row, -73, -50, 245, 18, new Color(10, 24, 53, 255), 9);
+      const barWidth = 252;
+      const bar = panel(row, -62, -51, barWidth, 14, new Color(3, 16, 40, 255), 7);
+      bar.name = 'TaskProgressTrack';
       if (progress > 0) {
-        const fill = panel(bar, -(245 - 245 * progress) / 2, 0, 245 * progress, 18, colors.gold, 9);
+        const fillWidth = barWidth * progress;
+        const fill = panel(bar, -(barWidth - fillWidth) / 2, 0, fillWidth, 14, claimed ? colors.success : colors.gold, 7);
         fill.name = 'TaskProgressFill';
+        const fillGraphics = fill.getComponent(Graphics)!;
+        fillGraphics.strokeColor = new Color(255, 250, 194, 180);
+        fillGraphics.lineWidth = 1;
+        fillGraphics.moveTo(-fillWidth / 2 + 7, 4);
+        fillGraphics.lineTo(fillWidth / 2 - 7, 4);
+        fillGraphics.stroke();
       }
-      text(row, `${Math.min(item.current, item.target)}/${item.target}`, 70, -50, 16, colors.white, 52);
-      button(row, claimed ? '已领取' : ready ? '领取' : '未完成', 192, 0, 130, 58, () => {
+      const progressBadge = panel(row, 100, -51, 58, 28, new Color(10, 39, 78, 245), 14);
+      text(progressBadge, `${Math.min(item.current, item.target)}/${item.target}`, 0, 0, 14, colors.white, 48);
+      this.taskStatusButton(row, claimed ? '已领取' : ready ? '领取' : '未完成', 205, 0, claimed ? 'claimed' : ready ? 'ready' : 'pending', () => {
         if (ready && !claimed && this.state.claimReward(item.id, item.reward)) this.openTasksModal();
-      }, ready && !claimed ? colors.gold : new Color(24, 62, 111, 245));
+      });
     });
     text(card, '任务进度每日 00:00 刷新', 0, -320, 17, colors.muted, 420);
+  }
+
+  private taskStatusButton(parent: Node, label: string, x: number, y: number, state: 'pending' | 'ready' | 'claimed', onClick: () => void): Node {
+    const width = 126;
+    const height = 58;
+    const node = layer(`TaskStatus:${state}`, parent, width, height);
+    node.setPosition(x, y);
+    const graphics = node.addComponent(Graphics);
+    const base = state === 'ready'
+      ? new Color(232, 156, 16, 255)
+      : state === 'claimed' ? new Color(18, 103, 82, 245) : new Color(18, 57, 104, 250);
+    const border = state === 'ready'
+      ? new Color(255, 229, 111, 255)
+      : state === 'claimed' ? new Color(80, 232, 177, 210) : new Color(91, 167, 239, 180);
+    graphics.fillColor = new Color(0, 4, 16, 125);
+    graphics.roundRect(-width / 2, -height / 2 - 5, width, height, 20);
+    graphics.fill();
+    graphics.fillColor = base;
+    graphics.roundRect(-width / 2, -height / 2, width, height, 20);
+    graphics.fill();
+    graphics.strokeColor = border;
+    graphics.lineWidth = 2;
+    graphics.roundRect(-width / 2 + 1, -height / 2 + 1, width - 2, height - 2, 19);
+    graphics.stroke();
+    graphics.strokeColor = new Color(255, 255, 255, state === 'ready' ? 130 : 65);
+    graphics.lineWidth = 1.5;
+    graphics.moveTo(-38, 18);
+    graphics.lineTo(38, 18);
+    graphics.stroke();
+    graphics.fillColor = state === 'ready' ? new Color(255, 244, 168, 255) : border;
+    graphics.circle(-40, 0, state === 'ready' ? 5 : 4);
+    graphics.fill();
+    text(node, label, 9, -1, 19, state === 'ready' ? new Color(69, 38, 0, 255) : colors.white, 88);
+    if (state === 'ready') {
+      node.on(Node.EventType.TOUCH_START, () => node.setScale(0.96, 0.96, 1));
+      node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(1, 1, 1));
+      node.on(Node.EventType.TOUCH_END, () => {
+        node.setScale(1, 1, 1);
+        GameAudio.play('reward');
+        onClick();
+      });
+    }
+    return node;
   }
 
   private renderFormation(): void {
@@ -752,9 +866,8 @@ export class GameRoot extends Component {
     titleAccent.roundRect(-72, -20, 144, 2, 1);
     titleAccent.fill();
     const benchTitleLabel = text(benchTitle, '替补球员', 4, 1, 22, new Color(237, 250, 255, 255), 154);
-    const titleOutline = benchTitleLabel.node.addComponent(LabelOutline);
-    titleOutline.color = new Color(4, 53, 105, 255);
-    titleOutline.width = 2;
+    benchTitleLabel.outlineColor = new Color(4, 53, 105, 255);
+    benchTitleLabel.outlineWidth = 2;
     this.renderFormationReadyButton(bench);
     this.state.substitutes.forEach((player, index) => {
       const x = -245 + index * 122.5;
@@ -913,9 +1026,8 @@ export class GameRoot extends Component {
     const playerText = (value: string, textX: number, textY: number, fontSize: number, color: Color, width: number): void => {
       text(node, value, textX + 2, textY - 2, fontSize, new Color(0, 7, 22, 235), width);
       const main = text(node, value, textX, textY, fontSize, color, width);
-      const outline = main.node.addComponent(LabelOutline);
-      outline.color = new Color(0, 18, 48, 230);
-      outline.width = 1;
+      main.outlineColor = new Color(0, 18, 48, 230);
+      main.outlineWidth = 1;
     };
     const graphics = node.addComponent(Graphics);
     graphics.fillColor = selected ? colors.gold : new Color(7, 24, 34, 245);
@@ -1111,52 +1223,45 @@ export class GameRoot extends Component {
     const target = card.position.clone();
     const opacity = card.addComponent(UIOpacity);
     opacity.opacity = 0;
-    card.angle = (index - 1) * 9;
-    card.setPosition(target.x, target.y - 70, target.z);
-    card.setScale(0.72, 0.72, 1);
+    card.angle = (index - 1) * 4;
+    card.setPosition(target.x, target.y - 38, target.z);
+    card.setScale(0.88, 0.88, 1);
     tween(opacity)
       .delay(index * 0.09)
       .to(0.18, { opacity: 255 })
       .start();
     tween(card)
       .delay(index * 0.09)
-      .to(0.36, { position: target, scale: new Vec3(1.06, 1.06, 1), angle: 0 }, { easing: 'backOut' })
-      .to(0.12, { scale: new Vec3(1, 1, 1) })
+      .to(0.3, { position: target, scale: new Vec3(1.035, 1.035, 1), angle: 0 }, { easing: 'backOut' })
+      .to(0.1, { scale: new Vec3(1, 1, 1) })
       .start();
   }
 
   private animateBlindCardOpen(card: Node, rarity: PlayerCardData['rarity'], onOpened: () => void): void {
     const accent = this.blindRarityColor(rarity);
-    const burst = layer('BlindCardCharge', card.parent!, 270, 350);
-    burst.setPosition(card.position);
-    burst.setSiblingIndex(Math.max(0, card.getSiblingIndex()));
-    card.setSiblingIndex(card.parent!.children.length - 1);
-    const burstGraphics = burst.addComponent(Graphics);
-    burstGraphics.strokeColor = new Color(accent.r, accent.g, accent.b, 220);
-    burstGraphics.lineWidth = 5;
-    burstGraphics.circle(0, 0, 84);
-    burstGraphics.stroke();
-    for (let index = 0; index < 12; index += 1) {
-      const angle = Math.PI * 2 * index / 12;
-      burstGraphics.moveTo(Math.cos(angle) * 96, Math.sin(angle) * 96);
-      burstGraphics.lineTo(Math.cos(angle) * 142, Math.sin(angle) * 142);
-    }
-    burstGraphics.stroke();
-    const burstOpacity = burst.addComponent(UIOpacity);
-    burstOpacity.opacity = 0;
-    burst.setScale(0.35, 0.35, 1);
-    tween(burstOpacity)
-      .to(0.13, { opacity: 255 })
-      .delay(0.12)
-      .to(0.18, { opacity: 0 })
+    const parent = card.parent!;
+    const target = card.position.clone();
+    const glow = layer('BlindCardCharge', parent, 224, 304);
+    glow.setPosition(target);
+    glow.setSiblingIndex(Math.max(0, card.getSiblingIndex()));
+    void addImage(glow, 'ui/card-reveal-glow', { width: 224, height: 304 }).then((image) => {
+      const sprite = image?.getComponent(Sprite);
+      if (sprite) sprite.color = accent;
+    });
+    const glowOpacity = glow.addComponent(UIOpacity);
+    glowOpacity.opacity = 0;
+    glow.setScale(0.72, 0.72, 1);
+    tween(glowOpacity)
+      .to(0.12, { opacity: 205 })
+      .to(0.2, { opacity: 0 })
       .start();
-    tween(burst)
-      .to(0.34, { scale: new Vec3(1.35, 1.35, 1), angle: 38 }, { easing: 'cubicOut' })
-      .call(() => { if (burst.isValid) burst.destroy(); })
+    tween(glow)
+      .to(0.32, { scale: new Vec3(1.1, 1.1, 1) }, { easing: 'cubicOut' })
+      .call(() => { if (glow.isValid) glow.destroy(); })
       .start();
     tween(card)
-      .to(0.1, { scale: new Vec3(1.08, 1.08, 1) }, { easing: 'cubicOut' })
-      .to(0.2, { scale: new Vec3(0.035, 1.08, 1), angle: 3 }, { easing: 'cubicIn' })
+      .to(0.09, { scale: new Vec3(1.035, 1.035, 1) }, { easing: 'cubicOut' })
+      .to(0.18, { scale: new Vec3(0.025, 1.03, 1), angle: 1.5 }, { easing: 'cubicIn' })
       .call(onOpened)
       .start();
   }
@@ -1165,80 +1270,82 @@ export class GameRoot extends Component {
     const accent = this.blindRarityColor(rarity);
     const parent = card.parent!;
     const target = card.position.clone();
-    const glow = layer('BlindRevealGlow', parent, 250, 330);
+    const glow = layer('BlindRevealGlow', parent, 220, 300);
     glow.setPosition(target);
     glow.setSiblingIndex(Math.max(0, card.getSiblingIndex()));
-    card.setSiblingIndex(parent.children.length - 1);
-    const glowGraphics = glow.addComponent(Graphics);
-    glowGraphics.fillColor = new Color(accent.r, accent.g, accent.b, 50);
-    glowGraphics.circle(0, 0, 105);
-    glowGraphics.fill();
-    glowGraphics.strokeColor = new Color(accent.r, accent.g, accent.b, 230);
-    glowGraphics.lineWidth = 4;
-    glowGraphics.circle(0, 0, 112);
-    glowGraphics.circle(0, 0, 130);
-    for (let index = 0; index < 16; index += 1) {
-      const angle = Math.PI * 2 * index / 16;
-      glowGraphics.moveTo(Math.cos(angle) * 122, Math.sin(angle) * 122);
-      glowGraphics.lineTo(Math.cos(angle) * 158, Math.sin(angle) * 158);
-    }
-    glowGraphics.stroke();
+    void addImage(glow, 'ui/card-reveal-glow', { width: 220, height: 300 }).then((image) => {
+      const sprite = image?.getComponent(Sprite);
+      if (sprite) sprite.color = accent;
+    });
     const glowOpacity = glow.addComponent(UIOpacity);
     glowOpacity.opacity = 0;
-    glow.setScale(0.3, 0.3, 1);
+    glow.setScale(0.74, 0.74, 1);
     tween(glowOpacity)
-      .to(0.12, { opacity: 255 })
-      .delay(0.16)
-      .to(0.42, { opacity: rarity === 'bronze' ? 70 : 125 })
+      .to(0.11, { opacity: rarity === 'bronze' ? 145 : 205 })
+      .delay(0.12)
+      .to(0.28, { opacity: 0 })
       .start();
     tween(glow)
-      .to(0.48, { scale: new Vec3(1.18, 1.18, 1), angle: cardIndex % 2 ? -32 : 32 }, { easing: 'cubicOut' })
+      .to(0.51, { scale: new Vec3(1.12, 1.12, 1) }, { easing: 'cubicOut' })
+      .call(() => { if (glow.isValid) glow.destroy(); })
       .start();
 
     const cardOpacity = card.addComponent(UIOpacity);
     cardOpacity.opacity = 0;
-    card.setPosition(target.x, target.y - 22, target.z);
-    card.setScale(0.04, 1.12, 1);
-    tween(cardOpacity).to(0.08, { opacity: 255 }).start();
+    card.setPosition(target.x, target.y - 12, target.z);
+    card.setScale(0.025, 1.04, 1);
+    tween(cardOpacity).to(0.06, { opacity: 255 }).start();
     tween(card)
-      .to(0.24, { position: target, scale: new Vec3(1.1, 1.1, 1) }, { easing: 'backOut' })
-      .to(0.14, { scale: new Vec3(1, 1, 1) })
+      .to(0.2, { position: target, scale: new Vec3(1.035, 1.035, 1) }, { easing: 'backOut' })
+      .to(0.12, { scale: new Vec3(1, 1, 1) })
       .start();
 
-    const sparkCount = rarity === 'bronze' || rarity === 'silver' ? 8 : 14;
+    const flash = layer('BlindRevealFlash', parent, 174, 246);
+    flash.setPosition(target);
+    flash.setSiblingIndex(parent.children.length - 1);
+    const flashGraphics = flash.addComponent(Graphics);
+    flashGraphics.fillColor = new Color(255, 255, 255, 112);
+    flashGraphics.roundRect(-87, -123, 174, 246, 20);
+    flashGraphics.fill();
+    flashGraphics.strokeColor = new Color(accent.r, accent.g, accent.b, 245);
+    flashGraphics.lineWidth = 3;
+    flashGraphics.roundRect(-86, -122, 172, 244, 19);
+    flashGraphics.stroke();
+    const flashOpacity = flash.addComponent(UIOpacity);
+    flashOpacity.opacity = 0;
+    tween(flashOpacity)
+      .delay(0.06)
+      .to(0.06, { opacity: 180 })
+      .to(0.16, { opacity: 0 })
+      .call(() => { if (flash.isValid) flash.destroy(); })
+      .start();
+
+    const sparkCount = rarity === 'bronze' || rarity === 'silver' ? 5 : 8;
     for (let index = 0; index < sparkCount; index += 1) {
       const angle = Math.PI * 2 * index / sparkCount + cardIndex * 0.17;
-      const spark = layer(`BlindSpark:${index}`, parent, 12, 12);
+      const spark = layer(`BlindSpark:${index}`, parent, 8, 8);
       spark.setPosition(target);
       spark.setSiblingIndex(card.getSiblingIndex());
       const sparkGraphics = spark.addComponent(Graphics);
-      const size = index % 3 === 0 ? 6 : 3;
-      sparkGraphics.fillColor = new Color(accent.r, accent.g, accent.b, 255);
-      sparkGraphics.moveTo(0, size);
-      sparkGraphics.lineTo(size * 0.45, size * 0.45);
-      sparkGraphics.lineTo(size, 0);
-      sparkGraphics.lineTo(size * 0.45, -size * 0.45);
-      sparkGraphics.lineTo(0, -size);
-      sparkGraphics.lineTo(-size * 0.45, -size * 0.45);
-      sparkGraphics.lineTo(-size, 0);
-      sparkGraphics.lineTo(-size * 0.45, size * 0.45);
-      sparkGraphics.close();
+      const size = index % 3 === 0 ? 4 : 2.5;
+      sparkGraphics.fillColor = index % 2 ? new Color(255, 255, 235, 255) : accent;
+      sparkGraphics.circle(0, 0, size);
       sparkGraphics.fill();
       const sparkOpacity = spark.addComponent(UIOpacity);
       sparkOpacity.opacity = 0;
-      const distance = 125 + index % 4 * 13;
+      const distanceX = 54 + index % 3 * 9;
+      const distanceY = 76 + index % 2 * 10;
       tween(sparkOpacity)
-        .delay(0.04 + index * 0.012)
+        .delay(0.08 + index * 0.014)
         .to(0.08, { opacity: 255 })
-        .delay(0.16)
-        .to(0.24, { opacity: 0 })
+        .delay(0.1)
+        .to(0.2, { opacity: 0 })
         .start();
       tween(spark)
-        .delay(0.04 + index * 0.012)
-        .to(0.46, {
-          position: new Vec3(target.x + Math.cos(angle) * distance, target.y + Math.sin(angle) * distance, target.z),
-          angle: index % 2 ? 80 : -80,
-          scale: new Vec3(0.35, 0.35, 1)
+        .delay(0.08 + index * 0.014)
+        .to(0.38, {
+          position: new Vec3(target.x + Math.cos(angle) * distanceX, target.y + Math.sin(angle) * distanceY, target.z),
+          scale: new Vec3(0.2, 0.2, 1)
         }, { easing: 'cubicOut' })
         .call(() => { if (spark.isValid) spark.destroy(); })
         .start();
@@ -1437,9 +1544,9 @@ export class GameRoot extends Component {
     graphics.stroke();
     text(info, '阵型', -230, 32, 23, colors.gold, 90);
     text(info, this.state.selectedFormation.name, -115, 32, 23, colors.gold, 150);
-    text(info, '战力', -230, -25, 29, colors.white, 90);
-    text(info, String(this.state.power), -105, -25, 31, colors.white, 160);
-    text(info, '实时对战准备中', 175, -2, 24, new Color(96, 238, 255, 255), 260);
+    text(info, '账号', -230, -25, 23, colors.white, 90);
+    text(info, this.state.nickname, -105, -25, 24, colors.cyan, 160);
+    text(info, `战力 ${this.state.power}`, 175, -2, 24, new Color(96, 238, 255, 255), 260);
   }
 
   private renderMatchCancelButton(parent: Node, y: number): void {
@@ -1470,13 +1577,30 @@ export class GameRoot extends Component {
   }
 
   private async findOpponent(): Promise<void> {
+    const allowAi = matchWithAiEnabled();
+    const waitMs = matchWaitMs();
+
+    if (this.realtime.enabled) {
+      try {
+        const match = await this.realtime.joinMatch(this.realtimeJoinPayload(), allowAi ? waitMs : Math.max(waitMs, 120000));
+        if (this.matchCancelled || this.current !== 'matchmaking') return;
+        if (match) {
+          this.acceptRealtimeMatch(match);
+          return;
+        }
+      } catch (error) {
+        console.warn('[matchmaking] socket match failed, falling back to http', error);
+      }
+    }
+
     try {
       const joined = await this.server.joinMatch({
-        userId: this.state.userId,
+        userId: this.state.platformUserId,
         nickname: this.state.nickname,
         power: this.state.power,
         formationId: this.state.selectedFormation.id,
-        lineup: this.state.lineup
+        lineup: this.state.lineup,
+        ...(allowAi ? { botAfterMs: waitMs } : {})
       });
       if (this.matchCancelled || this.current !== 'matchmaking') return;
       if (joined?.opponent) return this.acceptOpponent(joined.opponent);
@@ -1486,12 +1610,13 @@ export class GameRoot extends Component {
         await this.delay(900);
         const result = await this.server.pollMatch(this.matchTicket);
         if (result?.opponent) return this.acceptOpponent(result.opponent);
-        if (Date.now() - startedAt > 5500) break;
+        if (result?.status === 'expired') break;
+        if (allowAi && Date.now() - startedAt > waitMs) break;
       }
     } catch (error) {
-      console.warn('[matchmaking] server unavailable, using local opponent', error);
+      console.warn('[matchmaking] server unavailable', error);
     }
-    if (!this.matchCancelled && this.current === 'matchmaking') {
+    if (!this.matchCancelled && this.current === 'matchmaking' && allowAi) {
       await this.delay(900);
       this.acceptOpponent({ nickname: '星河 AI 联队', isBot: true, mode: 'ai' });
     }
@@ -1505,10 +1630,27 @@ export class GameRoot extends Component {
     this.show('matchup');
   }
 
+  private acceptRealtimeMatch(match: MatchFoundPayload): void {
+    if (this.matchCancelled || this.current !== 'matchmaking') return;
+    const opponent = match.opponent;
+    this.state.opponent = {
+      userId: opponent.userId,
+      nickname: opponent.nickname || '在线玩家',
+      avatarUrl: opponent.avatarUrl,
+      isBot: false,
+      mode: 'douyinRealtime'
+    };
+    this.state.opponentFormation = formations.find((item) => item.id === opponent.formationId) ?? formations[1];
+    this.state.opponentLineup = this.lineupFromRealtime(opponent.lineup ?? [], this.state.opponentFormation);
+    GameAudio.play('confirm');
+    this.show('matchup');
+  }
+
   private async cancelMatch(): Promise<void> {
     this.matchCancelled = true;
     const ticket = this.matchTicket;
     this.matchTicket = undefined;
+    if (this.realtime.enabled) this.realtime.leave();
     if (ticket) {
       try { await this.server.cancelMatch(ticket); } catch { /* Best-effort cancellation. */ }
     }
@@ -1527,7 +1669,7 @@ export class GameRoot extends Component {
     void addFrameImage(root, 'ui/back', { x: 155, y: 148, width: 713, height: 711 }, { x: -305, y: headerY, width: 66, height: 66, onClick: () => this.show('formation') });
     void addFrameImage(root, 'ui/headertitle', { x: 588, y: 54, width: 448, height: 108 }, { x: -125, y: headerY, width: 255, height: 61 });
 
-    this.renderMatchTeamHero(root, false, this.state.lineup, '我方球队', '蓝焰俱乐部', this.state.selectedFormation.name);
+    this.renderMatchTeamHero(root, false, this.state.lineup, '我方球队', this.state.nickname, this.state.selectedFormation.name);
     this.renderMatchTeamHero(root, true, this.state.opponentLineup, '对手球队', this.state.opponent.nickname, this.state.opponentFormation.name);
     void addImage(root, 'ui/vs', { x: 0, y: 465, width: 128, height: 119 });
     this.renderPowerComparison(root, this.state.power, opponentPower, 320);
@@ -1705,7 +1847,7 @@ export class GameRoot extends Component {
     shade.rect(-visible.width / 2, -visible.height / 2, visible.width, visible.height);
     shade.fill();
     void addFrameImage(root, 'ui/headertitle', { x: 557, y: 226, width: 474, height: 124 }, { x: -115, y: headerY, width: 245, height: 64 });
-    this.renderBattleTeamMark(root, -274, 470, '蓝', colors.primary, '我方球队', '蓝焰俱乐部');
+    this.renderBattleTeamMark(root, -274, 470, this.playerMark(), colors.primary, '我方球队', this.state.nickname);
     this.renderBattleTeamMark(root, 274, 470, 'AI', colors.danger, '对手球队', this.state.opponent.nickname);
     this.battleScoreHome = text(root, '0', -62, 470, 78, colors.primary, 90);
     text(root, ':', 0, 470, 62, colors.white, 60);
@@ -1717,7 +1859,12 @@ export class GameRoot extends Component {
     this.battleEventLayer = layer('BattleEvents', feed, 630, 640);
     this.battleEventLayer.setPosition(0, 0);
     this.renderBattleEventCards();
-    this.schedule(this.pushBattleMoment, 1.35, LOCAL_MOMENTS.length - 1, 0.7);
+    this.realtimeBattleDone = false;
+    if (this.shouldUseRealtimeBattle()) {
+      this.ensureRealtimeBattle();
+    } else {
+      this.schedule(this.pushBattleMoment, 1.35, LOCAL_MOMENTS.length - 1, 0.7);
+    }
   }
 
   private renderBattleTeamMark(parent: Node, x: number, y: number, mark: string, accent: Color, titleValue: string, club: string): void {
@@ -1997,7 +2144,171 @@ export class GameRoot extends Component {
     return available[Math.floor(Math.random() * available.length)];
   }
 
+  private playerMark(): string {
+    const nickname = this.state.nickname.trim();
+    return nickname ? nickname.slice(0, 1).toUpperCase() : '我';
+  }
+
+  private applyPreviewUserFromUrl(): void {
+    const testUser = readPreviewPlatformUserId();
+    if (!testUser) return;
+    rememberPlatformUserId(testUser);
+    this.state.platformUserId = testUser;
+    console.info(`[soccer] preview platformUserId=${testUser}`);
+  }
+
+  private async bootstrapSession(): Promise<void> {
+    const auth = await loginPlatform({
+      platformUserId: this.state.platformUserId,
+      nickname: this.state.nickname
+    });
+    this.state.platformUserId = auth.platformUserId;
+    rememberPlatformUserId(auth.platformUserId);
+
+    if (!this.server.enabled) {
+      if (auth.nickname) this.state.nickname = auth.nickname;
+      this.state.save();
+      return;
+    }
+
+    try {
+      const session = await this.server.syncSession({
+        platform: auth.platform,
+        platformUserId: auth.platformUserId,
+        nickname: auth.nickname || this.state.nickname,
+        avatarUrl: auth.avatarUrl,
+        loginCode: auth.loginCode
+      });
+      if (!session) return;
+      this.state.applyServerSession(session.user, session.state);
+      console.info(`[soccer] session synced userId=${this.state.userId} nickname=${this.state.nickname}`);
+    } catch (error) {
+      console.warn('[soccer] session sync failed, using platform nickname fallback', error);
+      if (auth.nickname) {
+        this.state.nickname = auth.nickname;
+        this.state.save();
+      }
+    }
+  }
+
+  private shouldUseRealtimeBattle(): boolean {
+    return this.state.opponent.mode === 'douyinRealtime' && this.realtime.enabled && !!this.realtime.roomId;
+  }
+
+  private realtimeJoinPayload() {
+    return {
+      userId: this.state.platformUserId,
+      nickname: this.state.nickname,
+      power: this.state.power,
+      formationId: this.state.selectedFormation.id,
+      lineup: this.realtimeRoster(this.state.lineup, 'starter'),
+      substitutes: this.state.substitutes
+        .filter((player): player is PlayerCardData => !!player)
+        .map((player, index) => this.realtimePlayerItem(player, 'bench', `bench-${index}`))
+    };
+  }
+
+  private realtimeRoster(lineup: typeof this.state.lineup, role: 'starter' | 'bench'): RealtimeRosterItem[] {
+    return lineup
+      .map((slot) => slot.player ? this.realtimePlayerItem(slot.player, role, slot.id, slot.position) : undefined)
+      .filter((item): item is RealtimeRosterItem => !!item);
+  }
+
+  private realtimePlayerItem(
+    player: PlayerCardData,
+    role: 'starter' | 'bench',
+    slotId?: string,
+    slotPosition?: Position
+  ): RealtimeRosterItem {
+    return {
+      slotId,
+      playerId: player.id,
+      displayName: player.name,
+      position: slotPosition ?? player.position,
+      rating: player.rating,
+      role,
+      skill: player.skill
+    };
+  }
+
+  private lineupFromRealtime(items: RealtimeRosterItem[], formation: typeof formations[number]) {
+    return formation.slots.map((slot) => {
+      const remote = items.find((item) => item.slotId === slot.id)
+        ?? items.find((item) => item.position === slot.position);
+      return {
+        ...slot,
+        player: remote ? this.playerFromRealtime(remote) : undefined
+      };
+    });
+  }
+
+  private playerFromRealtime(item: RealtimeRosterItem): PlayerCardData | undefined {
+    if (item.playerId) {
+      const known = players.find((player) => player.id === item.playerId);
+      if (known) return known;
+    }
+    return players.find((player) => player.position === item.position)
+      ?? players.find((player) => player.position !== 'GK')
+      ?? players[0];
+  }
+
+  private ensureRealtimeBattle(): void {
+    if (!this.shouldUseRealtimeBattle()) return;
+    this.realtimeEventHandler = (event) => this.applyBattleEvent(this.toBattleEvent(event));
+    this.realtimeDoneHandler = () => {
+      this.realtimeBattleDone = true;
+      this.scheduleOnce(() => this.finishBattle(), 0.8);
+    };
+    this.realtimeErrorHandler = (error) => {
+      console.warn('[battle-socket] realtime battle failed', error);
+      this.realtimeBattleDone = true;
+      this.schedule(this.pushBattleMoment, 1.35, LOCAL_MOMENTS.length - 1, 0.7);
+    };
+    this.realtime.on('battle_event', this.realtimeEventHandler);
+    this.realtime.on('battle_done', this.realtimeDoneHandler);
+    this.realtime.on('battle_error', this.realtimeErrorHandler);
+    this.realtime.readyForBattle();
+  }
+
+  private unbindRealtimeBattle(): void {
+    if (this.realtimeEventHandler) this.realtime.off('battle_event', this.realtimeEventHandler);
+    if (this.realtimeDoneHandler) this.realtime.off('battle_done', this.realtimeDoneHandler);
+    if (this.realtimeErrorHandler) this.realtime.off('battle_error', this.realtimeErrorHandler);
+    this.realtimeEventHandler = undefined;
+    this.realtimeDoneHandler = undefined;
+    this.realtimeErrorHandler = undefined;
+  }
+
+  private toBattleEvent(event: RealtimeBattleEvent): BattleEvent {
+    return {
+      time: event.minute ?? 0,
+      title: event.title,
+      text: event.detail ?? '',
+      scoreA: event.scoreA,
+      scoreB: event.scoreB,
+      mood: event.mood ?? 'normal',
+      eventType: event.eventType,
+      actor: event.actorName,
+      team: event.team
+    };
+  }
+
+  private applyBattleEvent(event: BattleEvent): void {
+    if (this.current !== 'battle') return;
+    this.scoreA = event.scoreA;
+    this.scoreB = event.scoreB;
+    this.battleEvents.push(event);
+    if (this.battleClock) this.battleClock.string = `${event.time}'`;
+    if (this.battleScoreHome) this.battleScoreHome.string = String(this.scoreA);
+    if (this.battleScoreAway) this.battleScoreAway.string = String(this.scoreB);
+    this.updateBattlePossession();
+    this.renderBattleEventCards();
+    this.playBattleEventSound(event);
+    this.playBattleEventEffect(event);
+  }
+
   private finishBattle(): void {
+    this.unbindRealtimeBattle();
     const result = { scoreA: this.scoreA, scoreB: this.scoreB, events: this.battleEvents };
     this.state.applyBattleResult(result);
     void this.server.recordMatch({
@@ -2028,7 +2339,7 @@ export class GameRoot extends Component {
     wash.fill();
     void addFrameImage(root, 'ui/headertitle', { x: 55, y: 408, width: 463, height: 116 }, { x: 0, y: headerY, width: 300, height: 75 });
     text(root, won ? '比赛胜利' : draw ? '握手言和' : '比赛结束', 0, headerY - 82, 45, won ? colors.gold : colors.white, 520);
-    this.renderResultTeamBadge(root, -245, headerY - 190, '蓝', colors.primary, '蓝焰俱乐部');
+    this.renderResultTeamBadge(root, -245, headerY - 190, this.playerMark(), colors.primary, this.state.nickname);
     this.renderResultTeamBadge(root, 245, headerY - 190, 'AI', colors.danger, this.state.opponent.nickname);
     text(root, String(result.scoreA), -58, headerY - 188, 76, colors.primary, 90);
     text(root, ':', 0, headerY - 188, 62, colors.white, 55);

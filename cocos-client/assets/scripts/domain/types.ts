@@ -55,6 +55,7 @@ export interface BattleEvent {
 
 export interface PlayerSaveData {
   userId: string;
+  platformUserId?: string;
   nickname: string;
   coins: number;
   gems: number;
