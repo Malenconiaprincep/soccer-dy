@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Graphics, Label, macro, Node, ResolutionPolicy, sys, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
+import { _decorator, Color, Component, Graphics, Label, LabelOutline, macro, Node, ResolutionPolicy, sys, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
 import { GameState } from '../domain/GameState';
 import { formations } from '../domain/data';
 import type { BattleEvent, PlayerCardData } from '../domain/types';
@@ -60,6 +60,7 @@ export class GameRoot extends Component {
   private selectedLineupSlotId?: string;
   private selectedBenchIndex?: number;
   private revealedScoutIds = new Set<string>();
+  private lastScoutRevealId?: string;
   private shopMessage = '';
 
   onLoad(): void {
@@ -415,15 +416,74 @@ export class GameRoot extends Component {
   }
 
   private modalActionButton(parent: Node, label: string, y: number, onClick: () => void, active = true, width = 360): Node {
-    const color = active ? colors.gold : new Color(32, 65, 111, 235);
-    const node = panel(parent, 0, y, width, 78, color, 18);
+    const height = 78;
+    const cut = 15;
+    const node = layer(`ModalAction:${label}`, parent, width, height);
+    node.setPosition(0, y);
     node.name = `ModalAction:${label}`;
-    text(node, label, 0, 1, 27, active ? new Color(12, 31, 62, 255) : colors.muted, width - 40);
+    const graphics = node.addComponent(Graphics);
+    const chamfer = (inset: number, offsetY = 0): void => {
+      const left = -width / 2 + inset;
+      const right = width / 2 - inset;
+      const bottom = -height / 2 + inset + offsetY;
+      const top = height / 2 - inset + offsetY;
+      const corner = Math.max(5, cut - inset * 0.35);
+      graphics.moveTo(left + corner, bottom);
+      graphics.lineTo(right - corner, bottom);
+      graphics.lineTo(right, bottom + corner);
+      graphics.lineTo(right, top - corner);
+      graphics.lineTo(right - corner, top);
+      graphics.lineTo(left + corner, top);
+      graphics.lineTo(left, top - corner);
+      graphics.lineTo(left, bottom + corner);
+      graphics.close();
+    };
+
+    graphics.fillColor = new Color(0, 3, 15, 125);
+    chamfer(0, -6);
+    graphics.fill();
+    graphics.fillColor = active ? new Color(255, 220, 91, 255) : new Color(67, 104, 150, 255);
+    chamfer(0);
+    graphics.fill();
+    graphics.fillColor = active ? new Color(177, 104, 4, 255) : new Color(20, 45, 78, 255);
+    chamfer(4);
+    graphics.fill();
+    graphics.fillColor = active ? new Color(246, 170, 16, 255) : new Color(39, 73, 112, 255);
+    chamfer(7, 2);
+    graphics.fill();
+
+    graphics.fillColor = active ? new Color(255, 224, 101, 210) : new Color(116, 151, 190, 72);
+    graphics.moveTo(-width / 2 + 23, height / 2 - 10);
+    graphics.lineTo(width / 2 - 23, height / 2 - 10);
+    graphics.lineTo(width / 2 - 14, 7);
+    graphics.lineTo(-width / 2 + 14, 7);
+    graphics.close();
+    graphics.fill();
+    graphics.strokeColor = active ? new Color(255, 246, 175, 220) : new Color(159, 191, 225, 80);
+    graphics.lineWidth = 2;
+    graphics.moveTo(-width / 2 + 28, height / 2 - 9);
+    graphics.lineTo(width / 2 - 28, height / 2 - 9);
+    graphics.stroke();
+    graphics.strokeColor = active ? new Color(121, 65, 0, 190) : new Color(8, 29, 55, 180);
+    graphics.lineWidth = 2;
+    graphics.moveTo(-width / 2 + 24, -height / 2 + 8);
+    graphics.lineTo(width / 2 - 24, -height / 2 + 8);
+    graphics.stroke();
+
+    text(node, label, 0, -1, 27, active ? new Color(75, 39, 0, 255) : colors.muted, width - 48);
     if (active) {
-      node.on(Node.EventType.TOUCH_START, () => node.setScale(0.97, 0.97, 1));
-      node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(1, 1, 1));
+      const opacity = node.addComponent(UIOpacity);
+      node.on(Node.EventType.TOUCH_START, () => {
+        node.setScale(0.97, 0.97, 1);
+        opacity.opacity = 225;
+      });
+      node.on(Node.EventType.TOUCH_CANCEL, () => {
+        node.setScale(1, 1, 1);
+        opacity.opacity = 255;
+      });
       node.on(Node.EventType.TOUCH_END, () => {
         node.setScale(1, 1, 1);
+        opacity.opacity = 255;
         GameAudio.play('tap');
         onClick();
       });
@@ -682,7 +742,19 @@ export class GameRoot extends Component {
       height: 250,
       siblingIndex: 0
     });
-    sectionTitle(bench, '替补球员', -240, 88, 190, colors.cyan, 20);
+    const benchTitle = layer('FormationBenchTitle', bench, 184, 48);
+    benchTitle.setPosition(-238, 88);
+    const titleAccent = benchTitle.addComponent(Graphics);
+    titleAccent.fillColor = new Color(61, 225, 255, 255);
+    titleAccent.roundRect(-88, -13, 5, 28, 2.5);
+    titleAccent.fill();
+    titleAccent.fillColor = new Color(61, 225, 255, 185);
+    titleAccent.roundRect(-72, -20, 144, 2, 1);
+    titleAccent.fill();
+    const benchTitleLabel = text(benchTitle, '替补球员', 4, 1, 22, new Color(237, 250, 255, 255), 154);
+    const titleOutline = benchTitleLabel.node.addComponent(LabelOutline);
+    titleOutline.color = new Color(4, 53, 105, 255);
+    titleOutline.width = 2;
     this.renderFormationReadyButton(bench);
     this.state.substitutes.forEach((player, index) => {
       const x = -245 + index * 122.5;
@@ -838,6 +910,13 @@ export class GameRoot extends Component {
   private playerHex(parent: Node, x: number, y: number, player: PlayerCardData | undefined, position: string, selected: boolean, radius: number): Node {
     const node = layer('PlayerHex', parent, radius * 2.2, radius * 2.35);
     node.setPosition(x, y);
+    const playerText = (value: string, textX: number, textY: number, fontSize: number, color: Color, width: number): void => {
+      text(node, value, textX + 2, textY - 2, fontSize, new Color(0, 7, 22, 235), width);
+      const main = text(node, value, textX, textY, fontSize, color, width);
+      const outline = main.node.addComponent(LabelOutline);
+      outline.color = new Color(0, 18, 48, 230);
+      outline.width = 1;
+    };
     const graphics = node.addComponent(Graphics);
     graphics.fillColor = selected ? colors.gold : new Color(7, 24, 34, 245);
     graphics.strokeColor = selected ? colors.white : new Color(91, 225, 220, 255);
@@ -860,12 +939,12 @@ export class GameRoot extends Component {
         height: radius * 1.3,
         siblingIndex: 0
       });
-      text(node, String(player.rating), -radius * 0.52, radius * 0.48, Math.max(13, radius * 0.34), colors.white, radius * 0.62);
-      text(node, player.name, 0, -radius * 0.62, Math.max(12, radius * 0.27), colors.white, radius * 1.7);
+      playerText(String(player.rating), -radius * 0.52, radius * 0.48, Math.max(13, radius * 0.34), colors.white, radius * 0.62);
+      playerText(player.name, 0, -radius * 0.62, Math.max(12, radius * 0.27), colors.white, radius * 1.7);
     } else {
       text(node, '+', 0, 5, 30, selected ? colors.background : colors.gold, radius * 1.7);
     }
-    text(node, position, 0, -radius - 14, 14, colors.white, radius * 1.8);
+    playerText(position, 0, -radius - 14, 14, colors.white, radius * 1.8);
     return node;
   }
 
@@ -928,7 +1007,8 @@ export class GameRoot extends Component {
   private openPositionBlindBox(
     target: { slotId?: string; benchIndex?: number },
     candidates?: PlayerCardData[],
-    revealed = new Set<string>()
+    revealed = new Set<string>(),
+    animatedPlayerId?: string
   ): void {
     const slot = target.slotId ? this.state.lineup.find((item) => item.id === target.slotId) : undefined;
     const used = new Set([
@@ -962,20 +1042,29 @@ export class GameRoot extends Component {
     choices.forEach((player, index) => {
       const x = -220 + index * 220;
       if (!revealed.has(player.id)) {
-        void addFrameImage(modal, 'ui/card-guess1', { x: 185, y: 298, width: 350, height: 488 }, {
-          x,
-          y: 25,
+        const cardBack = layer(`BlindCardBack:${player.id}`, modal, 218, 304);
+        cardBack.setPosition(x, 25);
+        void addFrameImage(cardBack, 'ui/card-guess1', { x: 185, y: 298, width: 350, height: 488 }, {
+          x: 0,
+          y: 0,
           width: 218,
-          height: 304,
-          onClick: () => {
-            GameAudio.play('reveal');
+          height: 304
+        });
+        this.animateBlindCardBack(cardBack, index);
+        let revealing = false;
+        cardBack.on(Node.EventType.TOUCH_END, () => {
+          if (revealing) return;
+          revealing = true;
+          GameAudio.play('reveal');
+          this.animateBlindCardOpen(cardBack, player.rarity, () => {
             revealed.add(player.id);
-            this.openPositionBlindBox(target, choices, revealed);
-          }
+            this.openPositionBlindBox(target, choices, revealed, player.id);
+          });
         });
         return;
       }
       const playerCard = this.renderBlindPlayerCard(modal, player, x, 25, allRevealed);
+      if (animatedPlayerId === player.id) this.animateBlindPlayerReveal(playerCard, player.rarity, index);
       playerCard.on(Node.EventType.TOUCH_END, () => {
         if (!allRevealed) return;
         GameAudio.play('reward');
@@ -1010,6 +1099,152 @@ export class GameRoot extends Component {
     return card;
   }
 
+  private blindRarityColor(rarity: PlayerCardData['rarity']): Color {
+    if (rarity === 'orange') return new Color(255, 104, 24, 255);
+    if (rarity === 'legend' || rarity === 'gold') return new Color(255, 202, 45, 255);
+    if (rarity === 'purple') return new Color(201, 61, 255, 255);
+    if (rarity === 'silver') return new Color(96, 214, 255, 255);
+    return new Color(65, 139, 255, 255);
+  }
+
+  private animateBlindCardBack(card: Node, index: number): void {
+    const target = card.position.clone();
+    const opacity = card.addComponent(UIOpacity);
+    opacity.opacity = 0;
+    card.angle = (index - 1) * 9;
+    card.setPosition(target.x, target.y - 70, target.z);
+    card.setScale(0.72, 0.72, 1);
+    tween(opacity)
+      .delay(index * 0.09)
+      .to(0.18, { opacity: 255 })
+      .start();
+    tween(card)
+      .delay(index * 0.09)
+      .to(0.36, { position: target, scale: new Vec3(1.06, 1.06, 1), angle: 0 }, { easing: 'backOut' })
+      .to(0.12, { scale: new Vec3(1, 1, 1) })
+      .start();
+  }
+
+  private animateBlindCardOpen(card: Node, rarity: PlayerCardData['rarity'], onOpened: () => void): void {
+    const accent = this.blindRarityColor(rarity);
+    const burst = layer('BlindCardCharge', card.parent!, 270, 350);
+    burst.setPosition(card.position);
+    burst.setSiblingIndex(Math.max(0, card.getSiblingIndex()));
+    card.setSiblingIndex(card.parent!.children.length - 1);
+    const burstGraphics = burst.addComponent(Graphics);
+    burstGraphics.strokeColor = new Color(accent.r, accent.g, accent.b, 220);
+    burstGraphics.lineWidth = 5;
+    burstGraphics.circle(0, 0, 84);
+    burstGraphics.stroke();
+    for (let index = 0; index < 12; index += 1) {
+      const angle = Math.PI * 2 * index / 12;
+      burstGraphics.moveTo(Math.cos(angle) * 96, Math.sin(angle) * 96);
+      burstGraphics.lineTo(Math.cos(angle) * 142, Math.sin(angle) * 142);
+    }
+    burstGraphics.stroke();
+    const burstOpacity = burst.addComponent(UIOpacity);
+    burstOpacity.opacity = 0;
+    burst.setScale(0.35, 0.35, 1);
+    tween(burstOpacity)
+      .to(0.13, { opacity: 255 })
+      .delay(0.12)
+      .to(0.18, { opacity: 0 })
+      .start();
+    tween(burst)
+      .to(0.34, { scale: new Vec3(1.35, 1.35, 1), angle: 38 }, { easing: 'cubicOut' })
+      .call(() => { if (burst.isValid) burst.destroy(); })
+      .start();
+    tween(card)
+      .to(0.1, { scale: new Vec3(1.08, 1.08, 1) }, { easing: 'cubicOut' })
+      .to(0.2, { scale: new Vec3(0.035, 1.08, 1), angle: 3 }, { easing: 'cubicIn' })
+      .call(onOpened)
+      .start();
+  }
+
+  private animateBlindPlayerReveal(card: Node, rarity: PlayerCardData['rarity'], cardIndex: number): void {
+    const accent = this.blindRarityColor(rarity);
+    const parent = card.parent!;
+    const target = card.position.clone();
+    const glow = layer('BlindRevealGlow', parent, 250, 330);
+    glow.setPosition(target);
+    glow.setSiblingIndex(Math.max(0, card.getSiblingIndex()));
+    card.setSiblingIndex(parent.children.length - 1);
+    const glowGraphics = glow.addComponent(Graphics);
+    glowGraphics.fillColor = new Color(accent.r, accent.g, accent.b, 50);
+    glowGraphics.circle(0, 0, 105);
+    glowGraphics.fill();
+    glowGraphics.strokeColor = new Color(accent.r, accent.g, accent.b, 230);
+    glowGraphics.lineWidth = 4;
+    glowGraphics.circle(0, 0, 112);
+    glowGraphics.circle(0, 0, 130);
+    for (let index = 0; index < 16; index += 1) {
+      const angle = Math.PI * 2 * index / 16;
+      glowGraphics.moveTo(Math.cos(angle) * 122, Math.sin(angle) * 122);
+      glowGraphics.lineTo(Math.cos(angle) * 158, Math.sin(angle) * 158);
+    }
+    glowGraphics.stroke();
+    const glowOpacity = glow.addComponent(UIOpacity);
+    glowOpacity.opacity = 0;
+    glow.setScale(0.3, 0.3, 1);
+    tween(glowOpacity)
+      .to(0.12, { opacity: 255 })
+      .delay(0.16)
+      .to(0.42, { opacity: rarity === 'bronze' ? 70 : 125 })
+      .start();
+    tween(glow)
+      .to(0.48, { scale: new Vec3(1.18, 1.18, 1), angle: cardIndex % 2 ? -32 : 32 }, { easing: 'cubicOut' })
+      .start();
+
+    const cardOpacity = card.addComponent(UIOpacity);
+    cardOpacity.opacity = 0;
+    card.setPosition(target.x, target.y - 22, target.z);
+    card.setScale(0.04, 1.12, 1);
+    tween(cardOpacity).to(0.08, { opacity: 255 }).start();
+    tween(card)
+      .to(0.24, { position: target, scale: new Vec3(1.1, 1.1, 1) }, { easing: 'backOut' })
+      .to(0.14, { scale: new Vec3(1, 1, 1) })
+      .start();
+
+    const sparkCount = rarity === 'bronze' || rarity === 'silver' ? 8 : 14;
+    for (let index = 0; index < sparkCount; index += 1) {
+      const angle = Math.PI * 2 * index / sparkCount + cardIndex * 0.17;
+      const spark = layer(`BlindSpark:${index}`, parent, 12, 12);
+      spark.setPosition(target);
+      spark.setSiblingIndex(card.getSiblingIndex());
+      const sparkGraphics = spark.addComponent(Graphics);
+      const size = index % 3 === 0 ? 6 : 3;
+      sparkGraphics.fillColor = new Color(accent.r, accent.g, accent.b, 255);
+      sparkGraphics.moveTo(0, size);
+      sparkGraphics.lineTo(size * 0.45, size * 0.45);
+      sparkGraphics.lineTo(size, 0);
+      sparkGraphics.lineTo(size * 0.45, -size * 0.45);
+      sparkGraphics.lineTo(0, -size);
+      sparkGraphics.lineTo(-size * 0.45, -size * 0.45);
+      sparkGraphics.lineTo(-size, 0);
+      sparkGraphics.lineTo(-size * 0.45, size * 0.45);
+      sparkGraphics.close();
+      sparkGraphics.fill();
+      const sparkOpacity = spark.addComponent(UIOpacity);
+      sparkOpacity.opacity = 0;
+      const distance = 125 + index % 4 * 13;
+      tween(sparkOpacity)
+        .delay(0.04 + index * 0.012)
+        .to(0.08, { opacity: 255 })
+        .delay(0.16)
+        .to(0.24, { opacity: 0 })
+        .start();
+      tween(spark)
+        .delay(0.04 + index * 0.012)
+        .to(0.46, {
+          position: new Vec3(target.x + Math.cos(angle) * distance, target.y + Math.sin(angle) * distance, target.z),
+          angle: index % 2 ? 80 : -80,
+          scale: new Vec3(0.35, 0.35, 1)
+        }, { easing: 'cubicOut' })
+        .call(() => { if (spark.isValid) spark.destroy(); })
+        .start();
+    }
+  }
+
   private positionName(position: PlayerCardData['position']): string {
     return position === 'GK' ? '门将' : position === 'DF' ? '后卫' : position === 'MF' ? '中场' : '前锋';
   }
@@ -1041,16 +1276,25 @@ export class GameRoot extends Component {
       this.state.pendingScoutChoices.forEach((player, index) => {
         const x = -220 + index * 220;
         if (!this.revealedScoutIds.has(player.id)) {
-          void addFrameImage(root, 'ui/card-guess1', { x: 185, y: 298, width: 350, height: 488 }, {
-            x,
-            y: 10,
+          const cardBack = layer(`ScoutCardBack:${player.id}`, root, 205, 286);
+          cardBack.setPosition(x, 10);
+          void addFrameImage(cardBack, 'ui/card-guess1', { x: 185, y: 298, width: 350, height: 488 }, {
+            x: 0,
+            y: 0,
             width: 205,
-            height: 286,
-            onClick: () => {
-              GameAudio.play('reveal');
+            height: 286
+          });
+          this.animateBlindCardBack(cardBack, index);
+          let revealing = false;
+          cardBack.on(Node.EventType.TOUCH_END, () => {
+            if (revealing) return;
+            revealing = true;
+            GameAudio.play('reveal');
+            this.animateBlindCardOpen(cardBack, player.rarity, () => {
               this.revealedScoutIds.add(player.id);
+              this.lastScoutRevealId = player.id;
               this.show('blindBox');
-            }
+            });
           });
           return;
         }
@@ -1067,7 +1311,9 @@ export class GameRoot extends Component {
           this.revealedScoutIds.clear();
           this.show('formation');
         }, allRevealed ? colors.primary : colors.panelSoft);
+        if (this.lastScoutRevealId === player.id) this.animateBlindPlayerReveal(playerCard, player.rarity, index);
       });
+      this.lastScoutRevealId = undefined;
     }
     button(root, '返回阵容', 0, -520, 260, 68, () => this.show('formation'), colors.panelSoft);
   }
